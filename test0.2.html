@@ -1424,7 +1424,12 @@
       }
 
       function activeRecords() {
-        return state.view === "world" ? state.worldRecords : state.personalRecords;
+        if (state.view === "world") {
+          return state.personalRecords.length
+            ? [...state.worldRecords, ...state.personalRecords]
+            : state.worldRecords;
+        }
+        return state.personalRecords;
       }
 
       function activeOrigin() {
