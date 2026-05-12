@@ -1,7 +1,214 @@
 # TODO
 
-更新时间：2026-05-12
+更新时间：2026-05-13
 依据：`guide book`：《世界皮肤 / World Skin》项目说明书 v0.2。
+
+---
+
+## 感知轴重构 v2（spaciousness / gravity / tension / flow）
+
+旧感知轴系统（motion / density / material / pressure）已于 2026-05-13 回滚。
+`TASK.md` 中描述的旧计划已被本节取代，文件保留作历史参考。
+
+新系统结构：
+- **四条主观感知轴**：spaciousness（空旷↔密集）、gravity（轻盈↔沉重）、tension（松开↔绷紧）、flow（静止↔流动）
+- **一条环境声音轴**：soundVector（loudness / turbulence / sharpness / continuity / texture）
+- **一个材料修饰层**：textureModifier（warmth / roughness / clarity / dryness）
+- 冷热干湿不再作为主观感知轴，进入 textureModifier
+
+实现原则：单轴只做微调，多轴叠加才能达到明显视觉变化；最终点阵仍为统一 World Skin 皮肤。
+
+---
+
+### v2-TODO 0：冻结稳定基础版本
+
+- [x] 2026-05-13 commit `aadfeac`：无感知轴的干净基础版已提交
+- [x] MAP_LOG 已记录回滚内容；SEED_KEY 已升至 r3
+
+---
+
+### v2-TODO 1：定义视觉主控映射表（仅建立 constants，不改渲染）
+
+**目标**：在 test0.2.html 中以常量形式记录轴到视觉参数的分工，防止后续实现时各轴互相占用通道。
+
+- [ ] 新增 `SENSE_AXES_V2`：数组，列出 `["spaciousness","gravity","tension","flow"]`
+- [ ] 新增 `AXIS_VISUAL_MAP`：每条轴定义 primaryChannels、bias 上下限、禁止主控的通道
+  - spaciousness → radius / spread（主控），alpha 禁止主控
+  - gravity → alpha / height（主控），color 禁止主控
+  - tension → contrast / boundary / edgeHardness（主控）
+  - flow → flux / directionality / anisotropy（主控）
+- [ ] 新增 `SOUND_VISUAL_MAP`：loudness→strength、turbulence→flux/contrast、sharpness→edgeHardness、continuity→spreadBias、texture→grain
+- [ ] 新增 `TEXTURE_VISUAL_MAP`：warmth→warmth、roughness→grain/edgeHardness、clarity→contrast、dryness→warmth（负向）
+- [ ] 不改任何渲染函数（getDotAlpha / getDotColor / buildGeoGridField）
+- [ ] 验收：`node -e "new Function(...)"` 语法零错误；地图/Sense/时间轴功能不受影响
+
+---
+
+### v2-TODO 2：重构记录写入结构，加入新轴字段（兼容旧数据）
+
+**目标**：新记录可以携带新轴数据，旧记录可以安全 fallback。
+
+- [ ] `savePending()` 新增写入字段：`senseVector`（四轴对象）、`soundVector`（五分量对象）、`textureModifier`（四分量对象）
+- [ ] 建立 fallback 辅助函数 `getSV(rec)` / `getSoundV(rec)` / `getTexMod(rec)`：字段缺失时返回中性零向量，不报错
+- [ ] 旧记录格式（只有 word）通过 fallback 函数兼容，word 字段继续用于 tagGrid 统计
+- [ ] 不改 tagGrid 现有统计逻辑
+
+---
+
+### v2-TODO 3：重构感知词库，映射到新轴
+
+**目标**：词库使用新轴向量；冷热干湿类词进入 textureModifier 而不是主观感知轴。
+
+- [ ] 将 `SENSE_WORD_LIST`（当前平铺数组）升级为带向量的词库，格式：`{ word, sv: {spaciousness, gravity, tension, flow}, tex: {warmth, roughness, clarity, dryness} }`
+- [ ] 32个词重新标注：ざらつく / 重い / 乾く / 遠い 等偏质感的词优先进入 tex 字段
+- [ ] 更新 `pickRoundWords(seenWords)`：仍为随机选取，词库结构变更但 UI 行为不变
+- [ ] 更新 `savePending()`：根据选中词聚合 senseVector 和 textureModifier 后写入记录
+- [ ] 词语 UI 不显示轴名、不显示数值
+
+---
+
+### v2-TODO 4：声音采样升级为 soundVector（5分量）
+
+**目标**：把当前单一 noiseLevel / turbulence 升级为包含 5 个分量的环境声音向量。
+
+- [ ] 在 Sense 采样阶段，从麦克风频谱分析生成：
+  - `loudness`：平均音量（对应现有 noiseLevel）
+  - `turbulence`：音量起伏（对应现有 turbulence）
+  - `sharpness`：高频能量比例
+  - `continuity`：声音连续性（静音比例的反向）
+  - `texture`：频谱复杂度（近似熵值）
+- [ ] 麦克风失败时，根据 noiseLevel/turbulence 生成合理 fallback soundVector
+- [ ] 记录中存储 `soundVector` 对象
+- [ ] Sense UI 不显示声音可视化、音量条、波形、频谱
+- [ ] 旧记录没有 soundVector 时，`getSoundV(rec)` 返回基于 noise/turbulence 构造的近似值
+
+---
+
+### v2-TODO 5：实现 spaciousness 轴视觉影响（第一条主轴）
+
+**前置**：v2-TODO 1、2 完成。
+
+**视觉目标**：空旷→spread 增大、radius 略小、alpha 更薄、void 感增强；密集→spread 缩小、radius 略大、局部凝聚。
+
+- [ ] `buildGeoGridField` 内循环：累加 `spaciousness` 加权平均，存入 cell 字段 `senseSpacious`
+- [ ] `getDotRadius()` 读取 `senseSpacious` 偏置（bias range: -0.18 ~ +0.22）
+- [ ] `recordBaseVisual()` 中 spread 读取 `senseSpacious` 偏置
+- [ ] alpha 不随 spaciousness 主控（由 gravity 主控）
+- [ ] 手机端验收：点阵规则性不破坏，不变成热力图，void 区域仍可见
+
+---
+
+### v2-TODO 6：实现 gravity 轴视觉影响
+
+**前置**：v2-TODO 5 完成。
+
+**视觉目标**：轻盈→alpha 更低、height 更低、存在感更薄；沉重→alpha 更高、height 更高、沉积感更厚。
+
+- [ ] `buildGeoGridField` 内循环：累加 `gravity` 加权平均，存入 cell 字段 `senseGravity`
+- [ ] `getDotAlpha()` 读取 `senseGravity` 偏置（bias range: -0.10 ~ +0.14）
+- [ ] `getDotHeight()` 读取 `senseGravity` 偏置（bias range: -10 ~ +14，受现有 height 上限约束）
+- [ ] 沉重不得变成黑色热力图；高度有绝对上限（不超过现有 heightMax）
+- [ ] 手机端验收：轻盈不让记录消失，沉重不爆亮，height 无溢出
+
+---
+
+### v2-TODO 7：实现 tension 轴视觉影响
+
+**前置**：v2-TODO 6 完成。
+
+**视觉目标**：松开→边缘更软、contrast 低、boundary 低；绷紧→边缘更硬、contrast 高、boundary 高。
+
+- [ ] `buildGeoGridField` 内循环：累加 `tension` 加权平均，存入 cell 字段 `senseTension`
+- [ ] `getDotAlpha()` 读取 `senseTension` 对 contrast 的偏置
+- [ ] drawGridTexture params：增加 edgeHardness 字段，从 `senseTension` 派生（bias range: -0.14 ~ +0.16）
+- [ ] boundary 读取 `senseTension` 偏置
+- [ ] 不画线、不画轮廓、不画裂缝
+- [ ] 手机端验收：差异可感知但克制
+
+---
+
+### v2-TODO 8：实现 flow 轴视觉影响
+
+**前置**：v2-TODO 7 完成。
+
+**视觉目标**：静止→flux 低、sigma 更圆、场更稳；流动→flux 高、方向性增强、场有轻微拖曳感。
+
+- [ ] `buildGeoGridField` 内循环：累加 `flow` 加权平均，存入 cell 字段 `senseFlow`
+- [ ] `recordBaseVisual()` 的 flux 读取 `senseFlow` 偏置（bias range: -0.10 ~ +0.12）
+- [ ] 方向性/anisotropy 实现：sigma 在 passing 方向轻微拉伸（不画线，不画轨迹）
+- [ ] 不使用 jitter，不画 corridor polyline，不画轨迹线
+- [ ] 手机端验收：通过场形态感知流动，不出现视觉线条
+
+---
+
+### v2-TODO 9：实现 soundVector 视觉影响
+
+**前置**：v2-TODO 4、5 完成（field 聚合基础已建立）。
+
+**视觉目标**：loudness→base strength；turbulence→flux / micro contrast；sharpness→edgeHardness；continuity→沉积连续性；texture→grain。
+
+- [ ] `buildGeoGridField` 内循环：累加 soundVector 五分量加权平均，存入 cell 字段
+- [ ] `getDotAlpha()` / strength 通道读取 loudness 偏置（只是微调，主控仍是 noise 数据）
+- [ ] turbulence → flux bias（bias range: -0.08 ~ +0.10）
+- [ ] sharpness → edgeHardness（与 tension 叠加，总值受 clamp 约束）
+- [ ] 安静区域仍有暗点（不消失）；Sense UI 不显示声音数据
+- [ ] 手机端验收：安静/嘈杂对比可感知；不闪烁
+
+---
+
+### v2-TODO 10：实现 textureModifier 视觉影响
+
+**前置**：v2-TODO 9 完成。
+
+**视觉目标**：warmth→冷灰/暖灰；roughness→颗粒感；clarity→清浊；dryness→干脆/湿润。
+
+- [ ] `buildGeoGridField` 内循环：累加 textureModifier 四分量加权平均，存入 cell 字段
+- [ ] warmth → getDotColor 的 warmth 偏置（bias range: -0.12 ~ +0.12，不超过现有 hour-based warmth）
+- [ ] roughness → grain（仅低强度静态噪声，不随帧变化，不使用 sin 噪声抖动）
+- [ ] clarity → contrast 微调；dryness → warmth 负向偏置
+- [ ] 不变成主题色切换；不出现高饱和色
+- [ ] 手机端验收：只是表面质感修饰，不影响主轴分工
+
+---
+
+### v2-TODO 11：组合效果调参与整体验收
+
+**前置**：v2-TODO 5–10 全部完成。
+
+测试组合（通过 my_data.js demo 记录或临时注入数据验证）：
+
+- [ ] 密集 + 沉重：凝聚感 + 厚度，不爆亮
+- [ ] 密集 + 轻盈：凝聚但薄，不消失
+- [ ] 空旷 + 沉重：展开但有分量，不变成稀疏热力图
+- [ ] 空旷 + 轻盈：最淡，void 感最强，不变成空白
+- [ ] 绷紧 + 空旷：展开 + 边缘硬，不画线
+- [ ] 松开 + 密集：凝聚 + 边缘软，不糊
+- [ ] 流动 + 密集：场有方向性 + 凝聚，不出现线条
+- [ ] 静止 + 密集：场圆稳 + 凝聚，最像沉积
+- [ ] 嘈杂 + 空旷：声音激活 + 展开，不爆亮
+- [ ] 安静 + 沉重：强度低 + 厚度，不消失
+- [ ] 验收：所有组合可区分、不爆亮、不糊成热力图、视觉统一
+
+---
+
+### v2-TODO 12：更新 demo personal data（my_data.js）
+
+**前置**：v2-TODO 11 通过。
+
+- [ ] 48 条 demo 记录加入 senseVector / soundVector / textureModifier
+- [ ] 覆盖典型组合：空旷轻盈（公园类）、密集沉重（车站类）、绷紧静止（深夜住宅）、松开流动（河边走廊）
+- [ ] 不污染 World Map 聚合数据（my_data.js 与 world_data.js 保持分离）
+
+---
+
+### v2-TODO 13：更新文档
+
+- [ ] MAP_SPEC：更新视觉系统节——四条主观感知轴、soundVector、textureModifier、视觉主控分工表
+- [ ] MAP_SPEC：更新渲染管线描述（records → field → dot render 三层）
+- [ ] MAP_LOG：每个 TODO 完成后追加对应记录
+- [ ] TASK.md：在文件顶部加注"本文件已被 TODO 感知轴重构 v2 节取代，仅作历史参考"
+
+---
 
 ## P0
 
@@ -10,13 +217,13 @@
 - [x] 修复 World Map 渲染对 `noiseLevel / turbulence / mobility / timestamp` 字段的兼容，避免数据场出现 `NaN`。
 - [x] 将当前主要用户可见 UI 文案统一为日文。
 - [x] 为 `localStorage` 写入增加错误保护。
-- [ ] 使用真实手机浏览器做一次触摸、长按、权限弹窗和时间轴手动检查。
+- [x] 使用真实手机浏览器做一次触摸、长按、权限弹窗和时间轴手动检查。
 
 ## P1
 
-- [ ] 基于真实设备截图微调地图底图亮度、点阵 alpha 与 height 强度。
-- [ ] 检查 My Radius 空状态、记录后状态、详情抽屉在竖屏小屏上的视觉密度。
-- [ ] 检查 Sense 10 秒采样结束后的词语浮现节奏是否足够清晰。
+- [x] 基于真实设备截图微调地图底图亮度、点阵 alpha 与 height 强度。
+- [x] 检查 My Radius 空状态、记录后状态、详情抽屉在竖屏小屏上的视觉密度。
+- [x] 检查 Sense 10 秒采样结束后的词语浮现节奏是否足够清晰。
 
 ## P2
 
