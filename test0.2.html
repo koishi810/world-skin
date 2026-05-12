@@ -1349,7 +1349,6 @@
 
       function maybeSeedPersonalRecords(records) {
         if (localStorage.getItem(SEED_KEY)) return records;
-        if (records.length > 0) return records;
         const source = window.MY_SKIN_DATA?.records || [];
         if (!source.length) return records;
         try {
