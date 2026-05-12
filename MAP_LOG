@@ -1,5 +1,44 @@
 # MAP_LOG
 
+## Sense Word Selection Prototype / 2026-05-12
+
+### Problems
+
+- 原感知词选择过于固定，只能选择单个词
+- 单个词难以表达地点感知的多维性
+- 需要从标签选择升级为感知向量生成
+
+### Changes
+
+- 新增 `SENSE_AXES`（4 轴：motion/density/material/pressure）
+- 新增 `SENSE_WORDS`（32 词，每词含 axes 向量，范围 -1 到 +1）
+- 新增 `ROUND_PROMPTS`（3 轮日文提示）
+- 新增 `computeSenseVector()`、`computeVisualBias()`、`pickRoundWords()`、`needsThirdRound()`、`wordAxes()`、`getWordEntry()`、`wordVecDot()`
+- 感知词选择改为多轮：最少 2 轮，最多 3 轮，每轮 3 个词
+- 第 2 轮词语根据 coverage 最弱轴优先补足；第 3 轮仅在覆盖过于偏向时触发
+- 每轮内部保证多样性（wordVecDot < 0.68）
+- 新增 `onWordSelected()`、`finalizeSense()`；记录完成后延 900ms 自动写入
+- 重写 `renderLabelSelect()` 为多轮流程，带 `.sense-round-prompt` 提示文字
+- 移除旧 `suggestWordGroups()`
+- 重写 `applyWordBias(base, recordOrWord)`：优先读 `record.visualBias`，次用 `record.senseVector`，再 fallback 到 `record.word`（兼容旧数据）
+- `buildGeoGridField` 调用改为 `applyWordBias(base, rec)`（传整条记录）
+- `savePending()` 写入 `selectedWords / senseVector / visualBias`，`word` 保留为 `selectedWords[0]`（向后兼容）
+- `discardPending()` 清空 sense 状态
+- `tagGrid` 统计改为从 `selectedWords`（新）和 `word`（旧）聚合；显示已使用词频
+- 删除 `WORD_VISUAL_BIAS` 常量
+- 新增 `.sense-round-prompt` CSS
+
+### Files Modified
+
+- `test0.2.html`
+- `MAP_LOG`
+
+### Known Limitations
+
+- 当前感知轴和词库参数只是 v1 原型，之后需要继续调整
+- 当前词库 32 词，尚未扩展为完整大词库
+- pickRoundWords 第 0 轮随机性偏高，可后续加入采样数据引导初始词偏好
+
 ## Mobile Feedback Tuning / 2026-05-12
 
 ### Problems

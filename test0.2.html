@@ -703,6 +703,24 @@
       to { opacity: 1; transform: translate(-50%, -50%) scale(1); }
     }
 
+    @keyframes promptFade {
+      from { opacity: 0; transform: translateX(-50%) translateY(4px); }
+      to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+    }
+    .sense-round-prompt {
+      position: absolute;
+      top: 6%;
+      left: 50%;
+      transform: translateX(-50%);
+      color: rgba(232, 240, 241, 0.52);
+      font-size: 11px;
+      letter-spacing: 0.14em;
+      white-space: nowrap;
+      pointer-events: none;
+      opacity: 0;
+      animation: promptFade 700ms ease forwards;
+    }
+
     .panel-actions {
       margin-top: 18px;
       display: grid;
@@ -1198,16 +1216,47 @@
         renderDebounceMs: 60,
         useOffscreenCache: true
       };
-      const WORD_VISUAL_BIAS = {
-        "ざらつく": { alphaBias: 0.04, contrastBias: 0.18, fluxBias: 0.13, warmthBias: -0.04, spreadBias: 0, boundaryBias: 0.12, radiusBias: 0.12, rustBias: 0.06, heightBias: 8, breathSpeedBias: 0.03 },
-        "重い": { alphaBias: 0.10, contrastBias: 0.06, fluxBias: -0.05, warmthBias: 0.08, spreadBias: -0.06, boundaryBias: 0.04, radiusBias: 0.22, rustBias: 0.08, heightBias: 18, breathSpeedBias: -0.16 },
-        "浮く": { alphaBias: -0.02, contrastBias: -0.07, fluxBias: 0.02, warmthBias: -0.13, spreadBias: 0.16, boundaryBias: -0.08, radiusBias: -0.06, rustBias: 0, heightBias: 10, breathSpeedBias: 0.06 },
-        "乾く": { alphaBias: 0, contrastBias: 0.16, fluxBias: 0.02, warmthBias: 0.10, spreadBias: -0.04, boundaryBias: 0.20, radiusBias: 0.02, rustBias: 0.14, heightBias: 4, breathSpeedBias: 0 },
-        "遠い": { alphaBias: -0.10, contrastBias: -0.12, fluxBias: -0.04, warmthBias: -0.10, spreadBias: 0.22, boundaryBias: -0.10, radiusBias: -0.12, rustBias: 0, heightBias: -14, breathSpeedBias: -0.08 },
-        "詰まる": { alphaBias: 0.13, contrastBias: 0.18, fluxBias: 0.08, warmthBias: 0.14, spreadBias: -0.16, boundaryBias: 0.18, radiusBias: 0.18, rustBias: 0.18, heightBias: 22, breathSpeedBias: -0.10 },
-        "ほどける": { alphaBias: -0.02, contrastBias: -0.14, fluxBias: -0.06, warmthBias: 0.03, spreadBias: 0.18, boundaryBias: -0.15, radiusBias: -0.04, rustBias: 0, heightBias: -4, breathSpeedBias: 0.04 },
-        "眠い": { alphaBias: -0.07, contrastBias: -0.10, fluxBias: -0.14, warmthBias: -0.07, spreadBias: 0.06, boundaryBias: -0.08, radiusBias: -0.08, rustBias: 0, heightBias: -12, breathSpeedBias: -0.24 }
-      };
+      const SENSE_AXES = ["motion", "density", "material", "pressure"];
+      const ROUND_PROMPTS = [
+        "いまの感覚に近い言葉を選ぶ",
+        "もう少しだけ、近いものを選ぶ",
+        "最後に、残った感覚を選ぶ"
+      ];
+      // axes: motion(動き+/静-), density(密+/空-), material(熱湿+/冷乾-), pressure(圧+/解放-)
+      const SENSE_WORDS = [
+        { word:"ざらつく",  axes:{ motion: 0.2, density: 0.3, material:-0.5, pressure: 0.1 } },
+        { word:"なめらか",  axes:{ motion:-0.1, density:-0.2, material: 0.3, pressure:-0.3 } },
+        { word:"重い",      axes:{ motion:-0.4, density: 0.4, material: 0.2, pressure: 0.8 } },
+        { word:"軽い",      axes:{ motion: 0.2, density:-0.5, material:-0.1, pressure:-0.8 } },
+        { word:"浮く",      axes:{ motion: 0.3, density:-0.6, material:-0.2, pressure:-0.6 } },
+        { word:"沈む",      axes:{ motion:-0.3, density: 0.5, material: 0.1, pressure: 0.6 } },
+        { word:"乾く",      axes:{ motion: 0.1, density:-0.1, material:-0.7, pressure: 0.2 } },
+        { word:"湿る",      axes:{ motion:-0.1, density: 0.2, material: 0.7, pressure: 0.1 } },
+        { word:"冷える",    axes:{ motion:-0.2, density:-0.2, material:-0.8, pressure: 0.1 } },
+        { word:"熱を持つ",  axes:{ motion: 0.3, density: 0.2, material: 0.8, pressure: 0.3 } },
+        { word:"詰まる",    axes:{ motion:-0.5, density: 0.8, material: 0.0, pressure: 0.6 } },
+        { word:"ほどける",  axes:{ motion: 0.2, density:-0.7, material: 0.2, pressure:-0.6 } },
+        { word:"遠い",      axes:{ motion: 0.0, density:-0.5, material:-0.3, pressure:-0.2 } },
+        { word:"近い",      axes:{ motion: 0.1, density: 0.4, material: 0.2, pressure: 0.3 } },
+        { word:"騒ぐ",      axes:{ motion: 0.8, density: 0.3, material: 0.2, pressure: 0.4 } },
+        { word:"静まる",    axes:{ motion:-0.8, density:-0.2, material:-0.2, pressure:-0.3 } },
+        { word:"流れる",    axes:{ motion: 0.7, density:-0.3, material: 0.1, pressure:-0.2 } },
+        { word:"滞る",      axes:{ motion:-0.7, density: 0.5, material: 0.0, pressure: 0.3 } },
+        { word:"広がる",    axes:{ motion: 0.2, density:-0.8, material: 0.0, pressure:-0.5 } },
+        { word:"閉じる",    axes:{ motion:-0.3, density: 0.6, material: 0.0, pressure: 0.5 } },
+        { word:"尖る",      axes:{ motion: 0.4, density: 0.3, material:-0.4, pressure: 0.5 } },
+        { word:"丸まる",    axes:{ motion:-0.2, density: 0.2, material: 0.3, pressure: 0.2 } },
+        { word:"濁る",      axes:{ motion: 0.2, density: 0.4, material: 0.5, pressure: 0.2 } },
+        { word:"澄む",      axes:{ motion:-0.1, density:-0.4, material:-0.5, pressure:-0.3 } },
+        { word:"硬い",      axes:{ motion:-0.3, density: 0.6, material:-0.5, pressure: 0.4 } },
+        { word:"柔らかい",  axes:{ motion:-0.1, density:-0.3, material: 0.5, pressure:-0.5 } },
+        { word:"速い",      axes:{ motion: 0.8, density:-0.2, material: 0.0, pressure:-0.1 } },
+        { word:"遅い",      axes:{ motion:-0.8, density: 0.1, material: 0.0, pressure: 0.2 } },
+        { word:"薄い",      axes:{ motion: 0.1, density:-0.7, material:-0.3, pressure:-0.5 } },
+        { word:"厚い",      axes:{ motion:-0.2, density: 0.7, material: 0.2, pressure: 0.4 } },
+        { word:"こもる",    axes:{ motion:-0.5, density: 0.5, material: 0.4, pressure: 0.6 } },
+        { word:"抜ける",    axes:{ motion: 0.5, density:-0.6, material:-0.2, pressure:-0.5 } }
+      ];
 
       const _now = new Date();
       const currentHour = _now.getHours() + _now.getMinutes() / 60;
@@ -1259,9 +1308,9 @@
         samples: [],
         path: [],
         pending: null,
-        selectedWord: null,
-        wordGroups: [],
-        wordGroupIndex: 0,
+        senseRound: 0,
+        selectedWords: [],
+        senseCoverage: { motion: 0, density: 0, material: 0, pressure: 0 },
         lastBreathPhase: "",
         t: 0,
         dpr: 1,
@@ -1408,6 +1457,93 @@
         return "night";
       }
 
+      function getWordEntry(word) {
+        return SENSE_WORDS.find(e => e.word === word) || null;
+      }
+
+      function wordAxes(word) {
+        return getWordEntry(word)?.axes || { motion: 0, density: 0, material: 0, pressure: 0 };
+      }
+
+      function computeSenseVector(words) {
+        const sv = { motion: 0, density: 0, material: 0, pressure: 0 };
+        if (!words || !words.length) return sv;
+        for (const w of words) {
+          const ax = wordAxes(w);
+          for (const a of SENSE_AXES) sv[a] += ax[a];
+        }
+        for (const a of SENSE_AXES) sv[a] = clamp(sv[a] / words.length, -1, 1);
+        return sv;
+      }
+
+      function computeVisualBias(sv) {
+        const m = sv.motion || 0, d = sv.density || 0;
+        const mat = sv.material || 0, p = sv.pressure || 0;
+        return {
+          fluxBias:        clamp(m * 0.12, -0.12, 0.12),
+          breathSpeedBias: clamp(m * 0.18, -0.20, 0.20),
+          alphaBias:       clamp(d * 0.10 + p * 0.08, -0.12, 0.14),
+          heightBias:      clamp(d * 14 + p * 10, -18, 24),
+          spreadBias:      clamp(-d * 0.16 - p * 0.08, -0.18, 0.18),
+          radiusBias:      clamp(d * 0.12 + p * 0.08, -0.18, 0.26),
+          warmthBias:      clamp(mat * 0.20, -0.25, 0.25),
+          contrastBias:    clamp(-mat * 0.12 + Math.abs(m) * 0.06, -0.14, 0.18),
+          boundaryBias:    clamp(Math.abs(m) * 0.08 + p * 0.06, -0.10, 0.14),
+          rustBias:        clamp(mat * 0.10 + p * 0.06, 0, 0.18)
+        };
+      }
+
+      function needsThirdRound(coverage) {
+        const vals = Object.values(coverage);
+        const max = Math.max(...vals);
+        return max > 0 && Math.min(...vals) < max * 0.28;
+      }
+
+      function wordVecDot(a, b) {
+        return SENSE_AXES.reduce((s, ax) => s + a[ax] * b[ax], 0);
+      }
+
+      function pickRoundWords(round, seenWords, coverage) {
+        const available = SENSE_WORDS.filter(e => !seenWords.includes(e.word));
+        if (!available.length) return [];
+        if (round === 0) {
+          const shuffled = [...available].sort(() => Math.random() - 0.5);
+          const result = [];
+          const usedDominant = new Set();
+          for (const e of shuffled) {
+            if (result.length >= 3) break;
+            const dom = SENSE_AXES.reduce((best, ax) =>
+              Math.abs(e.axes[ax]) > Math.abs(e.axes[best]) ? ax : best, SENSE_AXES[0]);
+            if (!usedDominant.has(dom)) { result.push(e); usedDominant.add(dom); }
+          }
+          for (const e of shuffled) {
+            if (result.length >= 3) break;
+            if (!result.includes(e)) result.push(e);
+          }
+          return result.slice(0, 3).map(e => e.word);
+        }
+        const weakest = SENSE_AXES.reduce((w, ax) => coverage[ax] < coverage[w] ? ax : w, SENSE_AXES[0]);
+        const scored = available.map(e => {
+          const axBonus = Math.abs(e.axes[weakest]) * 2.2;
+          const novelty = seenWords.reduce((s, sw) => {
+            const se = getWordEntry(sw);
+            return se ? s + Math.max(0, wordVecDot(e.axes, se.axes)) : s;
+          }, 0);
+          return { e, score: axBonus - novelty * 0.5 + Math.random() * 0.35 };
+        }).sort((a, b) => b.score - a.score);
+        const picked = [];
+        for (const { e } of scored) {
+          if (picked.length >= 3) break;
+          const tooClose = picked.some(p => wordVecDot(e.axes, p.axes) > 0.68);
+          if (!tooClose) picked.push(e);
+        }
+        for (const { e } of scored) {
+          if (picked.length >= 3) break;
+          if (!picked.includes(e)) picked.push(e);
+        }
+        return picked.slice(0, 3).map(e => e.word);
+      }
+
       function recordBaseVisual(record) {
         const noise = recordNoise(record);
         const flux = recordFlux(record);
@@ -1431,19 +1567,31 @@
         };
       }
 
-      function applyWordBias(base, word) {
-        const bias = WORD_VISUAL_BIAS[word] || {};
+      function applyWordBias(base, recordOrWord) {
+        let vb;
+        if (typeof recordOrWord === "string") {
+          const e = getWordEntry(recordOrWord);
+          if (e) vb = computeVisualBias(e.axes);
+        } else if (recordOrWord?.visualBias) {
+          vb = recordOrWord.visualBias;
+        } else if (recordOrWord?.senseVector) {
+          vb = computeVisualBias(recordOrWord.senseVector);
+        } else if (recordOrWord?.word) {
+          const e = getWordEntry(recordOrWord.word);
+          if (e) vb = computeVisualBias(e.axes);
+        }
+        if (!vb) return base;
         return {
-          strength: clamp(base.strength + (bias.alphaBias ?? 0) + (bias.densityBias ?? 0) * 0.35, 0.04, VISUAL_LIMITS.strength),
-          flux: clamp(base.flux + (bias.fluxBias ?? 0), 0, VISUAL_LIMITS.flux),
-          contrast: clamp(base.contrast + (bias.contrastBias ?? 0), 0, VISUAL_LIMITS.contrast),
-          warmth: clamp(base.warmth + (bias.warmthBias ?? 0), -0.35, 0.35),
-          spread: clamp(base.spread * (1 + (bias.spreadBias ?? 0)), 0.65, 1.35),
-          boundary: clamp(base.boundary + (bias.boundaryBias ?? 0), 0, VISUAL_LIMITS.boundaryAlpha),
-          breathSpeed: clamp(base.breathSpeed * (1 + (bias.breathSpeedBias ?? 0)), 0.65, 1.2),
-          radiusBias: clamp((base.radiusBias ?? 0) + (bias.radiusBias ?? 0), -0.24, 0.44),
-          rust: clamp((base.rust ?? 0) + (bias.rustBias ?? 0), 0, 0.28),
-          heightBias: clamp((base.heightBias ?? 0) + (bias.heightBias ?? 0), -24, 32)
+          strength:   clamp(base.strength   + (vb.alphaBias      ?? 0), 0.04, VISUAL_LIMITS.strength),
+          flux:       clamp(base.flux        + (vb.fluxBias       ?? 0), 0, VISUAL_LIMITS.flux),
+          contrast:   clamp(base.contrast    + (vb.contrastBias   ?? 0), 0, VISUAL_LIMITS.contrast),
+          warmth:     clamp(base.warmth      + (vb.warmthBias     ?? 0), -0.35, 0.35),
+          spread:     clamp(base.spread  * (1 + (vb.spreadBias    ?? 0)), 0.65, 1.35),
+          boundary:   clamp(base.boundary    + (vb.boundaryBias   ?? 0), 0, VISUAL_LIMITS.boundaryAlpha),
+          breathSpeed:clamp(base.breathSpeed * (1 + (vb.breathSpeedBias ?? 0)), 0.65, 1.2),
+          radiusBias: clamp((base.radiusBias ?? 0) + (vb.radiusBias  ?? 0), -0.24, 0.44),
+          rust:       clamp((base.rust       ?? 0) + (vb.rustBias    ?? 0), 0, 0.28),
+          heightBias: clamp((base.heightBias ?? 0) + (vb.heightBias  ?? 0), -24, 32)
         };
       }
 
@@ -2037,9 +2185,9 @@
           slot: timeSlot(date),
           createdAt: date.toISOString()
         };
-        state.selectedWord = null;
-        state.wordGroups = suggestWordGroups(state.pending);
-        state.wordGroupIndex = 0;
+        state.selectedWords = [];
+        state.senseCoverage = { motion: 0, density: 0, material: 0, pressure: 0 };
+        state.senseRound = 0;
         openRecordModal();
         pressTarget.style.setProperty("--breath-scale", "1");
         senseState.textContent = "静かにして、まわりの世界を感じる";
@@ -2062,35 +2210,20 @@
         document.getElementById("modalMove").textContent = moveLabel;
       }
 
-      function suggestWordGroups(record) {
-        const scored = WORDS.map(word => {
-          let score = 0;
-          if (word === "ざらつく") score += record.flux * 2.2 + record.peak * 0.9;
-          if (word === "重い") score += record.noise * 1.8 + (record.movement === "still" ? 0.35 : 0);
-          if (word === "詰まる") score += record.noise * 1.1 + record.flux * 1.2;
-          if (word === "乾く") score += (1 - record.noise) * 1.5 + (record.slot === "day" ? 0.2 : 0);
-          if (word === "浮く") score += (1 - record.noise) * 0.8 + (record.movement === "passing" ? 0.5 : 0);
-          if (word === "眠い") score += (record.slot === "night" ? 1 : 0) + (1 - record.flux) * 0.7;
-          if (word === "遠い") score += (record.movement !== "still" ? 0.8 : 0) + (1 - record.noise) * 0.5;
-          if (word === "ほどける") score += (1 - record.flux) * 1.1 + (record.noise < 0.22 ? 0.45 : 0);
-          return { word, score };
-        }).sort((a, b) => b.score - a.score).map(item => item.word);
-        return [
-          scored.slice(0, 3),
-          scored.slice(3, 6),
-          scored.slice(6, 8)
-        ].filter(group => group.length);
-      }
-
       function renderLabelSelect() {
         labelSelect.innerHTML = "";
-        const group = state.wordGroups[state.wordGroupIndex] || [];
+        const round = state.senseRound;
+        const prompt = document.createElement("div");
+        prompt.className = "sense-round-prompt";
+        prompt.textContent = ROUND_PROMPTS[Math.min(round, ROUND_PROMPTS.length - 1)];
+        labelSelect.appendChild(prompt);
+        const words = pickRoundWords(round, state.selectedWords, state.senseCoverage);
         const positions = [
-          { left: "50%", top: "25%" },
-          { left: "29%", top: "58%" },
-          { left: "70%", top: "58%" }
+          { left: "50%", top: "24%" },
+          { left: "27%", top: "56%" },
+          { left: "73%", top: "56%" }
         ];
-        group.forEach((word, index) => {
+        words.forEach((word, index) => {
           const btn = document.createElement("button");
           btn.type = "button";
           btn.className = "label-btn";
@@ -2098,38 +2231,57 @@
           btn.style.left = positions[index].left;
           btn.style.top = positions[index].top;
           btn.style.animationDelay = `${index * 140}ms`;
-          btn.addEventListener("click", () => {
-            state.selectedWord = word;
-            savePending();
-          });
+          btn.addEventListener("click", () => onWordSelected(word));
           labelSelect.appendChild(btn);
         });
-
         const skip = document.createElement("button");
         skip.type = "button";
         skip.className = "label-btn skip";
         skip.textContent = "スキップ";
         skip.style.left = "50%";
-        skip.style.top = "82%";
-        skip.style.animationDelay = `${group.length * 140}ms`;
-        skip.addEventListener("click", () => {
-          if (state.wordGroupIndex < state.wordGroups.length - 1) {
-            state.wordGroupIndex += 1;
-            renderLabelSelect();
-          } else {
-            state.selectedWord = null;
-            savePending();
-          }
-        });
+        skip.style.top = "83%";
+        skip.style.animationDelay = `${words.length * 140}ms`;
+        skip.addEventListener("click", () => onWordSelected(null));
         labelSelect.appendChild(skip);
+      }
+
+      function onWordSelected(word) {
+        if (word !== null) {
+          state.selectedWords.push(word);
+          const ax = wordAxes(word);
+          for (const a of SENSE_AXES) state.senseCoverage[a] += Math.abs(ax[a]);
+        }
+        const next = state.senseRound + 1;
+        const maxRound = next >= 2 && !needsThirdRound(state.senseCoverage) ? 1 : 2;
+        if (next > maxRound) { finalizeSense(); return; }
+        state.senseRound = next;
+        renderLabelSelect();
+      }
+
+      function finalizeSense() {
+        labelSelect.innerHTML = "";
+        const done = document.createElement("div");
+        done.className = "sense-round-prompt";
+        done.textContent = "記録されました";
+        labelSelect.appendChild(done);
+        safeVibrate(40);
+        setTimeout(savePending, 900);
       }
 
       function savePending() {
         if (!state.pending) return;
-        state.pending.word = state.selectedWord;
+        const senseVector = computeSenseVector(state.selectedWords);
+        const visualBias = computeVisualBias(senseVector);
+        state.pending.word = state.selectedWords[0] || null;
+        state.pending.selectedWords = [...state.selectedWords];
+        state.pending.senseVector = senseVector;
+        state.pending.visualBias = visualBias;
         state.personalRecords.push(state.pending);
         saveRecords();
         state.pending = null;
+        state.selectedWords = [];
+        state.senseCoverage = { motion: 0, density: 0, material: 0, pressure: 0 };
+        state.senseRound = 0;
         recordModal.classList.remove("active");
         rebuildGrids();
         updateStats();
@@ -2138,6 +2290,9 @@
 
       function discardPending() {
         state.pending = null;
+        state.selectedWords = [];
+        state.senseCoverage = { motion: 0, density: 0, material: 0, pressure: 0 };
+        state.senseRound = 0;
         recordModal.classList.remove("active");
       }
 
@@ -2330,7 +2485,7 @@
         config.actualDotSpacingMeters = spacing;
         const visibleRecords = records.slice(0, PERF.maxVisibleRecords).map(rec => {
           const m = latLngToMeters(rec, origin);
-          const visual = applyWordBias(recordBaseVisual(rec), rec.word);
+          const visual = applyWordBias(recordBaseVisual(rec), rec);
           return {
             ...rec,
             noise: recordNoise(rec),
@@ -2791,13 +2946,19 @@
 
         const tagGrid = document.getElementById("tagGrid");
         tagGrid.innerHTML = "";
-        WORDS.forEach(word => {
-          const count = records.filter(r => r.word === word).length;
+        const wordCounts = new Map();
+        for (const r of records) {
+          const ws = Array.isArray(r.selectedWords) && r.selectedWords.length ? r.selectedWords : (r.word ? [r.word] : []);
+          for (const w of ws) wordCounts.set(w, (wordCounts.get(w) || 0) + 1);
+        }
+        const usedWords = [...wordCounts.entries()].sort((a, b) => b[1] - a[1]);
+        const showWords = usedWords.length ? usedWords : SENSE_WORDS.slice(0, 8).map(e => [e.word, 0]);
+        for (const [word, count] of showWords) {
           const cell = document.createElement("div");
           cell.className = "tag-cell" + (count ? " active" : "");
           cell.textContent = count ? `${word} ${count}` : word;
           tagGrid.appendChild(cell);
-        });
+        }
 
       }
 
