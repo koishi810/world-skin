@@ -1040,7 +1040,7 @@
     <nav class="footer-nav" aria-label="表示の切り替え">
       <button class="nav-btn active" type="button" data-target="world">
         <span class="nav-mark skin"></span>
-        <span class="nav-label">世界</span>
+        <span class="nav-label">世1</span>
       </button>
       <button class="nav-btn" type="button" data-target="sense">
         <span class="nav-mark sense"></span>
@@ -1127,13 +1127,16 @@
         influenceCutoff: 0.006,
         strengthCutoff: 0.014,
         colors: {
-          void: { r: 35, g: 40, b: 46 },
-          cold: { r: 120, g: 158, b: 205 },
-          neutral: { r: 210, g: 218, b: 226 },
-          bright: { r: 226, g: 238, b: 250 },
-          warm: { r: 224, g: 200, b: 176 },
-          rust: { r: 210, g: 96, b: 100 },
-          violet: { r: 164, g: 162, b: 188 }
+          void:      { r: 35,  g: 40,  b: 46  },
+          voidWarm:  { r: 52,  g: 36,  b: 32  },
+          voidCool:  { r: 22,  g: 32,  b: 54  },
+          cold:      { r: 102, g: 146, b: 218 },
+          neutral:   { r: 210, g: 218, b: 226 },
+          bright:    { r: 226, g: 238, b: 250 },
+          warmBright:{ r: 250, g: 234, b: 208 },
+          warm:      { r: 234, g: 194, b: 154 },
+          rust:      { r: 216, g: 88,  b: 88  },
+          violet:    { r: 158, g: 158, b: 196 }
         }
       };
       const DOT_VISUAL_TUNING = {
@@ -1468,36 +1471,36 @@
         const absM = Math.abs(m), absMat = Math.abs(mat);
 
         // motion: flux / breath / edge activity / slight alpha
-        const fluxBias        = clamp(m * 0.10, -0.14, 0.14);
-        const breathSpeedBias = clamp(m * 0.18, -0.20, 0.20);
+        const fluxBias        = clamp(m * 0.16, -0.20, 0.20);
+        const breathSpeedBias = clamp(m * 0.24, -0.26, 0.26);
 
         // material: warmth (cold/dry → cooler amplified, hot/wet → warmer)
-        const warmthFromMat = mat < 0 ? mat * 0.22 : mat * 0.13;
-        const warmthFromPressure = p > 0 ? p * 0.04 : p * -0.03;
+        const warmthFromMat = mat < 0 ? mat * 0.42 : mat * 0.34;
+        const warmthFromPressure = p > 0 ? p * 0.08 : p * -0.06;
 
         // material: contrast / boundary / edge hardness (cold/dry = harder, hot/wet = softer)
         const contrastBias = mat < 0
-          ? clamp(absMat * 0.10, 0, 0.14)
-          : clamp(mat * -0.05, -0.14, 0);
+          ? clamp(absMat * 0.16, 0, 0.22)
+          : clamp(mat * -0.08, -0.18, 0);
         const matBoundary  = mat < 0
-          ? clamp(absMat * 0.10, 0, 0.14)
-          : clamp(mat * -0.06, -0.10, 0);
+          ? clamp(absMat * 0.16, 0, 0.20)
+          : clamp(mat * -0.10, -0.16, 0);
         const edgeHardnessBias = clamp(
-          mat < 0 ? absMat * 0.12 : mat * -0.08,
-          -0.16, 0.16
+          mat < 0 ? absMat * 0.20 : mat * -0.16,
+          -0.24, 0.24
         );
 
         return {
           fluxBias,
           breathSpeedBias,
-          alphaBias:       clamp(m * 0.015 + d * 0.075 + p * 0.05, -0.12, 0.16),
-          radiusBias:      clamp(d * 0.16 + p * 0.08, -0.22, 0.28),
-          heightBias:      clamp(d * 10 + p * 12, -18, 24),
-          spreadBias:      clamp(d * -0.12 + (mat > 0 ? mat * 0.06 : 0) + p * -0.10, -0.20, 0.20),
-          warmthBias:      clamp(warmthFromMat + warmthFromPressure, -0.25, 0.22),
+          alphaBias:       clamp(m * 0.02 + d * 0.11 + p * 0.08, -0.18, 0.24),
+          radiusBias:      clamp(d * 0.24 + p * 0.14, -0.32, 0.42),
+          heightBias:      clamp(d * 16 + p * 18, -26, 36),
+          spreadBias:      clamp(d * -0.18 + (mat > 0 ? mat * 0.10 : 0) + p * -0.15, -0.30, 0.30),
+          warmthBias:      clamp(warmthFromMat + warmthFromPressure, -0.42, 0.38),
           contrastBias,
-          boundaryBias:    clamp(absM * 0.06 + matBoundary, -0.10, 0.14),
-          rustBias:        mat > 0 ? clamp(mat * 0.06, 0, 0.18) : 0,
+          boundaryBias:    clamp(absM * 0.10 + matBoundary, -0.16, 0.22),
+          rustBias:        mat > 0 ? clamp(mat * 0.12, 0, 0.30) : 0,
           edgeHardnessBias
         };
       }
@@ -1673,13 +1676,22 @@
         const s = clamp(params.strength, 0, 1);
         const w = clamp(params.warmth, -0.35, 0.35);
         const rust = clamp(params.rust ?? 0, 0, 0.28);
-        if (s < GRID_VISUAL.strengthCutoff) return GRID_VISUAL.colors.void;
-        let color = params.warmth < 0
-          ? mixColor(GRID_VISUAL.colors.neutral, GRID_VISUAL.colors.cold, Math.abs(w) / 0.35)
-          : mixColor(GRID_VISUAL.colors.neutral, GRID_VISUAL.colors.warm, w / 0.35);
-        color = mixColor(color, GRID_VISUAL.colors.bright, clamp(s * 0.45, 0, 0.45));
-        if (rust > 0) color = mixColor(color, GRID_VISUAL.colors.rust, rust);
-        if (params.contrast > 0.3 && w < -0.04) color = mixColor(color, GRID_VISUAL.colors.violet, 0.14);
+        if (s < GRID_VISUAL.strengthCutoff) {
+          const vp = clamp(params.sensePressure || 0, -1, 1);
+          if (vp > 0.08)  return mixColor(GRID_VISUAL.colors.void, GRID_VISUAL.colors.voidWarm, vp * 0.55);
+          if (vp < -0.08) return mixColor(GRID_VISUAL.colors.void, GRID_VISUAL.colors.voidCool, Math.abs(vp) * 0.55);
+          return GRID_VISUAL.colors.void;
+        }
+        const coldT = Math.pow(Math.abs(w) / 0.35, 0.58);
+        const warmT = Math.pow(w / 0.35, 0.58);
+        let color = w < 0
+          ? mixColor(GRID_VISUAL.colors.neutral, GRID_VISUAL.colors.cold, coldT)
+          : mixColor(GRID_VISUAL.colors.neutral, GRID_VISUAL.colors.warm, warmT);
+        const motionBright = clamp((params.senseMotion || 0) * 0.12, -0.10, 0.10);
+        const brightTarget = w < 0 ? GRID_VISUAL.colors.bright : GRID_VISUAL.colors.warmBright;
+        color = mixColor(color, brightTarget, clamp(s * (0.38 + motionBright), 0, 0.50));
+        if (rust > 0) color = mixColor(color, GRID_VISUAL.colors.rust, rust * 1.2);
+        if (params.contrast > 0.22 && w < -0.03) color = mixColor(color, GRID_VISUAL.colors.violet, 0.18);
         return color;
       }
 
@@ -2719,22 +2731,31 @@
             strength: cell.strength,
             flux: cell.flux,
             contrast: cell.contrast,
-            warmth: clamp(cell.warmth + hourWarmth * 0.12 + (cell.localContrast || 0) * 0.04, -0.35, 0.35),
+            warmth: clamp(cell.warmth + hourWarmth * 0.12 + (cell.localContrast || 0) * 0.04 + (cell.senseMaterial || 0) * 0.12 + (cell.sensePressure > 0 ? (cell.sensePressure || 0) * 0.04 : (cell.sensePressure || 0) * -0.03), -0.35, 0.35),
             boundary: cell.boundary,
             breathSpeed: cell.breathSpeed,
             radiusBias: cell.radiusBias,
-            rust: clamp(cell.rust + Math.max(0, cell.flux - 0.5) * 0.12 + cell.boundary * 0.16, 0, 0.28),
+            rust: clamp(cell.rust + Math.max(0, cell.flux - 0.5) * 0.12 + cell.boundary * 0.16 + Math.max(0, (cell.senseMaterial || 0)) * 0.06, 0, 0.28),
             heightBias: cell.heightBias,
-            edgeHardness: cell.edgeHardness ?? 0
+            edgeHardness: clamp((cell.edgeHardness ?? 0) + ((cell.senseMaterial || 0) > 0.04 ? (cell.senseMaterial || 0) * -0.20 : (cell.senseMaterial || 0) < -0.04 ? (cell.senseMaterial || 0) * 0.16 : 0), -0.28, 0.28),
+            senseMotion:    cell.senseMotion    || 0,
+            sensePressure:  cell.sensePressure  || 0,
+            senseDensity:   cell.senseDensity   || 0
           };
-          const baseSkinAlpha = 0.010;
+          const sd = cell.senseDensity || 0;
+          const baseSkinAlpha = clamp(0.010 + sd * 0.005, 0.005, 0.016);
+          const edgeSharp = 1 + Math.max(0, sd) * 0.85;
           const rawAlpha = cell.strength < GRID_VISUAL.strengthCutoff
             ? baseSkinAlpha + getDotAlpha(params) * 0.22
-            : baseSkinAlpha + getDotAlpha(params) + (cell.localContrast || 0) * 0.14;
+            : baseSkinAlpha + getDotAlpha(params) + (cell.localContrast || 0) * 0.14 * edgeSharp;
           const depth = clamp(1.02 - (surfaceY / Math.max(1, state.height)) * 0.16, 0.86, 1.02);
           const aMul = cell.strength >= GRID_VISUAL.strengthCutoff ? DOT_VISUAL_TUNING.activeAlphaMul : DOT_VISUAL_TUNING.alphaMul;
           const nightMul = lerp(1, DOT_VISUAL_TUNING.nightAlphaBoost, nightBoost);
-          const alpha = clamp(rawAlpha * aMul * nightMul * depth * config.alphaScale, GRID_VISUAL.minAlpha, DOT_VISUAL_TUNING.maxAlpha);
+          const rawAlphaClamped = clamp(rawAlpha * aMul * nightMul * depth * config.alphaScale, GRID_VISUAL.minAlpha, DOT_VISUAL_TUNING.maxAlpha);
+          const matGrain = (cell.senseMaterial || 0) < 0
+            ? (Math.sin(cell.col * 13.7 + cell.row * 7.3) * 0.5) * Math.abs(cell.senseMaterial || 0) * 0.026
+            : 0;
+          const alpha = clamp(rawAlphaClamped + matGrain, GRID_VISUAL.minAlpha, DOT_VISUAL_TUNING.maxAlpha);
           const radius = clamp(getDotRadius(params), DOT_DENSITY_VISUAL.minRadiusPx, DOT_DENSITY_VISUAL.maxRadiusPx);
           const color = getDotColor(params);
           const heightScale = state.mapReady ? 0.36 * Math.sin(state.map.getPitch() * Math.PI / 180) : 0.2;
@@ -2758,6 +2779,16 @@
             ctx.moveTo(surfaceX, surfaceY);
             ctx.lineTo(x, y);
             ctx.stroke();
+          }
+          const eh = params.edgeHardness ?? 0;
+          if (eh < -0.02) {
+            const absEh = Math.abs(eh);
+            const haloR = radius + 0.55 + absEh * 4.0;
+            const haloA = clamp(0.014 + absEh * 0.18, 0, 0.16);
+            ctx.fillStyle = `rgba(${color.r}, ${color.g}, ${color.b}, ${haloA})`;
+            ctx.beginPath();
+            ctx.arc(x, y, haloR, 0, Math.PI * 2);
+            ctx.fill();
           }
           ctx.fillStyle = `rgba(${color.r}, ${color.g}, ${color.b}, ${alpha})`;
           ctx.beginPath();
