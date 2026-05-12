@@ -301,6 +301,24 @@
       opacity: 0.18;
       transform: translate(-50%, -50%) scale(calc(var(--breath-scale) * 0.86));
     }
+    .breath-ring.r5 {
+      width: 115%;
+      height: 115%;
+      opacity: 0.11;
+      transform: translate(-50%, -50%) scale(calc(var(--breath-scale) * 0.80));
+    }
+    .breath-ring.r6 {
+      width: 136%;
+      height: 136%;
+      opacity: 0.07;
+      transform: translate(-50%, -50%) scale(calc(var(--breath-scale) * 0.74));
+    }
+    .breath-ring.r7 {
+      width: 158%;
+      height: 158%;
+      opacity: 0.04;
+      transform: translate(-50%, -50%) scale(calc(var(--breath-scale) * 0.68));
+    }
 
     .press-target.recording .breath-ring {
       border-color: rgba(250, 252, 252, 0.82);
@@ -942,6 +960,9 @@
     <section class="view" id="view-sense" data-view="sense">
       <div class="sense-wrap">
         <button class="press-target" id="pressTarget" type="button" aria-label="長押しして記録">
+          <span class="breath-ring r7"></span>
+          <span class="breath-ring r6"></span>
+          <span class="breath-ring r5"></span>
           <span class="breath-ring r4"></span>
           <span class="breath-ring r3"></span>
           <span class="breath-ring r2"></span>
@@ -991,11 +1012,11 @@
 
     <div class="time-axis" id="timeAxis">
       <div class="time-axis-top">
-        <span>24時間の皮膚</span>
-        <span id="timeAxisLabel">12:00</span>
+        <span>時間の皮膚</span>
+        <span id="timeAxisLabel">現在</span>
       </div>
-      <input id="timeSlider" type="range" min="0" max="23" step="1" value="12" aria-label="24時間の時間軸">
-      <div class="time-ticks"><span>0</span><span>6</span><span>12</span><span>18</span><span>24</span></div>
+      <input id="timeSlider" type="range" min="-12" max="12" step="1" value="0" aria-label="時間の移動">
+      <div class="time-ticks"><span>-12</span><span>現在</span><span>+12</span></div>
     </div>
 
     <nav class="footer-nav" aria-label="表示の切り替え">
@@ -1017,16 +1038,6 @@
       <div class="record-panel">
         <div class="panel-title" id="modalTitle">記録の準備</div>
         <div class="readout">
-          <div class="readout-row">
-            <span>音量</span>
-            <span class="track"><span class="fill" id="modalNoise"></span></span>
-            <span id="modalNoiseValue">0.00</span>
-          </div>
-          <div class="readout-row">
-            <span>揺らぎ</span>
-            <span class="track"><span class="fill" id="modalFlux"></span></span>
-            <span id="modalFluxValue">0.00</span>
-          </div>
           <div class="readout-row">
             <span>動き</span>
             <span id="modalMove">静止</span>
@@ -1050,9 +1061,20 @@
   <script>
     (() => {
       const STORAGE_KEY = "world-skin-v02-records";
+      const SEED_KEY = "world-skin-v02-seeded";
       const DURATION = 10000;
-      const BREATH_IN_MS = 5000;
-      const BREATH_OUT_MS = 5000;
+      const BREATH_VISUAL = {
+        durationMs:  10000,
+        inhaleMs:    5000,
+        exhaleMs:    5000,
+        minScale:    0.72,
+        maxScale:    1.34,
+        ringCount:   7,
+        baseRadius:  52,
+        radiusStep:  11,
+        strokeAlpha: 0.50,
+        strokeWidth: 1.15
+      };
       const RADIUS_METERS = window.WORLD_SKIN_DATA?.radiusMeters || 5000;
       const WORLD_ORIGIN = window.WORLD_SKIN_DATA?.origin || { lat: 35.7000, lng: 139.4808 };
       const DEFAULT_ORIGIN = WORLD_ORIGIN;
@@ -1094,6 +1116,12 @@
           rust: { r: 210, g: 96, b: 100 },
           violet: { r: 164, g: 162, b: 188 }
         }
+      };
+      const DOT_VISUAL_TUNING = {
+        alphaMul:       0.94,
+        activeAlphaMul: 0.96,
+        nightAlphaBoost: 1.04,
+        maxAlpha:       0.58
       };
       const DOT_DENSITY_VISUAL = {
         targetScreenSpacingPx: 13.5,
@@ -1181,6 +1209,19 @@
         "眠い": { alphaBias: -0.07, contrastBias: -0.10, fluxBias: -0.14, warmthBias: -0.07, spreadBias: 0.06, boundaryBias: -0.08, radiusBias: -0.08, rustBias: 0, heightBias: -12, breathSpeedBias: -0.24 }
       };
 
+      const _now = new Date();
+      const currentHour = _now.getHours() + _now.getMinutes() / 60;
+      function normalizeHour(h) { return ((h % 24) + 24) % 24; }
+      function getTimelineHour(offset) { return normalizeHour(currentHour + offset); }
+
+      function easeInOutCubic(t) {
+        return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+      }
+
+      function safeVibrate(pattern) {
+        if ("vibrate" in navigator) { try { navigator.vibrate(pattern); } catch (e) {} }
+      }
+
       const app = document.getElementById("app");
       const realMap = document.getElementById("realMap");
       const mapDarkOverlay = document.getElementById("mapDarkOverlay");
@@ -1232,7 +1273,7 @@
         mapReady: false,
         mapLevel: "area",
         mapVisualMode: "balanced",
-        selectedHour: 12,
+        selectedHour: getTimelineHour(0),
         aggregation: { hour: 0.44, day: 0.24, threeDay: 0.16, week: 0.11, month: 0.05 },
         pointers: new Map(),
         dragStart: null,
@@ -1252,12 +1293,61 @@
 
       app.dataset.view = state.view;
 
+      const SEED_PERSONAL_RECORDS = [
+        { id:"sp01", userId:"self-demo", lat:35.7014, lng:139.4832, timestamp:"2026-05-06T07:22:00Z", hour:7.4,  weekday:2, noiseLevel:0.44, turbulence:0.28, peak:0.62, mobility:"passing", direction:210, duration:10, word:"ざらつく",  trustScore:0.9 },
+        { id:"sp02", userId:"self-demo", lat:35.7001, lng:139.4816, timestamp:"2026-05-06T08:05:00Z", hour:8.1,  weekday:2, noiseLevel:0.52, turbulence:0.34, peak:0.71, mobility:"passing", direction:195, duration:10, word:"詰まる",   trustScore:0.9 },
+        { id:"sp03", userId:"self-demo", lat:35.6992, lng:139.4803, timestamp:"2026-05-06T18:40:00Z", hour:18.7, weekday:2, noiseLevel:0.48, turbulence:0.30, peak:0.66, mobility:"slow",    direction:30,  duration:10, word:"遠い",     trustScore:0.9 },
+        { id:"sp04", userId:"self-demo", lat:35.7007, lng:139.4822, timestamp:"2026-05-07T07:18:00Z", hour:7.3,  weekday:3, noiseLevel:0.46, turbulence:0.25, peak:0.60, mobility:"passing", direction:205, duration:10, word:"ざらつく",  trustScore:0.9 },
+        { id:"sp05", userId:"self-demo", lat:35.7019, lng:139.4798, timestamp:"2026-05-07T19:10:00Z", hour:19.2, weekday:3, noiseLevel:0.22, turbulence:0.14, peak:0.38, mobility:"slow",    direction:350, duration:10, word:"眠い",     trustScore:0.9 },
+        { id:"sp06", userId:"self-demo", lat:35.7088, lng:139.4762, timestamp:"2026-05-05T11:30:00Z", hour:11.5, weekday:1, noiseLevel:0.31, turbulence:0.22, peak:0.45, mobility:"still",   direction:0,   duration:10, word:"重い",     trustScore:0.9 },
+        { id:"sp07", userId:"self-demo", lat:35.7095, lng:139.4748, timestamp:"2026-05-05T13:15:00Z", hour:13.3, weekday:1, noiseLevel:0.28, turbulence:0.18, peak:0.40, mobility:"still",   direction:0,   duration:10, word:"ほどける", trustScore:0.9 },
+        { id:"sp08", userId:"self-demo", lat:35.7102, lng:139.4736, timestamp:"2026-05-06T12:00:00Z", hour:12.0, weekday:2, noiseLevel:0.33, turbulence:0.20, peak:0.48, mobility:"slow",    direction:270, duration:10, word:"乾く",     trustScore:0.9 },
+        { id:"sp09", userId:"self-demo", lat:35.7079, lng:139.4755, timestamp:"2026-05-07T14:45:00Z", hour:14.8, weekday:3, noiseLevel:0.26, turbulence:0.16, peak:0.38, mobility:"still",   direction:0,   duration:10, word:"ほどける", trustScore:0.9 },
+        { id:"sp10", userId:"self-demo", lat:35.7064, lng:139.4839, timestamp:"2026-05-05T15:30:00Z", hour:15.5, weekday:1, noiseLevel:0.14, turbulence:0.10, peak:0.22, mobility:"still",   direction:0,   duration:10, word:"浮く",     trustScore:0.9 },
+        { id:"sp11", userId:"self-demo", lat:35.7058, lng:139.4851, timestamp:"2026-05-06T16:00:00Z", hour:16.0, weekday:2, noiseLevel:0.18, turbulence:0.12, peak:0.28, mobility:"slow",    direction:90,  duration:10, word:"浮く",     trustScore:0.9 },
+        { id:"sp12", userId:"self-demo", lat:35.7049, lng:139.4828, timestamp:"2026-05-08T10:00:00Z", hour:10.0, weekday:4, noiseLevel:0.12, turbulence:0.08, peak:0.20, mobility:"still",   direction:0,   duration:10, word:"遠い",     trustScore:0.9 },
+        { id:"sp13", userId:"self-demo", lat:35.6974, lng:139.4728, timestamp:"2026-05-05T20:10:00Z", hour:20.2, weekday:1, noiseLevel:0.20, turbulence:0.15, peak:0.32, mobility:"slow",    direction:160, duration:10, word:"眠い",     trustScore:0.9 },
+        { id:"sp14", userId:"self-demo", lat:35.6960, lng:139.4712, timestamp:"2026-05-06T21:00:00Z", hour:21.0, weekday:2, noiseLevel:0.16, turbulence:0.10, peak:0.26, mobility:"still",   direction:0,   duration:10, word:"眠い",     trustScore:0.9 },
+        { id:"sp15", userId:"self-demo", lat:35.6982, lng:139.4745, timestamp:"2026-05-07T20:30:00Z", hour:20.5, weekday:3, noiseLevel:0.18, turbulence:0.12, peak:0.29, mobility:"slow",    direction:140, duration:10, word:"ほどける", trustScore:0.9 },
+        { id:"sp16", userId:"self-demo", lat:35.6968, lng:139.4768, timestamp:"2026-05-08T22:15:00Z", hour:22.3, weekday:4, noiseLevel:0.10, turbulence:0.07, peak:0.18, mobility:"still",   direction:0,   duration:10, word:"遠い",     trustScore:0.9 },
+        { id:"sp17", userId:"self-demo", lat:35.7022, lng:139.4860, timestamp:"2026-05-09T09:00:00Z", hour:9.0,  weekday:5, noiseLevel:0.36, turbulence:0.24, peak:0.52, mobility:"passing", direction:180, duration:10, word:"重い",     trustScore:0.9 },
+        { id:"sp18", userId:"self-demo", lat:35.7035, lng:139.4875, timestamp:"2026-05-09T17:50:00Z", hour:17.8, weekday:5, noiseLevel:0.42, turbulence:0.28, peak:0.58, mobility:"passing", direction:0,   duration:10, word:"ざらつく",  trustScore:0.9 },
+        { id:"sp19", userId:"self-demo", lat:35.7118, lng:139.4810, timestamp:"2026-05-10T11:00:00Z", hour:11.0, weekday:6, noiseLevel:0.24, turbulence:0.15, peak:0.35, mobility:"slow",    direction:90,  duration:10, word:"乾く",     trustScore:0.9 },
+        { id:"sp20", userId:"self-demo", lat:35.6945, lng:139.4750, timestamp:"2026-05-10T14:00:00Z", hour:14.0, weekday:6, noiseLevel:0.16, turbulence:0.10, peak:0.24, mobility:"still",   direction:0,   duration:10, word:"浮く",     trustScore:0.9 },
+        { id:"sp21", userId:"self-demo", lat:35.7130, lng:139.4920, timestamp:"2026-05-11T10:30:00Z", hour:10.5, weekday:0, noiseLevel:0.28, turbulence:0.18, peak:0.42, mobility:"slow",    direction:45,  duration:10, word:"乾く",     trustScore:0.9 },
+        { id:"sp22", userId:"self-demo", lat:35.6930, lng:139.4680, timestamp:"2026-05-04T16:00:00Z", hour:16.0, weekday:0, noiseLevel:0.14, turbulence:0.09, peak:0.22, mobility:"passing", direction:270, duration:10, word:"遠い",     trustScore:0.9 },
+        { id:"sp23", userId:"self-demo", lat:35.7155, lng:139.4650, timestamp:"2026-05-03T13:00:00Z", hour:13.0, weekday:6, noiseLevel:0.20, turbulence:0.12, peak:0.30, mobility:"still",   direction:0,   duration:10, word:"ほどける", trustScore:0.9 },
+        { id:"sp24", userId:"self-demo", lat:35.6888, lng:139.4900, timestamp:"2026-05-02T09:30:00Z", hour:9.5,  weekday:5, noiseLevel:0.38, turbulence:0.22, peak:0.54, mobility:"passing", direction:135, duration:10, word:"詰まる",   trustScore:0.9 }
+      ];
+
+      function maybeSeedPersonalRecords(records) {
+        if (localStorage.getItem(SEED_KEY)) return records;
+        if (records.length > 0) return records;
+        try {
+          const seeded = SEED_PERSONAL_RECORDS.map(r => ({
+            ...r,
+            noise: r.noiseLevel,
+            flux: r.turbulence,
+            movement: r.mobility,
+            direction: r.direction,
+            slot: r.hour < 6 ? "night" : r.hour < 12 ? "morning" : r.hour < 18 ? "day" : r.hour < 22 ? "evening" : "night",
+            createdAt: r.timestamp
+          }));
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(seeded));
+          localStorage.setItem(SEED_KEY, "1");
+          return seeded;
+        } catch {
+          return records;
+        }
+      }
+
       function loadRecords() {
         try {
           const parsed = JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
-          return Array.isArray(parsed) ? parsed : [];
+          const records = Array.isArray(parsed) ? parsed : [];
+          return maybeSeedPersonalRecords(records);
         } catch {
-          return [];
+          return maybeSeedPersonalRecords([]);
         }
       }
 
@@ -1582,17 +1672,17 @@
       function getMapVisualByHour(hour) {
         const daylight = getDaylightAmount(hour);
         const base = {
-          brightness:      lerp(0.50, 0.78, daylight),
-          contrast:        lerp(1.26, 1.16, daylight),
-          saturation:      lerp(0.16, 0.26, daylight),
-          opacity:         lerp(0.72, 0.84, daylight),
-          overlayDarkness: lerp(0.48, 0.26, daylight),
+          brightness:      lerp(0.58, 0.78, daylight),
+          contrast:        lerp(1.22, 1.16, daylight),
+          saturation:      lerp(0.18, 0.26, daylight),
+          opacity:         lerp(0.76, 0.84, daylight),
+          overlayDarkness: lerp(0.42, 0.26, daylight),
           daylight,
           state: getDaylightState(hour)
         };
         const dusk = smoothstep(16.5, 19.5, hour);
         if (dusk > 0 && hour < 19.5) {
-          base.brightness *= lerp(1, 0.90, dusk);
+          base.brightness *= lerp(1, 0.92, dusk);
           base.overlayDarkness = lerp(base.overlayDarkness, 0.40, dusk * 0.65);
         }
         return base;
@@ -1894,7 +1984,7 @@
         state.lastBreathPhase = "";
         pressTarget.classList.add("recording");
         senseState.textContent = "息を吸って、世界を近くに置く";
-        if (navigator.vibrate) navigator.vibrate([32, 160, 28]);
+        safeVibrate(30);
         requestRender();
       }
 
@@ -1925,6 +2015,7 @@
       function completeRecording() {
         state.recording = false;
         pressTarget.classList.remove("recording");
+        safeVibrate([30, 80, 30]);
         const samples = state.samples.length ? state.samples : [{ volume: state.volume, peak: state.peak }];
         const avg = samples.reduce((acc, s) => acc + s.volume, 0) / samples.length;
         const peaks = samples.map(s => s.peak);
@@ -1963,17 +2054,11 @@
 
       function updateRecordModalStats() {
         if (!state.pending) return;
-        const noise = clamp(state.pending.noise, 0, 1);
-        const flux = clamp(state.pending.flux, 0, 1);
         const moveLabel = {
           still: "静止",
           slow: "ゆっくり",
           passing: "通過"
         }[state.pending.movement] || "静止";
-        document.getElementById("modalNoise").style.width = `${noise * 100}%`;
-        document.getElementById("modalNoiseValue").textContent = noise.toFixed(2);
-        document.getElementById("modalFlux").style.width = `${flux * 100}%`;
-        document.getElementById("modalFluxValue").textContent = flux.toFixed(2);
         document.getElementById("modalMove").textContent = moveLabel;
       }
 
@@ -2443,7 +2528,9 @@
             ? baseSkinAlpha + getDotAlpha(params) * 0.22
             : baseSkinAlpha + getDotAlpha(params) + (cell.localContrast || 0) * 0.14;
           const depth = clamp(1.02 - (surfaceY / Math.max(1, state.height)) * 0.16, 0.86, 1.02);
-          const alpha = clamp(rawAlpha * depth * config.alphaScale * (1 + nightBoost * 0.1), GRID_VISUAL.minAlpha, GRID_VISUAL.maxAlpha);
+          const aMul = cell.strength >= GRID_VISUAL.strengthCutoff ? DOT_VISUAL_TUNING.activeAlphaMul : DOT_VISUAL_TUNING.alphaMul;
+          const nightMul = lerp(1, DOT_VISUAL_TUNING.nightAlphaBoost, nightBoost);
+          const alpha = clamp(rawAlpha * aMul * nightMul * depth * config.alphaScale, GRID_VISUAL.minAlpha, DOT_VISUAL_TUNING.maxAlpha);
           const radius = clamp(getDotRadius(params), DOT_DENSITY_VISUAL.minRadiusPx, DOT_DENSITY_VISUAL.maxRadiusPx);
           const color = getDotColor(params);
           const heightScale = state.mapReady ? 0.36 * Math.sin(state.map.getPitch() * Math.PI / 180) : 0.2;
@@ -2614,31 +2701,27 @@
 
       function drawContactLayer() {
         if (!state.recording || state.view !== "sense") return;
-        const pos = project(state.position || state.origin);
         const elapsed = performance.now() - state.recordStart;
-        const pct = clamp(elapsed / DURATION, 0, 1);
-        const rings = 4;
+        const cycle = elapsed % (BREATH_VISUAL.inhaleMs + BREATH_VISUAL.exhaleMs);
+        const isInhale = cycle < BREATH_VISUAL.inhaleMs;
+        const phasePct = isInhale ? cycle / BREATH_VISUAL.inhaleMs : (cycle - BREATH_VISUAL.inhaleMs) / BREATH_VISUAL.exhaleMs;
+        const eased = easeInOutCubic(phasePct);
+        const scale = isInhale
+          ? lerp(BREATH_VISUAL.minScale, BREATH_VISUAL.maxScale, eased)
+          : lerp(BREATH_VISUAL.maxScale, BREATH_VISUAL.minScale, eased);
         ctx.save();
-        ctx.translate(pos.x, pos.y);
+        ctx.translate(state.width / 2, state.height / 2);
         ctx.globalCompositeOperation = "screen";
-        for (let ring = 0; ring < rings; ring++) {
-          const points = 96;
-          const base = 36 + ring * 18 + pct * 34;
+        for (let i = 0; i < BREATH_VISUAL.ringCount; i++) {
+          const r = (BREATH_VISUAL.baseRadius + i * BREATH_VISUAL.radiusStep) * scale;
+          const fadeOut = 1 - i / BREATH_VISUAL.ringCount;
+          const alpha = BREATH_VISUAL.strokeAlpha * fadeOut * (i < 3 ? 1 : 0.65);
           ctx.beginPath();
-          for (let i = 0; i <= points; i++) {
-            const a = (Math.PI * 2 * i) / points;
-            const freq = state.freq[(i * 3 + ring * 11) % state.freq.length] / 255;
-            const ripple = Math.sin(a * (3 + ring) + state.t * (1.2 + ring * 0.25)) * 8;
-            const sound = freq * (12 + state.volume * 26);
-            const r = base + ripple + sound;
-            const x = Math.cos(a) * r;
-            const y = Math.sin(a) * r;
-            if (i === 0) ctx.moveTo(x, y);
-            else ctx.lineTo(x, y);
-          }
-          const alpha = 0.34 - ring * 0.055 + state.volume * 0.18;
-          ctx.strokeStyle = `rgba(232, 242, 243, ${alpha})`;
-          ctx.lineWidth = ring === 0 ? 1.6 : 1;
+          ctx.arc(0, 0, r, 0, Math.PI * 2);
+          ctx.strokeStyle = i < 3
+            ? `rgba(230, 236, 242, ${alpha})`
+            : `rgba(180, 195, 210, ${alpha})`;
+          ctx.lineWidth = BREATH_VISUAL.strokeWidth;
           ctx.stroke();
         }
         ctx.restore();
@@ -2649,17 +2732,19 @@
         if (!state.recording) return;
         const elapsed = performance.now() - state.recordStart;
         const pct = clamp(elapsed / DURATION, 0, 1);
-        const cycle = (elapsed % (BREATH_IN_MS + BREATH_OUT_MS));
-        const isInhale = cycle < BREATH_IN_MS;
-        const phasePct = isInhale ? cycle / BREATH_IN_MS : (cycle - BREATH_IN_MS) / BREATH_OUT_MS;
-        const eased = 0.5 - Math.cos(phasePct * Math.PI) / 2;
-        const scale = isInhale ? 0.86 + eased * 0.28 : 1.14 - eased * 0.28;
+        const cycle = elapsed % (BREATH_VISUAL.inhaleMs + BREATH_VISUAL.exhaleMs);
+        const isInhale = cycle < BREATH_VISUAL.inhaleMs;
+        const phasePct = isInhale ? cycle / BREATH_VISUAL.inhaleMs : (cycle - BREATH_VISUAL.inhaleMs) / BREATH_VISUAL.exhaleMs;
+        const eased = easeInOutCubic(phasePct);
+        const scale = isInhale
+          ? lerp(BREATH_VISUAL.minScale, BREATH_VISUAL.maxScale, eased)
+          : lerp(BREATH_VISUAL.maxScale, BREATH_VISUAL.minScale, eased);
         pressTarget.style.setProperty("--breath-scale", scale.toFixed(3));
         const phase = isInhale ? "in" : "out";
         if (phase !== state.lastBreathPhase) {
           state.lastBreathPhase = phase;
           senseState.textContent = phase === "in" ? "息を吸って、世界を近くに置く" : "息を吐いて、音をほどく";
-          if (navigator.vibrate) navigator.vibrate(phase === "in" ? 36 : 22);
+          safeVibrate(phase === "in" ? 20 : [20, 60, 20]);
         }
         state.samples.push({ volume: state.volume, peak: state.peak, at: Date.now() });
         if (pct >= 1) completeRecording();
@@ -2753,8 +2838,14 @@
         document.getElementById("discardBtn").addEventListener("click", discardPending);
         radiusToggle.addEventListener("click", () => setRadiusDetails(!state.radiusDetailsOpen));
         timeSlider.addEventListener("input", () => {
-          state.selectedHour = Number(timeSlider.value);
-          timeAxisLabel.textContent = `${String(state.selectedHour).padStart(2, "0")}:00`;
+          const offset = Number(timeSlider.value);
+          state.selectedHour = getTimelineHour(offset);
+          if (offset === 0) {
+            timeAxisLabel.textContent = "現在";
+          } else {
+            const h = Math.round(state.selectedHour);
+            timeAxisLabel.textContent = `${String(h).padStart(2, "0")}:00`;
+          }
           applyMapVisualMode();
           startFieldTransition();
         });

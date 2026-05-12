@@ -1,5 +1,43 @@
 # MAP_LOG
 
+## Mobile Feedback Tuning / 2026-05-12
+
+### Problems
+
+- 手机端夜晚画面过暗
+- 时间轴固定 0–23，不以当前真实时间为基准
+- 点阵亮度需要轻微微调
+- Sense 记录界面仍有声音波形可视化（drawContactLayer 使用 freq 数据绘制）
+- 呼吸圆环幅度不足（scale 范围 0.86–1.14），圆环只有 4 个
+- 记录模态框显示音量条/揺らぎ条（声音数值）
+- My Radius 缺少个人演示数据，新用户打开为空
+
+### Changes
+
+- `getMapVisualByHour()`：夜晚 brightness floor 0.50→0.58，overlayDarkness 0.48→0.42，黄昏衰减 0.90→0.92
+- 新增 `currentHour / normalizeHour() / getTimelineHour()`；`state.selectedHour` 初始化为当前真实时间
+- 时间轴 HTML：slider min="-12"/max="12"/value="0"，ticks 改为 -12 / 現在 / +12；`state.selectedHour` 跟随 `getTimelineHour(offset)` 更新
+- 新增 `DOT_VISUAL_TUNING`：alphaMul 0.94 / activeAlphaMul 0.96 / nightAlphaBoost 1.04 / maxAlpha 0.58；替换 `drawGridTexture` 中的 alpha 计算
+- 新增 `BREATH_VISUAL` 常量替代 `BREATH_IN_MS/BREATH_OUT_MS`；scale 范围扩展至 0.72–1.34
+- 新增 `easeInOutCubic()`，替换 updateRecordingProgress 中的余弦缓动
+- 新增 `safeVibrate()`，替换所有直接 `navigator.vibrate()` 调用；震动节奏与呼吸相位同步
+- `drawContactLayer()`：删除音频频率波形绘制，改为基于 easeInOutCubic + BREATH_VISUAL 的平滑同心圆（无音频数据）
+- CSS 增加 breath-ring r5/r6/r7；HTML pressTarget 增加对应元素
+- 记录模态框删除音量/揺らぎ readout row；`updateRecordModalStats()` 只保留 動き
+- 新增 `SEED_PERSONAL_RECORDS`（24 条，国分寺周边 1–2km）；`maybeSeedPersonalRecords()` 首次加载时写入 localStorage（标记 `world-skin-v02-seeded`）
+
+### Files Modified
+
+- `test0.2.html`
+- `MAP_LOG`
+
+### Known Limitations
+
+- iOS Safari 对 Vibration API 支持可能有限，已做静默 fallback
+- 当前日出日落仍使用近似时间（smoothstep），不接入真实日出 API
+- 个人数据为 demo seed 数据，不是服务器同步数据
+- 时间轴 offset 回到 0 时显示"現在"，不自动随实际时间推进
+
 ## Density Continuity Fix / 2026-05-12
 
 ### Problems
