@@ -1463,18 +1463,60 @@
       function computeVisualBias(sv) {
         const m = sv.motion || 0, d = sv.density || 0;
         const mat = sv.material || 0, p = sv.pressure || 0;
+        const absM = Math.abs(m), absMat = Math.abs(mat);
+
+        // motion: flux / breath / edge activity / slight alpha
+        const fluxBias        = clamp(m * 0.10, -0.14, 0.14);
+        const breathSpeedBias = clamp(m * 0.18, -0.20, 0.20);
+
+        // material: warmth (cold/dry → cooler amplified, hot/wet → warmer)
+        const warmthFromMat = mat < 0 ? mat * 0.22 : mat * 0.13;
+        const warmthFromPressure = p > 0 ? p * 0.04 : p * -0.03;
+
+        // material: contrast / boundary / edge hardness (cold/dry = harder, hot/wet = softer)
+        const contrastBias = mat < 0
+          ? clamp(absMat * 0.10, 0, 0.14)
+          : clamp(mat * -0.05, -0.14, 0);
+        const matBoundary  = mat < 0
+          ? clamp(absMat * 0.10, 0, 0.14)
+          : clamp(mat * -0.06, -0.10, 0);
+        const edgeHardnessBias = clamp(
+          mat < 0 ? absMat * 0.12 : mat * -0.08,
+          -0.16, 0.16
+        );
+
         return {
-          fluxBias:        clamp(m * 0.12, -0.12, 0.12),
-          breathSpeedBias: clamp(m * 0.18, -0.20, 0.20),
-          alphaBias:       clamp(d * 0.10 + p * 0.08, -0.12, 0.14),
-          heightBias:      clamp(d * 14 + p * 10, -18, 24),
-          spreadBias:      clamp(-d * 0.16 - p * 0.08, -0.18, 0.18),
-          radiusBias:      clamp(d * 0.12 + p * 0.08, -0.18, 0.26),
-          warmthBias:      clamp(mat * 0.20, -0.25, 0.25),
-          contrastBias:    clamp(-mat * 0.12 + Math.abs(m) * 0.06, -0.14, 0.18),
-          boundaryBias:    clamp(Math.abs(m) * 0.08 + p * 0.06, -0.10, 0.14),
-          rustBias:        clamp(mat * 0.10 + p * 0.06, 0, 0.18)
+          fluxBias,
+          breathSpeedBias,
+          alphaBias:       clamp(m * 0.015 + d * 0.075 + p * 0.05, -0.12, 0.16),
+          radiusBias:      clamp(d * 0.16 + p * 0.08, -0.22, 0.28),
+          heightBias:      clamp(d * 10 + p * 12, -18, 24),
+          spreadBias:      clamp(d * -0.12 + (mat > 0 ? mat * 0.06 : 0) + p * -0.10, -0.20, 0.20),
+          warmthBias:      clamp(warmthFromMat + warmthFromPressure, -0.25, 0.22),
+          contrastBias,
+          boundaryBias:    clamp(absM * 0.06 + matBoundary, -0.10, 0.14),
+          rustBias:        mat > 0 ? clamp(mat * 0.06, 0, 0.18) : 0,
+          edgeHardnessBias
         };
+      }
+
+      function getRecordSV(rec) {
+        if (rec.senseVector) return rec.senseVector;
+        if (rec.selectedWords?.length) {
+          const sv = { motion: 0, density: 0, material: 0, pressure: 0 };
+          rec.selectedWords.forEach(w => {
+            const e = getWordEntry(w);
+            if (e) SENSE_AXES.forEach(a => sv[a] += e.axes[a]);
+          });
+          const n = rec.selectedWords.length;
+          SENSE_AXES.forEach(a => sv[a] = clamp(sv[a] / n, -1, 1));
+          return sv;
+        }
+        if (rec.word) {
+          const e = getWordEntry(rec.word);
+          if (e) return e.axes;
+        }
+        return { motion: 0, density: 0, material: 0, pressure: 0 };
       }
 
       function needsThirdRound(coverage) {
@@ -1547,7 +1589,8 @@
           breathSpeed: clamp(1 - flux * 0.08 + (slot === "night" ? -0.06 : 0), 0.65, 1.2),
           radiusBias: clamp((noise - 0.45) * 0.18 + peak * 0.08, -0.16, 0.28),
           rust: clamp((flux - 0.46) * 0.2 + (noise - 0.68) * 0.12, 0, 0.18),
-          heightBias: clamp((noise - 0.45) * 16 + peak * 8, -12, 18)
+          heightBias: clamp((noise - 0.45) * 16 + peak * 8, -12, 18),
+          edgeHardness: 0
         };
       }
 
@@ -1573,9 +1616,10 @@
           spread:     clamp(base.spread  * (1 + (vb.spreadBias    ?? 0)), 0.65, 1.35),
           boundary:   clamp(base.boundary    + (vb.boundaryBias   ?? 0), 0, VISUAL_LIMITS.boundaryAlpha),
           breathSpeed:clamp(base.breathSpeed * (1 + (vb.breathSpeedBias ?? 0)), 0.65, 1.2),
-          radiusBias: clamp((base.radiusBias ?? 0) + (vb.radiusBias  ?? 0), -0.24, 0.44),
-          rust:       clamp((base.rust       ?? 0) + (vb.rustBias    ?? 0), 0, 0.28),
-          heightBias: clamp((base.heightBias ?? 0) + (vb.heightBias  ?? 0), -24, 32)
+          radiusBias:   clamp((base.radiusBias   ?? 0) + (vb.radiusBias        ?? 0), -0.24, 0.44),
+          rust:         clamp((base.rust         ?? 0) + (vb.rustBias          ?? 0), 0, 0.28),
+          heightBias:   clamp((base.heightBias   ?? 0) + (vb.heightBias        ?? 0), -24, 32),
+          edgeHardness: clamp((base.edgeHardness ?? 0) + (vb.edgeHardnessBias  ?? 0), -0.24, 0.24)
         };
       }
 
@@ -1593,10 +1637,13 @@
         const c = clamp(params.contrast, 0, 1);
         const b = clamp(params.boundary, 0, 1);
         const f = clamp(params.flux, 0, 1);
+        const eh = clamp(params.edgeHardness ?? 0, -0.16, 0.16);
         if (s < GRID_VISUAL.strengthCutoff) return clamp(0.012 + c * 0.035, GRID_VISUAL.minAlpha, 0.045);
+        const sExp = 1.18 + eh * 0.6;
+        const sMul = 0.48 + eh * 0.10;
         return clamp(
           0.018 +
-          Math.pow(s, 1.18) * 0.48 +
+          Math.pow(s, sExp) * sMul +
           Math.pow(c, 1.05) * 0.16 +
           Math.pow(b, 1.05) * 0.14 +
           Math.pow(f, 1.2) * 0.08,
@@ -2471,6 +2518,7 @@
         const visibleRecords = records.slice(0, PERF.maxVisibleRecords).map(rec => {
           const m = latLngToMeters(rec, origin);
           const visual = applyWordBias(recordBaseVisual(rec), rec);
+          const sv = getRecordSV(rec);
           return {
             ...rec,
             noise: recordNoise(rec),
@@ -2481,7 +2529,8 @@
             mx: m.dx,
             my: m.dy,
             tw: temporalWeight(rec),
-            visual
+            visual,
+            sv
           };
         }).filter(rec => (
           rec.tw > 0.025 &&
@@ -2522,6 +2571,8 @@
             let radiusBias = 0;
             let rust = 0;
             let heightBias = 0;
+            let edgeHardness = 0;
+            let senseMotion = 0, senseDensity = 0, senseMaterial = 0, sensePressure = 0;
             const bx = Math.floor(mx / cellSize);
             const by = Math.floor(my / cellSize);
             for (let oy = -2; oy <= 2; oy++) {
@@ -2547,6 +2598,11 @@
                   radiusBias += w * rec.visual.radiusBias;
                   rust += w * rec.visual.rust;
                   heightBias += w * rec.visual.heightBias;
+                  edgeHardness += w * (rec.visual.edgeHardness ?? 0);
+                  senseMotion   += w * (rec.sv.motion   || 0);
+                  senseDensity  += w * (rec.sv.density  || 0);
+                  senseMaterial += w * (rec.sv.material || 0);
+                  sensePressure += w * (rec.sv.pressure || 0);
                 }
               }
             }
@@ -2579,6 +2635,11 @@
                 boundary: normalizedBoundary,
                 heightBias: normalizedHeightBias
               }) * config.heightScale,
+              edgeHardness:  sum ? clamp(edgeHardness  / sum, -0.24, 0.24) : 0,
+              senseMotion:   sum ? clamp(senseMotion   / sum, -1, 1) : 0,
+              senseDensity:  sum ? clamp(senseDensity  / sum, -1, 1) : 0,
+              senseMaterial: sum ? clamp(senseMaterial / sum, -1, 1) : 0,
+              sensePressure: sum ? clamp(sensePressure / sum, -1, 1) : 0,
               contrast: 0
             });
           }
@@ -2661,7 +2722,8 @@
             breathSpeed: cell.breathSpeed,
             radiusBias: cell.radiusBias,
             rust: clamp(cell.rust + Math.max(0, cell.flux - 0.5) * 0.12 + cell.boundary * 0.16, 0, 0.28),
-            heightBias: cell.heightBias
+            heightBias: cell.heightBias,
+            edgeHardness: cell.edgeHardness ?? 0
           };
           const baseSkinAlpha = 0.010;
           const rawAlpha = cell.strength < GRID_VISUAL.strengthCutoff

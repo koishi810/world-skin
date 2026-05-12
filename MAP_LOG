@@ -1007,6 +1007,45 @@
 - `TODO`：已同步为 guide book 驱动的进度清单。
 - `MAP_LOG`：记录本次同步。
 
+## Sense Axis Visual Mapping / 2026-05-12
+
+### Problems
+
+* 新的多轮感知词选择已生成 senseVector，但点阵视觉仅用简单 alpha / color 偏置
+* 各感知轴映射方式相近，无明显差异化视觉表现
+* 没有 edgeHardness 通道，cold/dry 和 hot/wet 记录在点阵边缘看起来一样
+
+### Changes
+
+* 重写 `computeVisualBias`：4 轴分别映射到不同视觉维度
+  * motion → fluxBias / breathSpeedBias / boundaryBias / 微弱 alphaBias
+  * density → alphaBias / radiusBias / heightBias / spreadBias
+  * material → warmthBias（冷干放大）/ contrastBias / boundaryBias / edgeHardnessBias（新）/ rustBias
+  * pressure → heightBias / alphaBias / spreadBias / radiusBias / warmthBias
+  * 同一属性跨轴相加后统一 clamp
+* 新增 `getRecordSV(rec)` 辅助函数：兼容 senseVector / selectedWords / 旧 word
+* `recordBaseVisual` 加 `edgeHardness: 0` 基线
+* `applyWordBias` 输出 `edgeHardness` 字段
+* `buildGeoGridField` 内循环加入 `edgeHardness` + 4 轴聚合（senseMotion/senseDensity/senseMaterial/sensePressure）按 influence 权重累加
+* cell 输出存储上述 5 个新字段（与现有 field 计算合并，无额外 pass）
+* `getDotAlpha` 使用 `edgeHardness` 调整 strength 指数（硬 → 更陡峭的 alpha 过渡，软 → 更平滑）
+* `drawGridTexture` 把 `edgeHardness` 传入 params
+
+### Files Modified
+
+* `test0.2.html`
+* `MAP_LOG`
+
+### Known Limitations
+
+* 4 轴仍是 v1 原型，参数之后继续微调
+* senseMotion/senseDensity/senseMaterial/sensePressure 已存储在 cell，但本轮尚未直接用于 drawing（通过 visual 属性间接已有贡献）
+* directionalityBias / anisotropic stretch 未实现（需要各向异性 Gaussian，成本较高）
+
+### Next Task
+
+* 继续调整感知轴参数和视觉效果
+
 ## Personal Data Extraction + Influence Radius Fix / 2026-05-12
 
 ### Problems
