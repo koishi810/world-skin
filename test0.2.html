@@ -1080,7 +1080,7 @@
   <script>
     (() => {
       const STORAGE_KEY = "world-skin-v02-records";
-      const SEED_KEY = "world-skin-v02-seeded-r2";
+      const SEED_KEY = "world-skin-v02-seeded-r3";
       const DURATION = 10000;
       const BREATH_VISUAL = {
         durationMs:  10000,
@@ -1224,46 +1224,15 @@
         renderDebounceMs: 60,
         useOffscreenCache: true
       };
-      const SENSE_AXES = ["motion", "density", "material", "pressure"];
+      const SENSE_WORD_LIST = [
+        "ざらつく","なめらか","重い","軽い","浮く","沈む","乾く","湿る",
+        "冷える","熱を持つ","詰まる","ほどける","遠い","近い","騒ぐ","静まる",
+        "流れる","滞る","広がる","閉じる","尖る","丸まる","濁る","澄む",
+        "硬い","柔らかい","速い","遅い","薄い","厚い","こもる","抜ける"
+      ];
       const ROUND_PROMPTS = [
         "いまの感覚に近い言葉を選ぶ",
-        "もう少しだけ、近いものを選ぶ",
-        "最後に、残った感覚を選ぶ"
-      ];
-      // axes: motion(動き+/静-), density(密+/空-), material(熱湿+/冷乾-), pressure(圧+/解放-)
-      const SENSE_WORDS = [
-        { word:"ざらつく",  axes:{ motion: 0.2, density: 0.3, material:-0.5, pressure: 0.1 } },
-        { word:"なめらか",  axes:{ motion:-0.1, density:-0.2, material: 0.3, pressure:-0.3 } },
-        { word:"重い",      axes:{ motion:-0.4, density: 0.4, material: 0.2, pressure: 0.8 } },
-        { word:"軽い",      axes:{ motion: 0.2, density:-0.5, material:-0.1, pressure:-0.8 } },
-        { word:"浮く",      axes:{ motion: 0.3, density:-0.6, material:-0.2, pressure:-0.6 } },
-        { word:"沈む",      axes:{ motion:-0.3, density: 0.5, material: 0.1, pressure: 0.6 } },
-        { word:"乾く",      axes:{ motion: 0.1, density:-0.1, material:-0.7, pressure: 0.2 } },
-        { word:"湿る",      axes:{ motion:-0.1, density: 0.2, material: 0.7, pressure: 0.1 } },
-        { word:"冷える",    axes:{ motion:-0.2, density:-0.2, material:-0.8, pressure: 0.1 } },
-        { word:"熱を持つ",  axes:{ motion: 0.3, density: 0.2, material: 0.8, pressure: 0.3 } },
-        { word:"詰まる",    axes:{ motion:-0.5, density: 0.8, material: 0.0, pressure: 0.6 } },
-        { word:"ほどける",  axes:{ motion: 0.2, density:-0.7, material: 0.2, pressure:-0.6 } },
-        { word:"遠い",      axes:{ motion: 0.0, density:-0.5, material:-0.3, pressure:-0.2 } },
-        { word:"近い",      axes:{ motion: 0.1, density: 0.4, material: 0.2, pressure: 0.3 } },
-        { word:"騒ぐ",      axes:{ motion: 0.8, density: 0.3, material: 0.2, pressure: 0.4 } },
-        { word:"静まる",    axes:{ motion:-0.8, density:-0.2, material:-0.2, pressure:-0.3 } },
-        { word:"流れる",    axes:{ motion: 0.7, density:-0.3, material: 0.1, pressure:-0.2 } },
-        { word:"滞る",      axes:{ motion:-0.7, density: 0.5, material: 0.0, pressure: 0.3 } },
-        { word:"広がる",    axes:{ motion: 0.2, density:-0.8, material: 0.0, pressure:-0.5 } },
-        { word:"閉じる",    axes:{ motion:-0.3, density: 0.6, material: 0.0, pressure: 0.5 } },
-        { word:"尖る",      axes:{ motion: 0.4, density: 0.3, material:-0.4, pressure: 0.5 } },
-        { word:"丸まる",    axes:{ motion:-0.2, density: 0.2, material: 0.3, pressure: 0.2 } },
-        { word:"濁る",      axes:{ motion: 0.2, density: 0.4, material: 0.5, pressure: 0.2 } },
-        { word:"澄む",      axes:{ motion:-0.1, density:-0.4, material:-0.5, pressure:-0.3 } },
-        { word:"硬い",      axes:{ motion:-0.3, density: 0.6, material:-0.5, pressure: 0.4 } },
-        { word:"柔らかい",  axes:{ motion:-0.1, density:-0.3, material: 0.5, pressure:-0.5 } },
-        { word:"速い",      axes:{ motion: 0.8, density:-0.2, material: 0.0, pressure:-0.1 } },
-        { word:"遅い",      axes:{ motion:-0.8, density: 0.1, material: 0.0, pressure: 0.2 } },
-        { word:"薄い",      axes:{ motion: 0.1, density:-0.7, material:-0.3, pressure:-0.5 } },
-        { word:"厚い",      axes:{ motion:-0.2, density: 0.7, material: 0.2, pressure: 0.4 } },
-        { word:"こもる",    axes:{ motion:-0.5, density: 0.5, material: 0.4, pressure: 0.6 } },
-        { word:"抜ける",    axes:{ motion: 0.5, density:-0.6, material:-0.2, pressure:-0.5 } }
+        "もう少しだけ、近いものを選ぶ"
       ];
 
       const _now = new Date();
@@ -1318,7 +1287,6 @@
         pending: null,
         senseRound: 0,
         selectedWords: [],
-        senseCoverage: { motion: 0, density: 0, material: 0, pressure: 0 },
         lastBreathPhase: "",
         t: 0,
         dpr: 1,
@@ -1352,8 +1320,7 @@
 
       function maybeSeedPersonalRecords(records) {
         const alreadySeeded = !!localStorage.getItem(SEED_KEY);
-        const hasSenseData  = records.length > 0 && !!records[0]?.senseVector;
-        if (alreadySeeded && hasSenseData) return records;
+        if (alreadySeeded && records.length > 0) return records;
         const source = window.MY_SKIN_DATA?.records || [];
         if (!source.length) return records;
         try {
@@ -1446,133 +1413,10 @@
         return "night";
       }
 
-      function getWordEntry(word) {
-        return SENSE_WORDS.find(e => e.word === word) || null;
-      }
-
-      function wordAxes(word) {
-        return getWordEntry(word)?.axes || { motion: 0, density: 0, material: 0, pressure: 0 };
-      }
-
-      function computeSenseVector(words) {
-        const sv = { motion: 0, density: 0, material: 0, pressure: 0 };
-        if (!words || !words.length) return sv;
-        for (const w of words) {
-          const ax = wordAxes(w);
-          for (const a of SENSE_AXES) sv[a] += ax[a];
-        }
-        for (const a of SENSE_AXES) sv[a] = clamp(sv[a] / words.length, -1, 1);
-        return sv;
-      }
-
-      function computeVisualBias(sv) {
-        const m = sv.motion || 0, d = sv.density || 0;
-        const mat = sv.material || 0, p = sv.pressure || 0;
-        const absM = Math.abs(m), absMat = Math.abs(mat);
-
-        // motion: flux / breath / edge activity / slight alpha
-        const fluxBias        = clamp(m * 0.16, -0.20, 0.20);
-        const breathSpeedBias = clamp(m * 0.24, -0.26, 0.26);
-
-        // material: warmth (cold/dry → cooler amplified, hot/wet → warmer)
-        const warmthFromMat = mat < 0 ? mat * 0.42 : mat * 0.34;
-        const warmthFromPressure = p > 0 ? p * 0.08 : p * -0.06;
-
-        // material: contrast / boundary / edge hardness (cold/dry = harder, hot/wet = softer)
-        const contrastBias = mat < 0
-          ? clamp(absMat * 0.16, 0, 0.22)
-          : clamp(mat * -0.08, -0.18, 0);
-        const matBoundary  = mat < 0
-          ? clamp(absMat * 0.16, 0, 0.20)
-          : clamp(mat * -0.10, -0.16, 0);
-        const edgeHardnessBias = clamp(
-          mat < 0 ? absMat * 0.20 : mat * -0.16,
-          -0.24, 0.24
-        );
-
-        return {
-          fluxBias,
-          breathSpeedBias,
-          alphaBias:       clamp(m * 0.02 + d * 0.11 + p * 0.08, -0.18, 0.24),
-          radiusBias:      clamp(d * 0.24 + p * 0.14, -0.32, 0.42),
-          heightBias:      clamp(d * 16 + p * 18, -26, 36),
-          spreadBias:      clamp(d * -0.18 + (mat > 0 ? mat * 0.10 : 0) + p * -0.15, -0.30, 0.30),
-          warmthBias:      clamp(warmthFromMat + warmthFromPressure, -0.42, 0.38),
-          contrastBias,
-          boundaryBias:    clamp(absM * 0.10 + matBoundary, -0.16, 0.22),
-          rustBias:        mat > 0 ? clamp(mat * 0.12, 0, 0.30) : 0,
-          edgeHardnessBias
-        };
-      }
-
-      function getRecordSV(rec) {
-        if (rec.senseVector) return rec.senseVector;
-        if (rec.selectedWords?.length) {
-          const sv = { motion: 0, density: 0, material: 0, pressure: 0 };
-          rec.selectedWords.forEach(w => {
-            const e = getWordEntry(w);
-            if (e) SENSE_AXES.forEach(a => sv[a] += e.axes[a]);
-          });
-          const n = rec.selectedWords.length;
-          SENSE_AXES.forEach(a => sv[a] = clamp(sv[a] / n, -1, 1));
-          return sv;
-        }
-        if (rec.word) {
-          const e = getWordEntry(rec.word);
-          if (e) return e.axes;
-        }
-        return { motion: 0, density: 0, material: 0, pressure: 0 };
-      }
-
-      function needsThirdRound(coverage) {
-        const vals = Object.values(coverage);
-        const max = Math.max(...vals);
-        return max > 0 && Math.min(...vals) < max * 0.28;
-      }
-
-      function wordVecDot(a, b) {
-        return SENSE_AXES.reduce((s, ax) => s + a[ax] * b[ax], 0);
-      }
-
-      function pickRoundWords(round, seenWords, coverage) {
-        const available = SENSE_WORDS.filter(e => !seenWords.includes(e.word));
-        if (!available.length) return [];
-        if (round === 0) {
-          const shuffled = [...available].sort(() => Math.random() - 0.5);
-          const result = [];
-          const usedDominant = new Set();
-          for (const e of shuffled) {
-            if (result.length >= 3) break;
-            const dom = SENSE_AXES.reduce((best, ax) =>
-              Math.abs(e.axes[ax]) > Math.abs(e.axes[best]) ? ax : best, SENSE_AXES[0]);
-            if (!usedDominant.has(dom)) { result.push(e); usedDominant.add(dom); }
-          }
-          for (const e of shuffled) {
-            if (result.length >= 3) break;
-            if (!result.includes(e)) result.push(e);
-          }
-          return result.slice(0, 3).map(e => e.word);
-        }
-        const weakest = SENSE_AXES.reduce((w, ax) => coverage[ax] < coverage[w] ? ax : w, SENSE_AXES[0]);
-        const scored = available.map(e => {
-          const axBonus = Math.abs(e.axes[weakest]) * 2.2;
-          const novelty = seenWords.reduce((s, sw) => {
-            const se = getWordEntry(sw);
-            return se ? s + Math.max(0, wordVecDot(e.axes, se.axes)) : s;
-          }, 0);
-          return { e, score: axBonus - novelty * 0.5 + Math.random() * 0.35 };
-        }).sort((a, b) => b.score - a.score);
-        const picked = [];
-        for (const { e } of scored) {
-          if (picked.length >= 3) break;
-          const tooClose = picked.some(p => wordVecDot(e.axes, p.axes) > 0.68);
-          if (!tooClose) picked.push(e);
-        }
-        for (const { e } of scored) {
-          if (picked.length >= 3) break;
-          if (!picked.includes(e)) picked.push(e);
-        }
-        return picked.slice(0, 3).map(e => e.word);
+      function pickRoundWords(seenWords) {
+        const available = SENSE_WORD_LIST.filter(w => !seenWords.includes(w));
+        const shuffled = [...available].sort(() => Math.random() - 0.5);
+        return shuffled.slice(0, 3);
       }
 
       function recordBaseVisual(record) {
@@ -1593,38 +1437,7 @@
           boundary: clamp(flux * 0.16 + (movement === "passing" ? 0.04 : 0), 0, VISUAL_LIMITS.boundaryAlpha),
           breathSpeed: clamp(1 - flux * 0.08 + (slot === "night" ? -0.06 : 0), 0.65, 1.2),
           radiusBias: clamp((noise - 0.45) * 0.18 + peak * 0.08, -0.16, 0.28),
-          rust: clamp((flux - 0.46) * 0.2 + (noise - 0.68) * 0.12, 0, 0.18),
-          heightBias: clamp((noise - 0.45) * 16 + peak * 8, -12, 18),
-          edgeHardness: 0
-        };
-      }
-
-      function applyWordBias(base, recordOrWord) {
-        let vb;
-        if (typeof recordOrWord === "string") {
-          const e = getWordEntry(recordOrWord);
-          if (e) vb = computeVisualBias(e.axes);
-        } else if (recordOrWord?.visualBias) {
-          vb = recordOrWord.visualBias;
-        } else if (recordOrWord?.senseVector) {
-          vb = computeVisualBias(recordOrWord.senseVector);
-        } else if (recordOrWord?.word) {
-          const e = getWordEntry(recordOrWord.word);
-          if (e) vb = computeVisualBias(e.axes);
-        }
-        if (!vb) return base;
-        return {
-          strength:   clamp(base.strength   + (vb.alphaBias      ?? 0), 0.04, VISUAL_LIMITS.strength),
-          flux:       clamp(base.flux        + (vb.fluxBias       ?? 0), 0, VISUAL_LIMITS.flux),
-          contrast:   clamp(base.contrast    + (vb.contrastBias   ?? 0), 0, VISUAL_LIMITS.contrast),
-          warmth:     clamp(base.warmth      + (vb.warmthBias     ?? 0), -0.35, 0.35),
-          spread:     clamp(base.spread  * (1 + (vb.spreadBias    ?? 0)), 0.65, 1.35),
-          boundary:   clamp(base.boundary    + (vb.boundaryBias   ?? 0), 0, VISUAL_LIMITS.boundaryAlpha),
-          breathSpeed:clamp(base.breathSpeed * (1 + (vb.breathSpeedBias ?? 0)), 0.65, 1.2),
-          radiusBias:   clamp((base.radiusBias   ?? 0) + (vb.radiusBias        ?? 0), -0.24, 0.44),
-          rust:         clamp((base.rust         ?? 0) + (vb.rustBias          ?? 0), 0, 0.28),
-          heightBias:   clamp((base.heightBias   ?? 0) + (vb.heightBias        ?? 0), -24, 32),
-          edgeHardness: clamp((base.edgeHardness ?? 0) + (vb.edgeHardnessBias  ?? 0), -0.24, 0.24)
+          heightBias: clamp((noise - 0.45) * 16 + peak * 8, -12, 18)
         };
       }
 
@@ -1642,13 +1455,10 @@
         const c = clamp(params.contrast, 0, 1);
         const b = clamp(params.boundary, 0, 1);
         const f = clamp(params.flux, 0, 1);
-        const eh = clamp(params.edgeHardness ?? 0, -0.16, 0.16);
         if (s < GRID_VISUAL.strengthCutoff) return clamp(0.012 + c * 0.035, GRID_VISUAL.minAlpha, 0.045);
-        const sExp = 1.18 + eh * 0.6;
-        const sMul = 0.48 + eh * 0.10;
         return clamp(
           0.018 +
-          Math.pow(s, sExp) * sMul +
+          Math.pow(s, 1.18) * 0.48 +
           Math.pow(c, 1.05) * 0.16 +
           Math.pow(b, 1.05) * 0.14 +
           Math.pow(f, 1.2) * 0.08,
@@ -1675,23 +1485,14 @@
       function getDotColor(params) {
         const s = clamp(params.strength, 0, 1);
         const w = clamp(params.warmth, -0.35, 0.35);
-        const rust = clamp(params.rust ?? 0, 0, 0.28);
-        if (s < GRID_VISUAL.strengthCutoff) {
-          const vp = clamp(params.sensePressure || 0, -1, 1);
-          if (vp > 0.08)  return mixColor(GRID_VISUAL.colors.void, GRID_VISUAL.colors.voidWarm, vp * 0.55);
-          if (vp < -0.08) return mixColor(GRID_VISUAL.colors.void, GRID_VISUAL.colors.voidCool, Math.abs(vp) * 0.55);
-          return GRID_VISUAL.colors.void;
-        }
+        if (s < GRID_VISUAL.strengthCutoff) return GRID_VISUAL.colors.void;
         const coldT = Math.pow(Math.abs(w) / 0.35, 0.58);
         const warmT = Math.pow(w / 0.35, 0.58);
         let color = w < 0
           ? mixColor(GRID_VISUAL.colors.neutral, GRID_VISUAL.colors.cold, coldT)
           : mixColor(GRID_VISUAL.colors.neutral, GRID_VISUAL.colors.warm, warmT);
-        const motionBright = clamp((params.senseMotion || 0) * 0.12, -0.10, 0.10);
         const brightTarget = w < 0 ? GRID_VISUAL.colors.bright : GRID_VISUAL.colors.warmBright;
-        color = mixColor(color, brightTarget, clamp(s * (0.38 + motionBright), 0, 0.50));
-        if (rust > 0) color = mixColor(color, GRID_VISUAL.colors.rust, rust * 1.2);
-        if (params.contrast > 0.22 && w < -0.03) color = mixColor(color, GRID_VISUAL.colors.violet, 0.18);
+        color = mixColor(color, brightTarget, clamp(s * 0.38, 0, 0.50));
         return color;
       }
 
@@ -2232,7 +2033,6 @@
           createdAt: date.toISOString()
         };
         state.selectedWords = [];
-        state.senseCoverage = { motion: 0, density: 0, material: 0, pressure: 0 };
         state.senseRound = 0;
         openRecordModal();
         pressTarget.style.setProperty("--breath-scale", "1");
@@ -2263,7 +2063,7 @@
         prompt.className = "sense-round-prompt";
         prompt.textContent = ROUND_PROMPTS[Math.min(round, ROUND_PROMPTS.length - 1)];
         labelSelect.appendChild(prompt);
-        const words = pickRoundWords(round, state.selectedWords, state.senseCoverage);
+        const words = pickRoundWords(state.selectedWords);
         const positions = [
           { left: "50%", top: "24%" },
           { left: "27%", top: "56%" },
@@ -2292,14 +2092,9 @@
       }
 
       function onWordSelected(word) {
-        if (word !== null) {
-          state.selectedWords.push(word);
-          const ax = wordAxes(word);
-          for (const a of SENSE_AXES) state.senseCoverage[a] += Math.abs(ax[a]);
-        }
+        if (word !== null) state.selectedWords.push(word);
         const next = state.senseRound + 1;
-        const maxRound = next >= 2 && !needsThirdRound(state.senseCoverage) ? 1 : 2;
-        if (next > maxRound) { finalizeSense(); return; }
+        if (next >= ROUND_PROMPTS.length) { finalizeSense(); return; }
         state.senseRound = next;
         renderLabelSelect();
       }
@@ -2316,17 +2111,12 @@
 
       function savePending() {
         if (!state.pending) return;
-        const senseVector = computeSenseVector(state.selectedWords);
-        const visualBias = computeVisualBias(senseVector);
         state.pending.word = state.selectedWords[0] || null;
         state.pending.selectedWords = [...state.selectedWords];
-        state.pending.senseVector = senseVector;
-        state.pending.visualBias = visualBias;
         state.personalRecords.push(state.pending);
         saveRecords();
         state.pending = null;
         state.selectedWords = [];
-        state.senseCoverage = { motion: 0, density: 0, material: 0, pressure: 0 };
         state.senseRound = 0;
         recordModal.classList.remove("active");
         rebuildGrids();
@@ -2337,7 +2127,6 @@
       function discardPending() {
         state.pending = null;
         state.selectedWords = [];
-        state.senseCoverage = { motion: 0, density: 0, material: 0, pressure: 0 };
         state.senseRound = 0;
         recordModal.classList.remove("active");
       }
@@ -2531,8 +2320,7 @@
         config.actualDotSpacingMeters = spacing;
         const visibleRecords = records.slice(0, PERF.maxVisibleRecords).map(rec => {
           const m = latLngToMeters(rec, origin);
-          const visual = applyWordBias(recordBaseVisual(rec), rec);
-          const sv = getRecordSV(rec);
+          const visual = recordBaseVisual(rec);
           return {
             ...rec,
             noise: recordNoise(rec),
@@ -2543,8 +2331,7 @@
             mx: m.dx,
             my: m.dy,
             tw: temporalWeight(rec),
-            visual,
-            sv
+            visual
           };
         }).filter(rec => (
           rec.tw > 0.025 &&
@@ -2583,10 +2370,7 @@
             let boundary = 0;
             let breathSpeed = 0;
             let radiusBias = 0;
-            let rust = 0;
             let heightBias = 0;
-            let edgeHardness = 0;
-            let senseMotion = 0, senseDensity = 0, senseMaterial = 0, sensePressure = 0;
             const bx = Math.floor(mx / cellSize);
             const by = Math.floor(my / cellSize);
             for (let oy = -2; oy <= 2; oy++) {
@@ -2610,13 +2394,7 @@
                   boundary += w * rec.visual.boundary;
                   breathSpeed += w * rec.visual.breathSpeed;
                   radiusBias += w * rec.visual.radiusBias;
-                  rust += w * rec.visual.rust;
                   heightBias += w * rec.visual.heightBias;
-                  edgeHardness += w * (rec.visual.edgeHardness ?? 0);
-                  senseMotion   += w * (rec.sv.motion   || 0);
-                  senseDensity  += w * (rec.sv.density  || 0);
-                  senseMaterial += w * (rec.sv.material || 0);
-                  sensePressure += w * (rec.sv.pressure || 0);
                 }
               }
             }
@@ -2641,7 +2419,6 @@
               boundary: normalizedBoundary,
               breathSpeed: sum ? clamp(breathSpeed / sum, 0.65, 1.2) : 1,
               radiusBias: sum ? clamp(radiusBias / sum, -0.24, 0.44) : 0,
-              rust: sum ? clamp(rust / sum, 0, 0.28) : 0,
               heightBias: normalizedHeightBias,
               height: getDotHeight({
                 strength: normalizedStrength,
@@ -2649,11 +2426,6 @@
                 boundary: normalizedBoundary,
                 heightBias: normalizedHeightBias
               }) * config.heightScale,
-              edgeHardness:  sum ? clamp(edgeHardness  / sum, -0.24, 0.24) : 0,
-              senseMotion:   sum ? clamp(senseMotion   / sum, -1, 1) : 0,
-              senseDensity:  sum ? clamp(senseDensity  / sum, -1, 1) : 0,
-              senseMaterial: sum ? clamp(senseMaterial / sum, -1, 1) : 0,
-              sensePressure: sum ? clamp(sensePressure / sum, -1, 1) : 0,
               contrast: 0
             });
           }
@@ -2731,31 +2503,20 @@
             strength: cell.strength,
             flux: cell.flux,
             contrast: cell.contrast,
-            warmth: clamp(cell.warmth + hourWarmth * 0.12 + (cell.localContrast || 0) * 0.04 + (cell.senseMaterial || 0) * 0.12 + (cell.sensePressure > 0 ? (cell.sensePressure || 0) * 0.04 : (cell.sensePressure || 0) * -0.03), -0.35, 0.35),
+            warmth: clamp(cell.warmth + hourWarmth * 0.12 + (cell.localContrast || 0) * 0.04, -0.35, 0.35),
             boundary: cell.boundary,
             breathSpeed: cell.breathSpeed,
             radiusBias: cell.radiusBias,
-            rust: clamp(cell.rust + Math.max(0, cell.flux - 0.5) * 0.12 + cell.boundary * 0.16 + Math.max(0, (cell.senseMaterial || 0)) * 0.06, 0, 0.28),
-            heightBias: cell.heightBias,
-            edgeHardness: clamp((cell.edgeHardness ?? 0) + ((cell.senseMaterial || 0) > 0.04 ? (cell.senseMaterial || 0) * -0.20 : (cell.senseMaterial || 0) < -0.04 ? (cell.senseMaterial || 0) * 0.16 : 0), -0.28, 0.28),
-            senseMotion:    cell.senseMotion    || 0,
-            sensePressure:  cell.sensePressure  || 0,
-            senseDensity:   cell.senseDensity   || 0
+            heightBias: cell.heightBias
           };
-          const sd = cell.senseDensity || 0;
-          const baseSkinAlpha = clamp(0.010 + sd * 0.005, 0.005, 0.016);
-          const edgeSharp = 1 + Math.max(0, sd) * 0.85;
+          const baseSkinAlpha = 0.010;
           const rawAlpha = cell.strength < GRID_VISUAL.strengthCutoff
             ? baseSkinAlpha + getDotAlpha(params) * 0.22
-            : baseSkinAlpha + getDotAlpha(params) + (cell.localContrast || 0) * 0.14 * edgeSharp;
+            : baseSkinAlpha + getDotAlpha(params) + (cell.localContrast || 0) * 0.14;
           const depth = clamp(1.02 - (surfaceY / Math.max(1, state.height)) * 0.16, 0.86, 1.02);
           const aMul = cell.strength >= GRID_VISUAL.strengthCutoff ? DOT_VISUAL_TUNING.activeAlphaMul : DOT_VISUAL_TUNING.alphaMul;
           const nightMul = lerp(1, DOT_VISUAL_TUNING.nightAlphaBoost, nightBoost);
-          const rawAlphaClamped = clamp(rawAlpha * aMul * nightMul * depth * config.alphaScale, GRID_VISUAL.minAlpha, DOT_VISUAL_TUNING.maxAlpha);
-          const matGrain = (cell.senseMaterial || 0) < 0
-            ? (Math.sin(cell.col * 13.7 + cell.row * 7.3) * 0.5) * Math.abs(cell.senseMaterial || 0) * 0.026
-            : 0;
-          const alpha = clamp(rawAlphaClamped + matGrain, GRID_VISUAL.minAlpha, DOT_VISUAL_TUNING.maxAlpha);
+          const alpha = clamp(rawAlpha * aMul * nightMul * depth * config.alphaScale, GRID_VISUAL.minAlpha, DOT_VISUAL_TUNING.maxAlpha);
           const radius = clamp(getDotRadius(params), DOT_DENSITY_VISUAL.minRadiusPx, DOT_DENSITY_VISUAL.maxRadiusPx);
           const color = getDotColor(params);
           const heightScale = state.mapReady ? 0.36 * Math.sin(state.map.getPitch() * Math.PI / 180) : 0.2;
@@ -2779,16 +2540,6 @@
             ctx.moveTo(surfaceX, surfaceY);
             ctx.lineTo(x, y);
             ctx.stroke();
-          }
-          const eh = params.edgeHardness ?? 0;
-          if (eh < -0.02) {
-            const absEh = Math.abs(eh);
-            const haloR = radius + 0.55 + absEh * 4.0;
-            const haloA = clamp(0.014 + absEh * 0.18, 0, 0.16);
-            ctx.fillStyle = `rgba(${color.r}, ${color.g}, ${color.b}, ${haloA})`;
-            ctx.beginPath();
-            ctx.arc(x, y, haloR, 0, Math.PI * 2);
-            ctx.fill();
           }
           ctx.fillStyle = `rgba(${color.r}, ${color.g}, ${color.b}, ${alpha})`;
           ctx.beginPath();
@@ -2850,7 +2601,6 @@
             warmth: from.warmth + (cell.warmth - from.warmth) * t,
             boundary: from.boundary + (cell.boundary - from.boundary) * t,
             radiusBias: from.radiusBias + (cell.radiusBias - from.radiusBias) * t,
-            rust: from.rust + (cell.rust - from.rust) * t,
             heightBias: from.heightBias + (cell.heightBias - from.heightBias) * t,
             height: from.height + (cell.height - from.height) * t
           };
@@ -3032,7 +2782,7 @@
           for (const w of ws) wordCounts.set(w, (wordCounts.get(w) || 0) + 1);
         }
         const usedWords = [...wordCounts.entries()].sort((a, b) => b[1] - a[1]);
-        const showWords = usedWords.length ? usedWords : SENSE_WORDS.slice(0, 8).map(e => [e.word, 0]);
+        const showWords = usedWords.length ? usedWords : SENSE_WORD_LIST.slice(0, 8).map(w => [w, 0]);
         for (const [word, count] of showWords) {
           const cell = document.createElement("div");
           cell.className = "tag-cell" + (count ? " active" : "");

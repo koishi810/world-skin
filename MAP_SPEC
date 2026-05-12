@@ -1,6 +1,6 @@
 # MAP_SPEC
 
-更新时间：2026-05-11
+更新时间：2026-05-13
 依据：`guide book`：《世界皮肤 / World Skin》项目说明书 v0.2。
 
 ## 项目定位
@@ -266,19 +266,11 @@
   - `strength < 0.025` 的节点只绘制暗空洞点。
 - 高斯影响需要设置 cutoff，低于阈值的远距离影响不参与累加，避免整张地图被抹平。
 - sigma 随 zoom 控制在约 `55-150px` 范围内，不超过 `180px`。
-- 主观词不直接显示在地图上，但必须明显影响视觉参数。
-- 主观词影响包括：局部对比偏置、透明度偏置、色温偏置。
-- 主观词只允许影响 `alphaBias / contrastBias / fluxBias / warmthBias / spreadBias / boundaryBias / radiusBias / rustBias / heightBias / breathSpeedBias`，禁止生成文字、图标、marker 或额外图形。
-- 实现顺序必须保持为：`recordBaseVisual(record)` 计算基础参数，`applyWordBias(base, word)` 叠加主观词偏置，`getDotAlpha(params)` 和 `getDotColor(params)` 只在绘制阶段读取最终参数。
-- 当前词语映射：
-  - `ざらつく`：增加 contrast / flux / boundary，略偏冷白。
-  - `重い`：增加 alpha / density，略偏灰锈，降低 flux。
-  - `浮く`：降低 alpha / contrast，略扩散，偏蓝灰，边界更软。
-  - `乾く`：中低 alpha，增加 contrast / boundary，偏暖灰。
-  - `遠い`：降低 alpha / contrast，影响范围扩大但很淡，偏冷。
-  - `詰まる`：增加 alpha / contrast / boundary，影响范围收窄，轻微偏锈红。
-  - `ほどける`：降低 alpha / contrast / boundary，范围略扩，过渡更平滑。
-  - `眠い`：降低 alpha / flux / contrast，偏蓝灰或灰紫，透明度呼吸更慢。
+- 主观词不直接显示在地图上。
+- 主观词目前只存储在记录中，用于 tagGrid 统计；**不影响任何视觉参数**（已回退，待重设计）。
+- 当前渲染管线：`recordBaseVisual(record)` 计算基础参数，直接进入 `getDotAlpha(params)` 和 `getDotColor(params)`；无词语偏置层。
+
+**视觉通道重设计留空。** 当前只有：`noise + flux + time-of-day → strength / contrast / warmth / boundary → alpha / radius / cold/neutral/warm color / height`。下一阶段将在此基础上重新定义感知→视觉映射。
 - World Map 使用真实地图边缘用于确认空间结构；地名不显示，避免变成普通导航地图。
 - My Radius 可以复用同一网格系统，但数据源必须是本机个人记录。
 
@@ -290,9 +282,9 @@
 4. 根据当前 MapLibre 视口反投影得到地理范围，在局部米制坐标中生成规则地理网格。
 5. 每个网格点转回 `lng / lat` 后使用 MapLibre `project([lng, lat])` 投影到屏幕，因此点阵贴合 pitch / bearing 后的地图表面。
 6. 记录先在局部米制坐标中进入 spatial hash，再按附近 cells 查询，用高斯衰减累加影响。
-7. 将影响场转换为 `strength / flux / noise / wordBias`。
+7. 将影响场转换为 `strength / flux / warmth / boundary`。
 8. 计算相邻节点差异，得到 `contrast`，用于突出附近环境变化。
-9. 根据 `strength / flux / contrast / wordBias` 计算节点 alpha、色温、radius 和静态 height。
+9. 根据 `strength / flux / contrast` 计算节点 alpha、色温、radius 和静态 height。
 10. 使用 height 产生克制的屏幕上移偏移，模拟皮肤表面的静态起伏；不绘制柱状图，不绘制山峰，不绘制热力渐变。
 11. 真实地图道路/地块/水系边缘在点阵下方显示，并随缩放层级增强。
 12. World Map 使用预设聚合数据；My Radius 使用 `localStorage` 中的个人数据。

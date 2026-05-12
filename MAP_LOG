@@ -1,5 +1,65 @@
 # MAP_LOG
 
+## Rollback: 清除感知轴与视觉通道 / 2026-05-13
+
+### 目标
+
+清空感知维度系统，回退到只有声音+位置数据的干净基础，方便后续重新设计视觉系统。
+
+### 问题
+
+- 4 轴感知向量（motion / density / material / pressure）+ 14 个视觉通道映射方向过于复杂
+- 视觉差异化效果不足，难以验证轴-通道映射是否正确
+- 需要从清洁底板出发重新设计感知→视觉管线
+
+### Changes
+
+**`test0.2.html`**
+
+- 移除 `SENSE_AXES`（4 轴常量数组）
+- 移除 `SENSE_WORDS`（32 词 + axes 向量）；替换为无 axes 的平铺词表 `SENSE_WORD_LIST`
+- `ROUND_PROMPTS` 从 3 轮缩减为 2 轮
+- 移除函数：`getWordEntry / wordAxes / computeSenseVector / computeVisualBias / getRecordSV / needsThirdRound / wordVecDot`
+- 简化 `pickRoundWords(seenWords)`：只做随机挑选，无轴评分
+- 简化 `recordBaseVisual()`：删除 `edgeHardness` 字段
+- 删除 `applyWordBias()`；`buildGeoGridField` 直接调用 `recordBaseVisual(rec)`
+- 简化 `getDotAlpha()`：删除 `edgeHardness` 参数分支
+- 简化 `getDotColor()`：删除 `sensePressure` void 着色、`senseMotion` 亮度、`rust`、`violet` 混合
+- `buildGeoGridField` 内循环：删除 `edgeHardness / senseMotion / senseDensity / senseMaterial / sensePressure` 累加；cells 不再携带这 5 个字段
+- `drawGridTexture` params：删除 `edgeHardness / senseMotion / sensePressure / senseDensity`；删除 `matGrain / edgeSharp / baseSkinAlpha` 计算；删除 halo 渲染块
+- `onWordSelected()`：删除 coverage 轴跟踪
+- `savePending()`：删除 `computeSenseVector / computeVisualBias`；不再写 `senseVector / visualBias`
+- `discardPending()`：删除 `senseCoverage` 重置
+- state 对象：删除 `senseCoverage`
+- 种子逻辑：删除 `hasSenseData` 检查，改为只检查 `alreadySeeded && records.length > 0`
+- `SEED_KEY` 从 `r2` 升到 `r3`（强制用新格式 my_data 重新播种）
+
+**`world_data.js`**
+
+- 移除 `SENSE_RANGES / PERSONAS` 常量
+- 移除 `senseForZone() / pickSelectedWords()` 函数
+- `pushRecord()` 不再生成 `senseVector / selectedWords / persona` 字段
+- 数据字段：只保留 `id / userId / lat / lng / timestamp / hour / weekday / noiseLevel / turbulence / peak / mobility / direction / duration / word / trustScore / zoneId / source / noise / flux / movement / distance / slot / createdAt`
+
+**`my_data.js`**
+
+- 移除全部 48 条记录中的 `senseVector / selectedWords`
+- 数据字段：只保留位置 + 声音 + 时间 + 一个 word
+
+### Files Modified
+
+- `test0.2.html`
+- `world_data.js`
+- `my_data.js`
+- `MAP_LOG`
+- `MAP_SPEC`
+
+### Known Limitations
+
+- 视觉系统现在只有 `noise + flux + time-of-day → strength / contrast / warmth / boundary → alpha / radius / color / height`，差异化有限
+- 词语仍然存储在记录中（用于 tagGrid 统计），但不影响任何视觉参数
+- 视觉系统重设计留空，待下一阶段规划
+
 ## Sense Word Selection Prototype / 2026-05-12
 
 ### Problems
