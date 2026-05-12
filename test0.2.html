@@ -1177,21 +1177,25 @@
         region: {
           alphaScale: 0.75, heightScale: 0.55, sigmaScale: 0.62, contrastScale: 0.72,
           boundaryScale: 0.50, rasterContrastBase: 0.10, densityBias: 0.88,
+          maxInfluenceDist: 260,
           showSmallIslands: false, showLocalRecordDetail: false, showVoidLarge: true, showBoundary: false
         },
         area: {
           alphaScale: 1.00, heightScale: 0.85, sigmaScale: 0.82, contrastScale: 0.95,
           boundaryScale: 0.78, rasterContrastBase: 0.18, densityBias: 1.00,
+          maxInfluenceDist: 160,
           showSmallIslands: true, showLocalRecordDetail: false, showVoidLarge: true, showBoundary: true
         },
         neighborhood: {
           alphaScale: 1.08, heightScale: 0.95, sigmaScale: 0.95, contrastScale: 1.05,
           boundaryScale: 0.95, rasterContrastBase: 0.24, densityBias: 1.06,
+          maxInfluenceDist: 90,
           showSmallIslands: true, showLocalRecordDetail: true, showVoidLarge: true, showBoundary: true
         },
         street: {
           alphaScale: 1.10, heightScale: 0.80, sigmaScale: 0.72, contrastScale: 1.12,
           boundaryScale: 1.08, rasterContrastBase: 0.30, densityBias: 1.10,
+          maxInfluenceDist: 50,
           showSmallIslands: true, showLocalRecordDetail: true, showVoidLarge: false, showBoundary: true
         }
       };
@@ -1839,6 +1843,7 @@
           boundaryScale:         lerp(a.boundaryScale,         b.boundaryScale,         t),
           rasterContrastBase:    lerp(a.rasterContrastBase,    b.rasterContrastBase,    t),
           densityBias:           lerp(a.densityBias || 1,      b.densityBias || 1,      t),
+          maxInfluenceDist:      lerp(a.maxInfluenceDist,      b.maxInfluenceDist,      t),
           showSmallIslands:      t >= 0.5 ? b.showSmallIslands      : a.showSmallIslands,
           showLocalRecordDetail: t >= 0.5 ? b.showLocalRecordDetail : a.showLocalRecordDetail,
           showVoidLarge:         t >= 0.5 ? b.showVoidLarge         : a.showVoidLarge,
@@ -2419,7 +2424,7 @@
           influenceCutoff: GRID_VISUAL.influenceCutoff,
           maxDots,
           minDots: DOT_DENSITY_VISUAL.minDotsVisible,
-          maxInfluenceDistance: clamp(sigmaMeters * 2.4, 140, 300)
+          maxInfluenceDistance: preset.maxInfluenceDist
         };
       }
 
