@@ -1076,10 +1076,11 @@
 
   <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
   <script src="world_data.js"></script>
+  <script src="my_data.js"></script>
   <script>
     (() => {
       const STORAGE_KEY = "world-skin-v02-records";
-      const SEED_KEY = "world-skin-v02-seeded";
+      const SEED_KEY = "world-skin-v02-seeded-r2";
       const DURATION = 10000;
       const BREATH_VISUAL = {
         durationMs:  10000,
@@ -1174,12 +1175,12 @@
       const ZOOM_ORDER = ["region", "area", "neighborhood", "street"];
       const ZOOM_VISUAL_PRESETS = {
         region: {
-          alphaScale: 0.75, heightScale: 0.55, sigmaScale: 1.55, contrastScale: 0.72,
+          alphaScale: 0.75, heightScale: 0.55, sigmaScale: 0.62, contrastScale: 0.72,
           boundaryScale: 0.50, rasterContrastBase: 0.10, densityBias: 0.88,
           showSmallIslands: false, showLocalRecordDetail: false, showVoidLarge: true, showBoundary: false
         },
         area: {
-          alphaScale: 1.00, heightScale: 0.85, sigmaScale: 1.18, contrastScale: 0.95,
+          alphaScale: 1.00, heightScale: 0.85, sigmaScale: 0.82, contrastScale: 0.95,
           boundaryScale: 0.78, rasterContrastBase: 0.18, densityBias: 1.00,
           showSmallIslands: true, showLocalRecordDetail: false, showVoidLarge: true, showBoundary: true
         },
@@ -1342,43 +1343,17 @@
 
       app.dataset.view = state.view;
 
-      const SEED_PERSONAL_RECORDS = [
-        { id:"sp01", userId:"self-demo", lat:35.7014, lng:139.4832, timestamp:"2026-05-06T07:22:00Z", hour:7.4,  weekday:2, noiseLevel:0.44, turbulence:0.28, peak:0.62, mobility:"passing", direction:210, duration:10, word:"ざらつく",  trustScore:0.9 },
-        { id:"sp02", userId:"self-demo", lat:35.7001, lng:139.4816, timestamp:"2026-05-06T08:05:00Z", hour:8.1,  weekday:2, noiseLevel:0.52, turbulence:0.34, peak:0.71, mobility:"passing", direction:195, duration:10, word:"詰まる",   trustScore:0.9 },
-        { id:"sp03", userId:"self-demo", lat:35.6992, lng:139.4803, timestamp:"2026-05-06T18:40:00Z", hour:18.7, weekday:2, noiseLevel:0.48, turbulence:0.30, peak:0.66, mobility:"slow",    direction:30,  duration:10, word:"遠い",     trustScore:0.9 },
-        { id:"sp04", userId:"self-demo", lat:35.7007, lng:139.4822, timestamp:"2026-05-07T07:18:00Z", hour:7.3,  weekday:3, noiseLevel:0.46, turbulence:0.25, peak:0.60, mobility:"passing", direction:205, duration:10, word:"ざらつく",  trustScore:0.9 },
-        { id:"sp05", userId:"self-demo", lat:35.7019, lng:139.4798, timestamp:"2026-05-07T19:10:00Z", hour:19.2, weekday:3, noiseLevel:0.22, turbulence:0.14, peak:0.38, mobility:"slow",    direction:350, duration:10, word:"眠い",     trustScore:0.9 },
-        { id:"sp06", userId:"self-demo", lat:35.7088, lng:139.4762, timestamp:"2026-05-05T11:30:00Z", hour:11.5, weekday:1, noiseLevel:0.31, turbulence:0.22, peak:0.45, mobility:"still",   direction:0,   duration:10, word:"重い",     trustScore:0.9 },
-        { id:"sp07", userId:"self-demo", lat:35.7095, lng:139.4748, timestamp:"2026-05-05T13:15:00Z", hour:13.3, weekday:1, noiseLevel:0.28, turbulence:0.18, peak:0.40, mobility:"still",   direction:0,   duration:10, word:"ほどける", trustScore:0.9 },
-        { id:"sp08", userId:"self-demo", lat:35.7102, lng:139.4736, timestamp:"2026-05-06T12:00:00Z", hour:12.0, weekday:2, noiseLevel:0.33, turbulence:0.20, peak:0.48, mobility:"slow",    direction:270, duration:10, word:"乾く",     trustScore:0.9 },
-        { id:"sp09", userId:"self-demo", lat:35.7079, lng:139.4755, timestamp:"2026-05-07T14:45:00Z", hour:14.8, weekday:3, noiseLevel:0.26, turbulence:0.16, peak:0.38, mobility:"still",   direction:0,   duration:10, word:"ほどける", trustScore:0.9 },
-        { id:"sp10", userId:"self-demo", lat:35.7064, lng:139.4839, timestamp:"2026-05-05T15:30:00Z", hour:15.5, weekday:1, noiseLevel:0.14, turbulence:0.10, peak:0.22, mobility:"still",   direction:0,   duration:10, word:"浮く",     trustScore:0.9 },
-        { id:"sp11", userId:"self-demo", lat:35.7058, lng:139.4851, timestamp:"2026-05-06T16:00:00Z", hour:16.0, weekday:2, noiseLevel:0.18, turbulence:0.12, peak:0.28, mobility:"slow",    direction:90,  duration:10, word:"浮く",     trustScore:0.9 },
-        { id:"sp12", userId:"self-demo", lat:35.7049, lng:139.4828, timestamp:"2026-05-08T10:00:00Z", hour:10.0, weekday:4, noiseLevel:0.12, turbulence:0.08, peak:0.20, mobility:"still",   direction:0,   duration:10, word:"遠い",     trustScore:0.9 },
-        { id:"sp13", userId:"self-demo", lat:35.6974, lng:139.4728, timestamp:"2026-05-05T20:10:00Z", hour:20.2, weekday:1, noiseLevel:0.20, turbulence:0.15, peak:0.32, mobility:"slow",    direction:160, duration:10, word:"眠い",     trustScore:0.9 },
-        { id:"sp14", userId:"self-demo", lat:35.6960, lng:139.4712, timestamp:"2026-05-06T21:00:00Z", hour:21.0, weekday:2, noiseLevel:0.16, turbulence:0.10, peak:0.26, mobility:"still",   direction:0,   duration:10, word:"眠い",     trustScore:0.9 },
-        { id:"sp15", userId:"self-demo", lat:35.6982, lng:139.4745, timestamp:"2026-05-07T20:30:00Z", hour:20.5, weekday:3, noiseLevel:0.18, turbulence:0.12, peak:0.29, mobility:"slow",    direction:140, duration:10, word:"ほどける", trustScore:0.9 },
-        { id:"sp16", userId:"self-demo", lat:35.6968, lng:139.4768, timestamp:"2026-05-08T22:15:00Z", hour:22.3, weekday:4, noiseLevel:0.10, turbulence:0.07, peak:0.18, mobility:"still",   direction:0,   duration:10, word:"遠い",     trustScore:0.9 },
-        { id:"sp17", userId:"self-demo", lat:35.7022, lng:139.4860, timestamp:"2026-05-09T09:00:00Z", hour:9.0,  weekday:5, noiseLevel:0.36, turbulence:0.24, peak:0.52, mobility:"passing", direction:180, duration:10, word:"重い",     trustScore:0.9 },
-        { id:"sp18", userId:"self-demo", lat:35.7035, lng:139.4875, timestamp:"2026-05-09T17:50:00Z", hour:17.8, weekday:5, noiseLevel:0.42, turbulence:0.28, peak:0.58, mobility:"passing", direction:0,   duration:10, word:"ざらつく",  trustScore:0.9 },
-        { id:"sp19", userId:"self-demo", lat:35.7118, lng:139.4810, timestamp:"2026-05-10T11:00:00Z", hour:11.0, weekday:6, noiseLevel:0.24, turbulence:0.15, peak:0.35, mobility:"slow",    direction:90,  duration:10, word:"乾く",     trustScore:0.9 },
-        { id:"sp20", userId:"self-demo", lat:35.6945, lng:139.4750, timestamp:"2026-05-10T14:00:00Z", hour:14.0, weekday:6, noiseLevel:0.16, turbulence:0.10, peak:0.24, mobility:"still",   direction:0,   duration:10, word:"浮く",     trustScore:0.9 },
-        { id:"sp21", userId:"self-demo", lat:35.7130, lng:139.4920, timestamp:"2026-05-11T10:30:00Z", hour:10.5, weekday:0, noiseLevel:0.28, turbulence:0.18, peak:0.42, mobility:"slow",    direction:45,  duration:10, word:"乾く",     trustScore:0.9 },
-        { id:"sp22", userId:"self-demo", lat:35.6930, lng:139.4680, timestamp:"2026-05-04T16:00:00Z", hour:16.0, weekday:0, noiseLevel:0.14, turbulence:0.09, peak:0.22, mobility:"passing", direction:270, duration:10, word:"遠い",     trustScore:0.9 },
-        { id:"sp23", userId:"self-demo", lat:35.7155, lng:139.4650, timestamp:"2026-05-03T13:00:00Z", hour:13.0, weekday:6, noiseLevel:0.20, turbulence:0.12, peak:0.30, mobility:"still",   direction:0,   duration:10, word:"ほどける", trustScore:0.9 },
-        { id:"sp24", userId:"self-demo", lat:35.6888, lng:139.4900, timestamp:"2026-05-02T09:30:00Z", hour:9.5,  weekday:5, noiseLevel:0.38, turbulence:0.22, peak:0.54, mobility:"passing", direction:135, duration:10, word:"詰まる",   trustScore:0.9 }
-      ];
-
       function maybeSeedPersonalRecords(records) {
         if (localStorage.getItem(SEED_KEY)) return records;
         if (records.length > 0) return records;
+        const source = window.MY_SKIN_DATA?.records || [];
+        if (!source.length) return records;
         try {
-          const seeded = SEED_PERSONAL_RECORDS.map(r => ({
+          const seeded = source.map(r => ({
             ...r,
             noise: r.noiseLevel,
             flux: r.turbulence,
             movement: r.mobility,
-            direction: r.direction,
             slot: r.hour < 6 ? "night" : r.hour < 12 ? "morning" : r.hour < 18 ? "day" : r.hour < 22 ? "evening" : "night",
             createdAt: r.timestamp
           }));
@@ -2444,7 +2419,7 @@
           influenceCutoff: GRID_VISUAL.influenceCutoff,
           maxDots,
           minDots: DOT_DENSITY_VISUAL.minDotsVisible,
-          maxInfluenceDistance: clamp(sigmaMeters * 3, 180, 420)
+          maxInfluenceDistance: clamp(sigmaMeters * 2.4, 140, 300)
         };
       }
 

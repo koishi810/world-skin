@@ -1007,6 +1007,40 @@
 - `TODO`：已同步为 guide book 驱动的进度清单。
 - `MAP_LOG`：记录本次同步。
 
+## Personal Data Extraction + Influence Radius Fix / 2026-05-12
+
+### Problems
+
+* 24 条模拟个人记录硬编码在 test0.2.html 中，且不包含新感知向量字段
+* 感知词数据为旧格式（单个 word 字段），未反映多轮选择结构
+* 较小缩放级别（region/area）下，Gaussian 影响半径过大，导致全图白化，无法看出记录分布差异
+
+### Changes
+
+* 新建 `my_data.js`，使用 `window.MY_SKIN_DATA = { records: [...] }` 格式
+* 24 条记录全部按新感知逻辑重构：每条包含 selectedWords（3词）、senseVector（4轴均值）、visualBias（由 senseVector 推导）
+* 保留 word 字段（= selectedWords[0]）供旧读取路径 fallback
+* 从 test0.2.html 移除内联 SEED_PERSONAL_RECORDS 常量
+* maybeSeedPersonalRecords() 改为读取 window.MY_SKIN_DATA?.records
+* SEED_KEY 版本号升级为 world-skin-v02-seeded-r2，强制重新写入新结构数据
+* region sigmaScale: 1.55 → 0.62（大幅收紧低缩放级别的影响范围）
+* area sigmaScale: 1.18 → 0.82
+* maxInfluenceDistance: clamp(sigmaMeters * 3, 180, 420) → clamp(sigmaMeters * 2.4, 140, 300)
+
+### Files Modified
+
+* `my_data.js`（新建）
+* `test0.2.html`
+
+### Known Limitations
+
+* 感知词参数为原型值，之后仍需调整
+* sigmaScale 调整后在 region 级别影响密度可能偏稀，需测试验证
+
+### Next Task
+
+* 继续调整感知轴参数和词库
+
 ## 2026-05-11 早前记录
 
 ### 初始化项目指导文件
