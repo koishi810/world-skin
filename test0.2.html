@@ -1,0 +1,2819 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>World Skin Prototype 0.2</title>
+  <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css">
+  <style>
+    :root {
+      --bg: #020304;
+      --panel: rgba(6, 8, 9, 0.72);
+      --line: rgba(214, 224, 226, 0.16);
+      --line-strong: rgba(234, 241, 242, 0.34);
+      --text: #e6ecec;
+      --muted: rgba(230, 236, 236, 0.58);
+      --faint: rgba(230, 236, 236, 0.32);
+      --warm: #d8d0c3;
+      --cold: #a7bcc7;
+      --stress: #9b4a42;
+      --void: #071014;
+      --safe-bottom: env(safe-area-inset-bottom, 0px);
+      --map-overlay-darkness: 0.10;
+    }
+
+    * {
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    html,
+    body {
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      overflow: hidden;
+      overscroll-behavior: none;
+      background: var(--bg);
+      color: var(--text);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "PingFang SC", monospace;
+    }
+
+    body {
+      display: flex;
+      justify-content: center;
+    }
+
+    button {
+      color: inherit;
+      font: inherit;
+    }
+
+    #app {
+      position: relative;
+      width: 100%;
+      max-width: none;
+      height: 100vh;
+      height: 100dvh;
+      overflow: hidden;
+      background:
+        radial-gradient(circle at 48% 48%, rgba(52, 70, 74, 0.18), transparent 44%),
+        #020304;
+      isolation: isolate;
+    }
+
+    #app::after {
+      content: "";
+      position: absolute;
+      left: 80px;
+      right: 12px;
+      top: 12px;
+      bottom: 12px;
+      z-index: 3;
+      border: 1px solid rgba(226, 238, 239, 0.14);
+      border-radius: 8px;
+      pointer-events: none;
+      box-shadow: inset 0 0 0 1px rgba(2, 3, 4, 0.28), inset 0 0 46px rgba(2, 3, 4, 0.16);
+      opacity: 0;
+      transition: opacity 700ms ease;
+    }
+
+    #app[data-view="world"]::after,
+    #app[data-view="radius"]::after {
+      opacity: 1;
+    }
+
+    #realMap {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 0;
+      opacity: 0;
+      filter: brightness(0.42) contrast(1.55) saturate(0.22);
+      transition: opacity 760ms ease;
+      background: #090c11;
+      touch-action: pan-x pan-y;
+    }
+
+    #app.map-ready[data-view="world"] #realMap,
+    #app.map-ready[data-view="radius"] #realMap {
+      opacity: 1;
+    }
+
+    .maplibregl-map {
+      background: #090c11;
+      font: inherit;
+    }
+
+    .maplibregl-canvas {
+      outline: none;
+    }
+
+    .maplibregl-control-container {
+      display: none;
+    }
+
+    #mapDarkOverlay {
+      position: absolute;
+      inset: 0;
+      z-index: 1;
+      pointer-events: none;
+      background: rgba(0, 0, 0, var(--map-overlay-darkness));
+      transition: background 180ms linear;
+    }
+
+    #skinCanvas {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 2;
+      pointer-events: none;
+      touch-action: auto;
+      cursor: default;
+    }
+
+    #app:not(.map-ready) #skinCanvas {
+      pointer-events: auto;
+      touch-action: none;
+      cursor: grab;
+    }
+
+    #app.map-ready[data-view="world"] #skinCanvas,
+    #app.map-ready[data-view="radius"] #skinCanvas {
+      pointer-events: none;
+    }
+
+    #app[data-view="sense"] #skinCanvas {
+      cursor: default;
+    }
+
+    .shade {
+      position: absolute;
+      inset: 0;
+      z-index: 1;
+      pointer-events: none;
+      background:
+        radial-gradient(circle at 50% 50%, transparent 42%, rgba(2, 3, 4, 0.08) 100%),
+        linear-gradient(to bottom, rgba(2, 3, 4, 0.04), transparent 24%, transparent 78%, rgba(2, 3, 4, 0.10));
+      mix-blend-mode: normal;
+    }
+
+    .topbar {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 5;
+      padding: calc(18px + env(safe-area-inset-top, 0px)) 18px 0;
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 16px;
+      pointer-events: none;
+      opacity: 1;
+      transition: opacity 700ms ease;
+    }
+
+    #app[data-view="world"] .topbar,
+    #app[data-view="radius"] .topbar {
+      opacity: 0;
+    }
+
+    .identity {
+      min-width: 0;
+    }
+
+    .kicker {
+      font-size: 10px;
+      letter-spacing: 0.18em;
+      color: var(--faint);
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+
+    .title {
+      margin-top: 8px;
+      font-size: 15px;
+      letter-spacing: 0.08em;
+      color: var(--text);
+      white-space: nowrap;
+    }
+
+    .telemetry {
+      min-width: 126px;
+      text-align: right;
+      color: var(--muted);
+      font-size: 10px;
+      line-height: 1.7;
+      letter-spacing: 0.08em;
+    }
+
+    .view {
+      position: absolute;
+      inset: 0;
+      z-index: 4;
+      display: block;
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity 760ms ease;
+      pointer-events: none;
+    }
+
+    .view.active {
+      opacity: 1;
+      visibility: visible;
+    }
+
+    #view-sense {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(300px, 0.72fr);
+      place-items: stretch;
+      padding-left: 84px;
+      background:
+        linear-gradient(to right, rgba(2, 3, 4, 0.72), rgba(2, 3, 4, 0.2)),
+        radial-gradient(circle at 31% 50%, rgba(112, 151, 166, 0.14), transparent 38%);
+    }
+
+    .sense-wrap {
+      width: 100%;
+      min-height: 100%;
+      position: relative;
+      pointer-events: auto;
+      display: grid;
+      place-items: center;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    .press-target {
+      width: min(48vw, 460px);
+      max-width: 460px;
+      aspect-ratio: 1;
+      border: 0;
+      border-radius: 50%;
+      background: transparent;
+      cursor: pointer;
+      position: relative;
+      display: grid;
+      place-items: center;
+      touch-action: none;
+      --breath-scale: 1;
+    }
+
+    .breath-ring {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      border-radius: 50%;
+      border: 1px solid rgba(238, 246, 246, 0.22);
+      transform: translate(-50%, -50%) scale(var(--breath-scale));
+      transition: transform 900ms cubic-bezier(0.4, 0, 0.2, 1), opacity 900ms ease, border-color 900ms ease;
+      pointer-events: none;
+      box-shadow: 0 0 26px rgba(226, 238, 239, 0.08);
+    }
+
+    .breath-ring.r1 {
+      width: 35%;
+      height: 35%;
+      opacity: 0.72;
+      border-color: rgba(245, 249, 249, 0.58);
+    }
+
+    .breath-ring.r2 {
+      width: 55%;
+      height: 55%;
+      opacity: 0.5;
+      transform: translate(-50%, -50%) scale(calc(var(--breath-scale) * 0.96));
+    }
+
+    .breath-ring.r3 {
+      width: 76%;
+      height: 76%;
+      opacity: 0.32;
+      transform: translate(-50%, -50%) scale(calc(var(--breath-scale) * 0.91));
+    }
+
+    .breath-ring.r4 {
+      width: 95%;
+      height: 95%;
+      opacity: 0.18;
+      transform: translate(-50%, -50%) scale(calc(var(--breath-scale) * 0.86));
+    }
+
+    .press-target.recording .breath-ring {
+      border-color: rgba(250, 252, 252, 0.82);
+      box-shadow: 0 0 36px rgba(232, 242, 243, 0.16);
+    }
+
+    .sense-core {
+      position: relative;
+      width: 42%;
+      aspect-ratio: 1;
+      display: grid;
+      place-items: center;
+      border-radius: 50%;
+      border: 1px solid rgba(236, 244, 244, 0.32);
+      background: radial-gradient(circle, rgba(240, 247, 247, 0.12), rgba(240, 247, 247, 0.02) 54%, transparent 72%);
+      transition: opacity 700ms ease, transform 900ms cubic-bezier(0.4, 0, 0.2, 1);
+      transform: scale(calc(0.88 + (var(--breath-scale) - 1) * 0.55));
+      z-index: 1;
+    }
+
+    .sense-percent {
+      font-size: 18px;
+      letter-spacing: 0.06em;
+      display: none;
+    }
+
+    .sense-state {
+      position: absolute;
+      bottom: 15%;
+      width: 100%;
+      left: 0;
+      text-align: center;
+      color: rgba(232, 240, 241, 0.72);
+      font-size: 13px;
+      letter-spacing: 0.12em;
+      line-height: 1.75;
+      opacity: 1;
+      transition: opacity 700ms ease, color 700ms ease;
+      pointer-events: none;
+    }
+
+    .radius-panel {
+      position: absolute;
+      left: auto;
+      right: 18px;
+      top: 18px;
+      bottom: auto;
+      width: min(34vw, 320px);
+      z-index: 4;
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+      pointer-events: auto;
+      overflow: auto;
+      scrollbar-width: none;
+      max-height: calc(100dvh - 36px);
+      padding: 16px;
+      border: 1px solid var(--line);
+      background: linear-gradient(135deg, rgba(12, 17, 18, 0.9), rgba(3, 5, 6, 0.66));
+      backdrop-filter: blur(18px);
+      opacity: 0;
+      transform: translateX(calc(100% + 28px));
+      transition: opacity 620ms ease, transform 620ms cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .radius-panel::-webkit-scrollbar {
+      display: none;
+    }
+
+    #view-radius.active .radius-panel {
+      opacity: 0;
+      transform: translateX(calc(100% + 28px));
+    }
+
+    #view-radius.active .radius-panel.open {
+      opacity: 1;
+      transform: translateX(0);
+    }
+
+    .radius-toggle {
+      position: absolute;
+      right: 24px;
+      bottom: calc(110px + var(--safe-bottom));
+      z-index: 5;
+      transform: none;
+      min-width: 118px;
+      height: 36px;
+      border: 1px solid rgba(226, 238, 239, 0.22);
+      background: rgba(3, 5, 6, 0.58);
+      color: rgba(232, 240, 241, 0.68);
+      backdrop-filter: blur(14px);
+      font-size: 10px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 500ms ease, transform 500ms ease;
+      cursor: pointer;
+    }
+
+    #view-radius.active .radius-toggle {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    #view-radius.active .radius-panel.open + .radius-toggle {
+      transform: translateX(-330px);
+    }
+
+    .metric-row {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1px;
+      border: 1px solid var(--line);
+      background: var(--line);
+    }
+
+    .metric {
+      min-height: 82px;
+      padding: 12px;
+      background: rgba(5, 7, 8, 0.76);
+    }
+
+    .metric-value {
+      font-size: 22px;
+      letter-spacing: 0.04em;
+    }
+
+    .metric-label {
+      margin-top: 8px;
+      color: var(--faint);
+      font-size: 10px;
+      letter-spacing: 0.1em;
+      line-height: 1.45;
+    }
+
+    .section-title {
+      color: var(--faint);
+      font-size: 10px;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+    }
+
+    .time-slice {
+      display: grid;
+      gap: 10px;
+    }
+
+    .slice {
+      display: grid;
+      grid-template-columns: 68px 1fr 34px;
+      align-items: center;
+      gap: 12px;
+      font-size: 11px;
+      color: var(--muted);
+    }
+
+    .track {
+      height: 2px;
+      background: rgba(232, 242, 243, 0.12);
+      overflow: hidden;
+    }
+
+    .fill {
+      height: 100%;
+      width: 0;
+      background: rgba(232, 242, 243, 0.8);
+      box-shadow: 0 0 18px rgba(232, 242, 243, 0.28);
+      transition: width 360ms ease;
+    }
+
+    .tag-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 1px;
+      border: 1px solid var(--line);
+      background: var(--line);
+    }
+
+    .tag-cell {
+      min-height: 52px;
+      display: grid;
+      place-items: center;
+      background: rgba(5, 7, 8, 0.78);
+      color: var(--muted);
+      font-size: 13px;
+      letter-spacing: 0.08em;
+    }
+
+    .tag-cell.active {
+      color: var(--text);
+      background: rgba(221, 231, 232, 0.1);
+    }
+
+    .footer-nav {
+      position: absolute;
+      left: 12px;
+      right: auto;
+      top: 12px;
+      bottom: 12px;
+      z-index: 8;
+      width: 68px;
+      height: auto;
+      border: 1px solid var(--line);
+      background: rgba(3, 5, 6, 0.64);
+      backdrop-filter: blur(18px);
+      display: grid;
+      grid-template-rows: repeat(3, minmax(82px, 1fr));
+      grid-template-columns: 1fr;
+      transition: opacity 700ms ease;
+    }
+
+    #app[data-view="world"] .footer-nav,
+    #app[data-view="radius"] .footer-nav {
+      opacity: 0.56;
+      border-color: transparent;
+      background: transparent;
+      backdrop-filter: none;
+    }
+
+    .nav-btn {
+      border: 0;
+      border-right: 0;
+      border-bottom: 1px solid var(--line);
+      background: transparent;
+      cursor: pointer;
+      color: var(--faint);
+      display: grid;
+      place-items: center;
+      gap: 4px;
+      padding: 8px 4px;
+      transition: color 500ms ease, background 500ms ease, opacity 500ms ease;
+    }
+
+    #app[data-view="world"] .nav-btn,
+    #app[data-view="radius"] .nav-btn {
+      border-bottom-color: rgba(226, 238, 239, 0.1);
+    }
+
+    .nav-btn:last-child {
+      border-bottom: 0;
+    }
+
+    .nav-btn.active {
+      color: #bcd8ff;
+      background: radial-gradient(circle, rgba(136, 173, 255, 0.18), transparent 62%);
+    }
+
+    .nav-mark {
+      width: 25px;
+      height: 25px;
+      position: relative;
+    }
+
+    .nav-mark.skin::before,
+    .nav-mark.sense::before,
+    .nav-mark.radius::before {
+      content: "";
+      position: absolute;
+      inset: 3px;
+      border: 1px solid currentColor;
+      opacity: 0.86;
+    }
+
+    .nav-mark.skin::before {
+      border-radius: 42% 58% 46% 54%;
+    }
+
+    .nav-mark.sense::before {
+      border-radius: 50%;
+      box-shadow: 0 0 0 5px rgba(230, 236, 236, 0.06);
+    }
+
+    .nav-mark.radius::before {
+      transform: rotate(45deg);
+      border-radius: 2px;
+    }
+
+    .nav-label {
+      font-size: 9px;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      display: block;
+    }
+
+    .modal {
+      position: absolute;
+      inset: 0;
+      z-index: 20;
+      display: grid;
+      place-items: center;
+      padding: 24px;
+      background: rgba(1, 2, 3, 0);
+      backdrop-filter: blur(14px);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 800ms ease, background 800ms ease;
+    }
+
+    .modal.active {
+      opacity: 1;
+      pointer-events: auto;
+      background: rgba(1, 2, 3, 0.56);
+    }
+
+    .record-panel {
+      position: relative;
+      width: min(86vw, 360px);
+      aspect-ratio: 1;
+      border: 0;
+      background: transparent;
+      padding: 0;
+      display: grid;
+      place-items: center;
+    }
+
+    .panel-title {
+      font-size: 12px;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--text);
+      padding-bottom: 12px;
+      border-bottom: 1px solid var(--line);
+      display: none;
+    }
+
+    .readout {
+      margin-top: 18px;
+      display: grid;
+      gap: 14px;
+      display: none;
+    }
+
+    .readout-row {
+      display: grid;
+      grid-template-columns: 96px 1fr 44px;
+      align-items: center;
+      gap: 10px;
+      color: var(--muted);
+      font-size: 10px;
+      letter-spacing: 0.08em;
+    }
+
+    .label-select {
+      position: absolute;
+      inset: 0;
+      margin-top: 0;
+      display: block;
+      border: 0;
+      background: transparent;
+    }
+
+    .label-btn {
+      position: absolute;
+      min-width: 72px;
+      min-height: 44px;
+      border: 0;
+      background: transparent;
+      color: rgba(232, 240, 241, 0.72);
+      cursor: pointer;
+      font-size: 20px;
+      letter-spacing: 0.08em;
+      opacity: 0;
+      transform: translate(-50%, -50%) scale(0.96);
+      animation: wordFloat 900ms ease forwards;
+      text-shadow: 0 0 18px rgba(232, 240, 241, 0.16);
+    }
+
+    .label-btn.selected {
+      background: transparent;
+      color: var(--text);
+    }
+
+    .label-btn.skip {
+      font-size: 12px;
+      color: rgba(232, 240, 241, 0.44);
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+    }
+
+    @keyframes wordFloat {
+      to { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+    }
+
+    .panel-actions {
+      margin-top: 18px;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1px;
+      border: 1px solid var(--line-strong);
+      background: var(--line-strong);
+      display: none;
+    }
+
+    .action-btn {
+      min-height: 48px;
+      border: 0;
+      background: rgba(5, 7, 8, 0.98);
+      cursor: pointer;
+      color: var(--text);
+      font-size: 11px;
+      letter-spacing: 0.14em;
+    }
+
+    .action-btn.dim {
+      color: var(--faint);
+    }
+
+    .utility {
+      position: absolute;
+      right: 18px;
+      top: 18px;
+      bottom: auto;
+      z-index: 7;
+      display: grid;
+      gap: 8px;
+      pointer-events: auto;
+      transition: opacity 700ms ease;
+    }
+
+    #app[data-view="world"] .utility {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .icon-btn {
+      width: 38px;
+      height: 38px;
+      border: 1px solid var(--line);
+      background: rgba(4, 6, 7, 0.66);
+      backdrop-filter: blur(12px);
+      display: grid;
+      place-items: center;
+      cursor: pointer;
+      color: var(--muted);
+    }
+
+    .icon-btn:hover {
+      color: var(--text);
+    }
+
+    .toast {
+      position: absolute;
+      left: 18px;
+      right: 18px;
+      top: calc(84px + env(safe-area-inset-top, 0px));
+      z-index: 30;
+      display: none;
+      padding: 12px 14px;
+      border: 1px solid var(--line);
+      background: rgba(3, 5, 6, 0.86);
+      color: var(--muted);
+      font-size: 11px;
+      line-height: 1.6;
+      letter-spacing: 0.06em;
+      backdrop-filter: blur(12px);
+    }
+
+    .toast.active {
+      display: block;
+    }
+
+    #app[data-view="world"] .toast,
+    #app[data-view="radius"] .toast {
+      display: none;
+    }
+
+    .debug-panel {
+      position: absolute;
+      left: 92px;
+      top: 18px;
+      z-index: 12;
+      display: none;
+      width: 248px;
+      padding: 12px 14px;
+      border: 1px solid rgba(226, 238, 239, 0.22);
+      background: rgba(2, 4, 5, 0.78);
+      color: rgba(232, 240, 241, 0.72);
+      font-size: 10px;
+      line-height: 1.65;
+      letter-spacing: 0.06em;
+      backdrop-filter: blur(12px);
+      pointer-events: none;
+      white-space: pre;
+    }
+
+    .debug-panel.active {
+      display: block;
+    }
+
+    .time-axis {
+      position: absolute;
+      left: 96px;
+      right: 96px;
+      bottom: calc(18px + var(--safe-bottom));
+      z-index: 6;
+      padding: 12px 16px 10px;
+      border: 1px solid rgba(226, 238, 239, 0.2);
+      background: rgba(3, 5, 6, 0.68);
+      backdrop-filter: blur(16px);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 500ms ease;
+    }
+
+    #app[data-view="world"] .time-axis {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .time-axis-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      color: rgba(232, 240, 241, 0.72);
+      font-size: 11px;
+      letter-spacing: 0.12em;
+      margin-bottom: 8px;
+    }
+
+    .time-axis input[type="range"] {
+      width: 100%;
+      accent-color: #edf6f6;
+    }
+
+    .time-ticks {
+      display: flex;
+      justify-content: space-between;
+      color: rgba(232, 240, 241, 0.36);
+      font-size: 9px;
+      letter-spacing: 0.08em;
+      margin-top: 5px;
+    }
+
+    @media (min-width: 720px) {
+      #app {
+        margin: 0 auto;
+        box-shadow: none;
+      }
+    }
+
+    @media (max-width: 720px) {
+      #app {
+        max-width: none;
+      }
+
+      #view-sense {
+        grid-template-columns: 1fr;
+        padding-left: 0;
+      }
+
+      .press-target {
+        width: min(76vw, 340px);
+      }
+
+      .footer-nav {
+        left: 12px;
+        right: 12px;
+        top: auto;
+        bottom: calc(12px + var(--safe-bottom));
+        width: auto;
+        height: 64px;
+        grid-template-columns: repeat(3, 1fr);
+        grid-template-rows: 1fr;
+      }
+
+      #app::after {
+        left: 12px;
+        right: 12px;
+        top: 12px;
+        bottom: calc(88px + var(--safe-bottom));
+      }
+
+      .nav-btn {
+        border-bottom: 0;
+        border-right: 1px solid var(--line);
+      }
+
+      .nav-btn:last-child {
+        border-right: 0;
+      }
+
+      .time-axis {
+        left: 18px;
+        right: 18px;
+        bottom: calc(96px + var(--safe-bottom));
+      }
+
+      .radius-panel {
+        left: 18px;
+        right: 18px;
+        top: auto;
+        bottom: calc(88px + var(--safe-bottom));
+        width: auto;
+        transform: translateY(calc(100% + 28px));
+      }
+
+      #view-radius.active .radius-panel {
+        transform: translateY(calc(100% + 28px));
+      }
+
+      #view-radius.active .radius-panel.open {
+        transform: translateY(0);
+      }
+
+      #view-radius.active .radius-panel.open + .radius-toggle {
+        transform: translateX(-50%) translateY(-440px);
+      }
+
+      .radius-toggle {
+        left: 50%;
+        right: auto;
+        transform: translateX(-50%);
+      }
+    }
+  </style>
+</head>
+<body>
+  <main id="app">
+    <div id="realMap" aria-hidden="true"></div>
+    <div id="mapDarkOverlay" aria-hidden="true"></div>
+    <canvas id="skinCanvas" aria-label="World Skinの地図表面"></canvas>
+    <div class="shade"></div>
+
+    <header class="topbar">
+      <div class="identity">
+        <div class="kicker">WORLD SKIN / 0.2</div>
+        <div class="title" id="placeTitle">国分寺の皮膚</div>
+      </div>
+      <div class="telemetry">
+        <div id="recordCount">世界 0 / 自分 0</div>
+        <div id="locState">位置を確認中</div>
+        <div id="audioState">音は待機中</div>
+      </div>
+    </header>
+
+    <section class="view active" id="view-world" data-view="world"></section>
+
+    <section class="view" id="view-sense" data-view="sense">
+      <div class="sense-wrap">
+        <button class="press-target" id="pressTarget" type="button" aria-label="長押しして記録">
+          <span class="breath-ring r4"></span>
+          <span class="breath-ring r3"></span>
+          <span class="breath-ring r2"></span>
+          <span class="breath-ring r1"></span>
+          <span class="sense-core">
+            <span class="sense-percent" id="sensePercent">0</span>
+          </span>
+        </button>
+        <div class="sense-state" id="senseState">静かにして、まわりの世界を感じる</div>
+      </div>
+    </section>
+
+    <section class="view" id="view-radius" data-view="radius">
+      <div class="radius-panel" id="radiusPanel">
+        <div class="metric-row">
+          <div class="metric">
+            <div class="metric-value" id="metricRecords">0</div>
+            <div class="metric-label">記録数</div>
+          </div>
+          <div class="metric">
+            <div class="metric-value" id="metricVoid">--</div>
+            <div class="metric-label">空洞</div>
+          </div>
+          <div class="metric">
+            <div class="metric-value" id="metricNoise">0.00</div>
+            <div class="metric-label">平均の層</div>
+          </div>
+        </div>
+
+        <div>
+          <div class="section-title">時間の層</div>
+          <div class="time-slice" id="timeSlice"></div>
+        </div>
+
+        <div>
+          <div class="section-title">感覚の分布</div>
+          <div class="tag-grid" id="tagGrid"></div>
+        </div>
+      </div>
+      <button class="radius-toggle" id="radiusToggle" type="button">詳細 ↓</button>
+    </section>
+
+    <div class="utility">
+      <button class="icon-btn" id="centerBtn" type="button" title="現在地へ戻る" aria-label="現在地へ戻る">⌖</button>
+      <button class="icon-btn" id="clearBtn" type="button" title="自分の記録を消す" aria-label="自分の記録を消す">×</button>
+    </div>
+
+    <div class="time-axis" id="timeAxis">
+      <div class="time-axis-top">
+        <span>24時間の皮膚</span>
+        <span id="timeAxisLabel">12:00</span>
+      </div>
+      <input id="timeSlider" type="range" min="0" max="23" step="1" value="12" aria-label="24時間の時間軸">
+      <div class="time-ticks"><span>0</span><span>6</span><span>12</span><span>18</span><span>24</span></div>
+    </div>
+
+    <nav class="footer-nav" aria-label="表示の切り替え">
+      <button class="nav-btn active" type="button" data-target="world">
+        <span class="nav-mark skin"></span>
+        <span class="nav-label">世界</span>
+      </button>
+      <button class="nav-btn" type="button" data-target="sense">
+        <span class="nav-mark sense"></span>
+        <span class="nav-label">記録</span>
+      </button>
+      <button class="nav-btn" type="button" data-target="radius">
+        <span class="nav-mark radius"></span>
+        <span class="nav-label">半径</span>
+      </button>
+    </nav>
+
+    <div class="modal" id="recordModal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+      <div class="record-panel">
+        <div class="panel-title" id="modalTitle">記録の準備</div>
+        <div class="readout">
+          <div class="readout-row">
+            <span>音量</span>
+            <span class="track"><span class="fill" id="modalNoise"></span></span>
+            <span id="modalNoiseValue">0.00</span>
+          </div>
+          <div class="readout-row">
+            <span>揺らぎ</span>
+            <span class="track"><span class="fill" id="modalFlux"></span></span>
+            <span id="modalFluxValue">0.00</span>
+          </div>
+          <div class="readout-row">
+            <span>動き</span>
+            <span id="modalMove">静止</span>
+            <span id="modalTime">--</span>
+          </div>
+        </div>
+        <div class="label-select" id="labelSelect"></div>
+        <div class="panel-actions">
+          <button class="action-btn dim" id="discardBtn" type="button">破棄</button>
+          <button class="action-btn" id="saveBtn" type="button">記録する</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+    <div class="debug-panel" id="debugPanel"></div>
+  </main>
+
+  <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+  <script src="world_data.js"></script>
+  <script>
+    (() => {
+      const STORAGE_KEY = "world-skin-v02-records";
+      const DURATION = 10000;
+      const BREATH_IN_MS = 5000;
+      const BREATH_OUT_MS = 5000;
+      const RADIUS_METERS = window.WORLD_SKIN_DATA?.radiusMeters || 5000;
+      const WORLD_ORIGIN = window.WORLD_SKIN_DATA?.origin || { lat: 35.7000, lng: 139.4808 };
+      const DEFAULT_ORIGIN = WORLD_ORIGIN;
+      const WORDS = window.WORLD_SKIN_DATA?.words || ["浮く", "重い", "乾く", "ざらつく", "眠い", "遠い", "詰まる", "ほどける"];
+      const TIME_SLOTS = ["morning", "day", "evening", "night"];
+      const WORLD_RECORDS = window.WORLD_SKIN_DATA?.records || [];
+      if (!window.WORLD_SKIN_DATA) {
+        console.warn("World Skin: world_data.js was not loaded. World Map will start without aggregate records.");
+      }
+      const VISUAL_LIMITS = {
+        strength: 0.72,
+        flux: 0.72,
+        contrast: 0.48,
+        height: 92,
+        radius: 2.4,
+        alpha: 0.72,
+        boundaryAlpha: 0.32
+      };
+      const GRID_VISUAL = {
+        spacing: 13,
+        baseRadius: 1.15,
+        minRadius: 0.8,
+        maxRadius: 2.4,
+        minAlpha: 0.008,
+        voidAlpha: 0.018,
+        maxAlpha: 0.62,
+        minGlow: 0,
+        maxGlow: 8,
+        maxJitter: 0.8,
+        maxPulse: 0.12,
+        influenceCutoff: 0.006,
+        strengthCutoff: 0.014,
+        colors: {
+          void: { r: 35, g: 40, b: 46 },
+          cold: { r: 120, g: 158, b: 205 },
+          neutral: { r: 210, g: 218, b: 226 },
+          bright: { r: 226, g: 238, b: 250 },
+          warm: { r: 224, g: 200, b: 176 },
+          rust: { r: 210, g: 96, b: 100 },
+          violet: { r: 164, g: 162, b: 188 }
+        }
+      };
+      const DOT_DENSITY_VISUAL = {
+        targetScreenSpacingPx: 13.5,
+        minScreenSpacingPx: 11,
+        maxScreenSpacingPx: 16,
+        baseRadiusPx: 1.10,
+        minRadiusPx: 0.72,
+        maxRadiusPx: 2.15,
+        maxDotsDesktop: 9600,
+        maxDotsMobile: 6800,
+        minDotsVisible: 2600,
+        densityMode: "screen-stable"
+      };
+      const MAP_VISUAL_MODES = {
+        dark: { tileBrightness: 0.34, tileContrast: 1.42, tileSaturation: 0.18, hueRotate: 0, baseOpacity: 0.94, edgeBoost: 1.06 },
+        balanced: { tileBrightness: 0.42, tileContrast: 1.55, tileSaturation: 0.22, hueRotate: 0, baseOpacity: 1, edgeBoost: 1.24 },
+        bright: { tileBrightness: 0.52, tileContrast: 1.68, tileSaturation: 0.28, hueRotate: 0, baseOpacity: 1, edgeBoost: 1.42 }
+      };
+      const MAP_TIME_VISUAL = {
+        day:       { brightness: 0.76, contrast: 1.14, saturation: 0.26, opacity: 0.82, overlayDarkness: 0.24 },
+        dawn:      { brightness: 0.62, contrast: 1.16, saturation: 0.20, opacity: 0.80, overlayDarkness: 0.34 },
+        dusk:      { brightness: 0.58, contrast: 1.18, saturation: 0.18, opacity: 0.78, overlayDarkness: 0.40 },
+        night:     { brightness: 0.50, contrast: 1.22, saturation: 0.14, opacity: 0.72, overlayDarkness: 0.52 },
+        deepNight: { brightness: 0.44, contrast: 1.24, saturation: 0.12, opacity: 0.68, overlayDarkness: 0.60 }
+      };
+      const ZOOM_LEVELS = {
+        region: { min: 0, max: 12.4 },
+        area: { min: 12.4, max: 13.6 },
+        neighborhood: { min: 13.6, max: 15.0 },
+        street: { min: 15.0, max: 22 }
+      };
+      const ZOOM_ORDER = ["region", "area", "neighborhood", "street"];
+      const ZOOM_VISUAL_PRESETS = {
+        region: {
+          alphaScale: 0.75, heightScale: 0.55, sigmaScale: 1.55, contrastScale: 0.72,
+          boundaryScale: 0.50, rasterContrastBase: 0.10, densityBias: 0.88,
+          showSmallIslands: false, showLocalRecordDetail: false, showVoidLarge: true, showBoundary: false
+        },
+        area: {
+          alphaScale: 1.00, heightScale: 0.85, sigmaScale: 1.18, contrastScale: 0.95,
+          boundaryScale: 0.78, rasterContrastBase: 0.18, densityBias: 1.00,
+          showSmallIslands: true, showLocalRecordDetail: false, showVoidLarge: true, showBoundary: true
+        },
+        neighborhood: {
+          alphaScale: 1.08, heightScale: 0.95, sigmaScale: 0.95, contrastScale: 1.05,
+          boundaryScale: 0.95, rasterContrastBase: 0.24, densityBias: 1.06,
+          showSmallIslands: true, showLocalRecordDetail: true, showVoidLarge: true, showBoundary: true
+        },
+        street: {
+          alphaScale: 1.10, heightScale: 0.80, sigmaScale: 0.72, contrastScale: 1.12,
+          boundaryScale: 1.08, rasterContrastBase: 0.30, densityBias: 1.10,
+          showSmallIslands: true, showLocalRecordDetail: true, showVoidLarge: false, showBoundary: true
+        }
+      };
+      const ZOOM_ANCHORS = [
+        { zoom: 11.0, preset: "region"       },
+        { zoom: 13.0, preset: "area"         },
+        { zoom: 14.3, preset: "neighborhood" },
+        { zoom: 16.2, preset: "street"       }
+      ];
+      const DEFAULT_VIEW = {
+        center: [139.4800, 35.7000],
+        zoom: 13.1,
+        pitch: 42,
+        bearing: -16
+      };
+      const MAP_VIEW = DEFAULT_VIEW;
+      const PERF = {
+        gridSpacing: 14,
+        cellSize: 128,
+        maxInfluenceDistance: 260,
+        maxVisibleRecords: 2500,
+        targetFPS: 30,
+        renderDebounceMs: 60,
+        useOffscreenCache: true
+      };
+      const WORD_VISUAL_BIAS = {
+        "ざらつく": { alphaBias: 0.04, contrastBias: 0.18, fluxBias: 0.13, warmthBias: -0.04, spreadBias: 0, boundaryBias: 0.12, radiusBias: 0.12, rustBias: 0.06, heightBias: 8, breathSpeedBias: 0.03 },
+        "重い": { alphaBias: 0.10, contrastBias: 0.06, fluxBias: -0.05, warmthBias: 0.08, spreadBias: -0.06, boundaryBias: 0.04, radiusBias: 0.22, rustBias: 0.08, heightBias: 18, breathSpeedBias: -0.16 },
+        "浮く": { alphaBias: -0.02, contrastBias: -0.07, fluxBias: 0.02, warmthBias: -0.13, spreadBias: 0.16, boundaryBias: -0.08, radiusBias: -0.06, rustBias: 0, heightBias: 10, breathSpeedBias: 0.06 },
+        "乾く": { alphaBias: 0, contrastBias: 0.16, fluxBias: 0.02, warmthBias: 0.10, spreadBias: -0.04, boundaryBias: 0.20, radiusBias: 0.02, rustBias: 0.14, heightBias: 4, breathSpeedBias: 0 },
+        "遠い": { alphaBias: -0.10, contrastBias: -0.12, fluxBias: -0.04, warmthBias: -0.10, spreadBias: 0.22, boundaryBias: -0.10, radiusBias: -0.12, rustBias: 0, heightBias: -14, breathSpeedBias: -0.08 },
+        "詰まる": { alphaBias: 0.13, contrastBias: 0.18, fluxBias: 0.08, warmthBias: 0.14, spreadBias: -0.16, boundaryBias: 0.18, radiusBias: 0.18, rustBias: 0.18, heightBias: 22, breathSpeedBias: -0.10 },
+        "ほどける": { alphaBias: -0.02, contrastBias: -0.14, fluxBias: -0.06, warmthBias: 0.03, spreadBias: 0.18, boundaryBias: -0.15, radiusBias: -0.04, rustBias: 0, heightBias: -4, breathSpeedBias: 0.04 },
+        "眠い": { alphaBias: -0.07, contrastBias: -0.10, fluxBias: -0.14, warmthBias: -0.07, spreadBias: 0.06, boundaryBias: -0.08, radiusBias: -0.08, rustBias: 0, heightBias: -12, breathSpeedBias: -0.24 }
+      };
+
+      const app = document.getElementById("app");
+      const realMap = document.getElementById("realMap");
+      const mapDarkOverlay = document.getElementById("mapDarkOverlay");
+      const canvas = document.getElementById("skinCanvas");
+      const ctx = canvas.getContext("2d");
+      const views = document.querySelectorAll(".view");
+      const navBtns = document.querySelectorAll(".nav-btn");
+      const pressTarget = document.getElementById("pressTarget");
+      const sensePercent = document.getElementById("sensePercent");
+      const senseState = document.getElementById("senseState");
+      const recordModal = document.getElementById("recordModal");
+      const labelSelect = document.getElementById("labelSelect");
+      const radiusPanel = document.getElementById("radiusPanel");
+      const radiusToggle = document.getElementById("radiusToggle");
+      const timeSlider = document.getElementById("timeSlider");
+      const timeAxisLabel = document.getElementById("timeAxisLabel");
+      const toast = document.getElementById("toast");
+      const debugPanel = document.getElementById("debugPanel");
+
+      const state = {
+        view: "world",
+        personalRecords: loadRecords(),
+        worldRecords: WORLD_RECORDS,
+        origin: DEFAULT_ORIGIN,
+        position: null,
+        heading: null,
+        audioReady: false,
+        audioMode: "idle",
+        analyser: null,
+        freq: new Uint8Array(96),
+        volume: 0,
+        peak: 0,
+        recording: false,
+        recordStart: 0,
+        samples: [],
+        path: [],
+        pending: null,
+        selectedWord: null,
+        wordGroups: [],
+        wordGroupIndex: 0,
+        lastBreathPhase: "",
+        t: 0,
+        dpr: 1,
+        width: 0,
+        height: 0,
+        centerOffset: { x: 0, y: 0 },
+        zoom: 1,
+        map: null,
+        mapReady: false,
+        mapLevel: "area",
+        mapVisualMode: "balanced",
+        selectedHour: 12,
+        aggregation: { hour: 0.44, day: 0.24, threeDay: 0.16, week: 0.11, month: 0.05 },
+        pointers: new Map(),
+        dragStart: null,
+        pinchStart: null,
+        grid: { world: [], radius: [] },
+        radiusDetailsOpen: false,
+        debug: false,
+        debugStats: null,
+        renderDirty: true,
+        fieldDirty: true,
+        renderHandle: null,
+        renderTimer: null,
+        cachedCells: [],
+        lastRenderAt: 0,
+        fieldTransition: null
+      };
+
+      app.dataset.view = state.view;
+
+      function loadRecords() {
+        try {
+          const parsed = JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
+          return Array.isArray(parsed) ? parsed : [];
+        } catch {
+          return [];
+        }
+      }
+
+      function saveRecords() {
+        try {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(state.personalRecords));
+        } catch (error) {
+          console.warn("World Skin: localStorage write failed", error);
+          showToast("この端末では記録を保存できません。");
+        }
+      }
+
+      function metersToLatLng(dx, dy, origin = WORLD_ORIGIN) {
+        return {
+          lat: origin.lat + dy / 111320,
+          lng: origin.lng + dx / (111320 * Math.cos(origin.lat * Math.PI / 180))
+        };
+      }
+
+      function latLngToMeters(pos, origin = WORLD_ORIGIN) {
+        return {
+          dx: (pos.lng - origin.lng) * 111320 * Math.cos(origin.lat * Math.PI / 180),
+          dy: (pos.lat - origin.lat) * 111320
+        };
+      }
+
+      function activeRecords() {
+        return state.view === "world" ? state.worldRecords : state.personalRecords;
+      }
+
+      function activeOrigin() {
+        return state.view === "world" ? WORLD_ORIGIN : state.origin;
+      }
+
+      function recordNoise(record) {
+        return clamp(Number(record.noise ?? record.noiseLevel ?? 0.18), 0, 1);
+      }
+
+      function recordFlux(record) {
+        return clamp(Number(record.flux ?? record.turbulence ?? 0.08), 0, 1);
+      }
+
+      function recordMove(record) {
+        const move = record.movement ?? record.mobility ?? "still";
+        return ["still", "slow", "passing"].includes(move) ? move : "still";
+      }
+
+      function recordTime(record) {
+        return record.createdAt ?? record.timestamp ?? new Date().toISOString();
+      }
+
+      function recordSlot(record) {
+        if (record.slot) return record.slot;
+        const hour = Number.isFinite(record.hour) ? record.hour : new Date(recordTime(record)).getHours();
+        if (hour >= 5 && hour < 11) return "morning";
+        if (hour >= 11 && hour < 17) return "day";
+        if (hour >= 17 && hour < 22) return "evening";
+        return "night";
+      }
+
+      function recordBaseVisual(record) {
+        const noise = recordNoise(record);
+        const flux = recordFlux(record);
+        const peak = clamp(Number(record.peak ?? 0.18), 0, 1);
+        const movement = recordMove(record);
+        const slot = recordSlot(record);
+        const activeSlot = slot === "day" ? 0.08 : slot === "evening" ? 0.02 : slot === "night" ? -0.12 : -0.03;
+        const movementFlux = movement === "passing" ? 0.08 : movement === "slow" ? 0.03 : -0.02;
+        const movementSpread = movement === "passing" ? 0.08 : movement === "slow" ? 0.03 : -0.02;
+        return {
+          strength: clamp(0.04 + noise * 0.38 + peak * 0.16 + (movement === "still" ? 0.03 : 0), 0.04, VISUAL_LIMITS.strength),
+          flux: clamp(flux + movementFlux, 0, VISUAL_LIMITS.flux),
+          contrast: clamp(flux * 0.2 + peak * 0.14 + (noise > 0.65 ? 0.04 : 0), 0, VISUAL_LIMITS.contrast),
+          warmth: clamp(activeSlot + (noise - 0.5) * 0.08, -0.35, 0.35),
+          spread: clamp(0.9 + noise * 0.16 + movementSpread, 0.65, 1.35),
+          boundary: clamp(flux * 0.16 + (movement === "passing" ? 0.04 : 0), 0, VISUAL_LIMITS.boundaryAlpha),
+          breathSpeed: clamp(1 - flux * 0.08 + (slot === "night" ? -0.06 : 0), 0.65, 1.2),
+          radiusBias: clamp((noise - 0.45) * 0.18 + peak * 0.08, -0.16, 0.28),
+          rust: clamp((flux - 0.46) * 0.2 + (noise - 0.68) * 0.12, 0, 0.18),
+          heightBias: clamp((noise - 0.45) * 16 + peak * 8, -12, 18)
+        };
+      }
+
+      function applyWordBias(base, word) {
+        const bias = WORD_VISUAL_BIAS[word] || {};
+        return {
+          strength: clamp(base.strength + (bias.alphaBias ?? 0) + (bias.densityBias ?? 0) * 0.35, 0.04, VISUAL_LIMITS.strength),
+          flux: clamp(base.flux + (bias.fluxBias ?? 0), 0, VISUAL_LIMITS.flux),
+          contrast: clamp(base.contrast + (bias.contrastBias ?? 0), 0, VISUAL_LIMITS.contrast),
+          warmth: clamp(base.warmth + (bias.warmthBias ?? 0), -0.35, 0.35),
+          spread: clamp(base.spread * (1 + (bias.spreadBias ?? 0)), 0.65, 1.35),
+          boundary: clamp(base.boundary + (bias.boundaryBias ?? 0), 0, VISUAL_LIMITS.boundaryAlpha),
+          breathSpeed: clamp(base.breathSpeed * (1 + (bias.breathSpeedBias ?? 0)), 0.65, 1.2),
+          radiusBias: clamp((base.radiusBias ?? 0) + (bias.radiusBias ?? 0), -0.24, 0.44),
+          rust: clamp((base.rust ?? 0) + (bias.rustBias ?? 0), 0, 0.28),
+          heightBias: clamp((base.heightBias ?? 0) + (bias.heightBias ?? 0), -24, 32)
+        };
+      }
+
+      function mixColor(a, b, amount) {
+        const t = clamp(amount, 0, 1);
+        return {
+          r: Math.round(a.r + (b.r - a.r) * t),
+          g: Math.round(a.g + (b.g - a.g) * t),
+          b: Math.round(a.b + (b.b - a.b) * t)
+        };
+      }
+
+      function getDotAlpha(params) {
+        const s = clamp(params.strength, 0, 1);
+        const c = clamp(params.contrast, 0, 1);
+        const b = clamp(params.boundary, 0, 1);
+        const f = clamp(params.flux, 0, 1);
+        if (s < GRID_VISUAL.strengthCutoff) return clamp(0.012 + c * 0.035, GRID_VISUAL.minAlpha, 0.045);
+        return clamp(
+          0.018 +
+          Math.pow(s, 1.18) * 0.48 +
+          Math.pow(c, 1.05) * 0.16 +
+          Math.pow(b, 1.05) * 0.14 +
+          Math.pow(f, 1.2) * 0.08,
+          GRID_VISUAL.minAlpha,
+          GRID_VISUAL.maxAlpha
+        );
+      }
+
+      function getDotRadius(params) {
+        const s = clamp(params.strength, 0, 1);
+        const f = clamp(params.flux, 0, 1);
+        const b = clamp(params.boundary, 0, 1);
+        return clamp(
+          DOT_DENSITY_VISUAL.baseRadiusPx +
+          Math.pow(s, 1.25) * 0.75 +
+          Math.pow(f, 1.4) * 0.18 +
+          b * 0.12 +
+          (params.radiusBias || 0),
+          DOT_DENSITY_VISUAL.minRadiusPx,
+          DOT_DENSITY_VISUAL.maxRadiusPx
+        );
+      }
+
+      function getDotColor(params) {
+        const s = clamp(params.strength, 0, 1);
+        const w = clamp(params.warmth, -0.35, 0.35);
+        const rust = clamp(params.rust ?? 0, 0, 0.28);
+        if (s < GRID_VISUAL.strengthCutoff) return GRID_VISUAL.colors.void;
+        let color = params.warmth < 0
+          ? mixColor(GRID_VISUAL.colors.neutral, GRID_VISUAL.colors.cold, Math.abs(w) / 0.35)
+          : mixColor(GRID_VISUAL.colors.neutral, GRID_VISUAL.colors.warm, w / 0.35);
+        color = mixColor(color, GRID_VISUAL.colors.bright, clamp(s * 0.45, 0, 0.45));
+        if (rust > 0) color = mixColor(color, GRID_VISUAL.colors.rust, rust);
+        if (params.contrast > 0.3 && w < -0.04) color = mixColor(color, GRID_VISUAL.colors.violet, 0.14);
+        return color;
+      }
+
+      function getDotHeight(params) {
+        return clamp(
+          Math.pow(clamp(params.strength, 0, 1), 1.25) * 72 +
+          Math.pow(clamp(params.contrast, 0, 1), 1.1) * 28 +
+          clamp(params.boundary, 0, 1) * 18 +
+          (params.heightBias || 0),
+          0,
+          96
+        );
+      }
+
+      function temporalWeight(record) {
+        if (state.view !== "world") return 1;
+        const date = new Date(recordTime(record));
+        const hour = Number.isFinite(record.hour) ? record.hour : date.getUTCHours();
+        const day = Math.floor((date.getTime() - Date.UTC(2026, 4, 4)) / 86400000);
+        const selectedHour = state.selectedHour;
+        const hourDiff = Math.min(Math.abs(hour - selectedHour), 24 - Math.abs(hour - selectedHour));
+        const hourWeight = Math.exp(-(hourDiff * hourDiff) / (2 * 1.55 * 1.55));
+        const dayWeight = day === 6 ? 1 : 0.35;
+        const threeDayWeight = day >= 4 ? 1 : 0.45;
+        const weekWeight = 1;
+        const monthWeight = 0.55;
+        const a = state.aggregation;
+        return a.hour * hourWeight + a.day * dayWeight + a.threeDay * threeDayWeight + a.week * weekWeight + a.month * monthWeight;
+      }
+
+      function showToast(message) {
+        toast.textContent = message;
+        toast.classList.add("active");
+        clearTimeout(showToast.timer);
+        showToast.timer = setTimeout(() => toast.classList.remove("active"), 3600);
+      }
+
+      function initRealMap() {
+        if (!window.maplibregl || !realMap) {
+          showToast("地図エンジンを読み込めません。簡易表示に切り替えます。");
+          return;
+        }
+        state.map = new maplibregl.Map({
+          container: realMap,
+          style: {
+            version: 8,
+            sources: {
+              aerial: {
+                type: "raster",
+                tiles: [
+                  "https://a.basemaps.cartocdn.com/rastertiles/voyager_nolabels/{z}/{x}/{y}.png",
+                  "https://b.basemaps.cartocdn.com/rastertiles/voyager_nolabels/{z}/{x}/{y}.png",
+                  "https://c.basemaps.cartocdn.com/rastertiles/voyager_nolabels/{z}/{x}/{y}.png",
+                  "https://d.basemaps.cartocdn.com/rastertiles/voyager_nolabels/{z}/{x}/{y}.png"
+                ],
+                tileSize: 256
+              }
+            },
+            layers: [
+              {
+                id: "aerial-base",
+                type: "raster",
+                source: "aerial",
+                paint: {
+                  "raster-opacity": 0.95,
+                  "raster-brightness-min": 0,
+                  "raster-brightness-max": 1,
+                  "raster-contrast": 0.18,
+                  "raster-saturation": -0.72
+                }
+              }
+            ]
+          },
+          center: MAP_VIEW.center,
+          zoom: MAP_VIEW.zoom,
+          minZoom: 11,
+          maxZoom: 18,
+          bearing: MAP_VIEW.bearing,
+          pitch: MAP_VIEW.pitch,
+          maxPitch: 60,
+          attributionControl: false,
+          interactive: true,
+          dragPan: true,
+          scrollZoom: true,
+          boxZoom: false,
+          touchZoomRotate: true,
+          dragRotate: true,
+          keyboard: true,
+          doubleClickZoom: true
+        });
+        state.map.dragPan.enable();
+        state.map.scrollZoom.enable();
+        state.map.doubleClickZoom.enable();
+        state.map.touchZoomRotate.enable();
+        state.map.touchZoomRotate.enableRotation();
+        state.map.dragRotate.enable();
+        state.map.keyboard.enable();
+        state.map.on("load", () => {
+          state.mapReady = true;
+          app.classList.add("map-ready");
+          state.map.jumpTo(DEFAULT_VIEW);
+          applyMapVisualMode();
+          applyMapLevel();
+          invalidateField(true);
+        });
+        const handleMapFrameChange = () => {
+          applyMapLevel();
+          applyMapVisualMode();
+          requestRender();
+        };
+        ["move", "zoom", "rotate", "pitch"].forEach(eventName => {
+          state.map.on(eventName, handleMapFrameChange);
+        });
+        ["moveend", "zoomend", "rotateend", "pitchend"].forEach(eventName => {
+          state.map.on(eventName, () => invalidateField(false));
+        });
+        state.map.on("resize", () => requestRender());
+      }
+
+      function syncMapToActiveCenter(animate = true) {
+        if (!state.mapReady) return;
+        const center = activeOrigin();
+        const options = state.view === "world"
+          ? { ...DEFAULT_VIEW }
+          : { center: [center.lng, center.lat], zoom: 14.1, pitch: DEFAULT_VIEW.pitch, bearing: DEFAULT_VIEW.bearing };
+        if (animate) state.map.easeTo({ ...options, duration: 650 });
+        else state.map.jumpTo(options);
+        invalidateField(true);
+      }
+
+      function resetMapView() {
+        if (!state.mapReady) return;
+        const options = state.view === "radius"
+          ? { center: [activeOrigin().lng, activeOrigin().lat], zoom: 14.1, pitch: DEFAULT_VIEW.pitch, bearing: DEFAULT_VIEW.bearing }
+          : DEFAULT_VIEW;
+        state.map.easeTo({ ...options, duration: 520 });
+        invalidateField(false);
+        showToast("表示を初期位置に戻しました。");
+      }
+
+      function getSkinZoomLevel(zoom) {
+        if (zoom < ZOOM_LEVELS.area.min) return "region";
+        if (zoom < ZOOM_LEVELS.neighborhood.min) return "area";
+        if (zoom < ZOOM_LEVELS.street.min) return "neighborhood";
+        return "street";
+      }
+
+      function lerp(a, b, t) {
+        return a + (b - a) * t;
+      }
+
+      function smoothstep(edge0, edge1, x) {
+        const t = clamp((x - edge0) / (edge1 - edge0), 0, 1);
+        return t * t * (3 - 2 * t);
+      }
+
+      function getDaylightState(hour) {
+        if (hour >= 23 || hour < 4) return "deepNight";
+        if (hour >= 4 && hour < 7) return "dawn";
+        if (hour >= 7 && hour < 16.5) return "day";
+        if (hour >= 16.5 && hour < 18.5) return "dusk";
+        return "night";
+      }
+
+      function getDaylightAmount(hour) {
+        const morning = smoothstep(4.5, 7.0, hour);
+        const evening = 1 - smoothstep(16.5, 19.5, hour);
+        return clamp(Math.min(morning, evening), 0, 1);
+      }
+
+      function getMapVisualByHour(hour) {
+        const daylight = getDaylightAmount(hour);
+        const base = {
+          brightness:      lerp(0.50, 0.78, daylight),
+          contrast:        lerp(1.26, 1.16, daylight),
+          saturation:      lerp(0.16, 0.26, daylight),
+          opacity:         lerp(0.72, 0.84, daylight),
+          overlayDarkness: lerp(0.48, 0.26, daylight),
+          daylight,
+          state: getDaylightState(hour)
+        };
+        const dusk = smoothstep(16.5, 19.5, hour);
+        if (dusk > 0 && hour < 19.5) {
+          base.brightness *= lerp(1, 0.90, dusk);
+          base.overlayDarkness = lerp(base.overlayDarkness, 0.40, dusk * 0.65);
+        }
+        return base;
+      }
+
+      function getZoomLightAmount(zoom) {
+        const t = clamp((zoom - 12.0) / (16.0 - 12.0), 0, 1);
+        return smoothstep(0, 1, t);
+      }
+
+      function getZoomVisualModifier(zoom) {
+        const z = getZoomLightAmount(zoom);
+        return {
+          brightnessMul: lerp(0.92, 1.06, z),
+          opacityMul:    lerp(0.94, 1.04, z),
+          overlayAdd:    lerp(0.05, -0.03, z)
+        };
+      }
+
+      function interpolateZoomPreset(a, b, t, zoom) {
+        return {
+          alphaScale:            lerp(a.alphaScale,            b.alphaScale,            t),
+          heightScale:           lerp(a.heightScale,           b.heightScale,           t),
+          sigmaScale:            lerp(a.sigmaScale,            b.sigmaScale,            t),
+          contrastScale:         lerp(a.contrastScale,         b.contrastScale,         t),
+          boundaryScale:         lerp(a.boundaryScale,         b.boundaryScale,         t),
+          rasterContrastBase:    lerp(a.rasterContrastBase,    b.rasterContrastBase,    t),
+          densityBias:           lerp(a.densityBias || 1,      b.densityBias || 1,      t),
+          showSmallIslands:      t >= 0.5 ? b.showSmallIslands      : a.showSmallIslands,
+          showLocalRecordDetail: t >= 0.5 ? b.showLocalRecordDetail : a.showLocalRecordDetail,
+          showVoidLarge:         t >= 0.5 ? b.showVoidLarge         : a.showVoidLarge,
+          showBoundary:          t >= 0.5 ? b.showBoundary          : a.showBoundary,
+          level: getSkinZoomLevel(zoom)
+        };
+      }
+
+      function getContinuousZoomPreset(zoom = state.mapReady ? state.map.getZoom() : DEFAULT_VIEW.zoom) {
+        const anchors = ZOOM_ANCHORS;
+        if (zoom <= anchors[0].zoom) {
+          return { ...ZOOM_VISUAL_PRESETS[anchors[0].preset], level: getSkinZoomLevel(zoom) };
+        }
+        if (zoom >= anchors[anchors.length - 1].zoom) {
+          return { ...ZOOM_VISUAL_PRESETS[anchors[anchors.length - 1].preset], level: getSkinZoomLevel(zoom) };
+        }
+        let i = 0;
+        while (i < anchors.length - 2 && zoom > anchors[i + 1].zoom) i++;
+        const a = anchors[i];
+        const b = anchors[i + 1];
+        const t = smoothstep(a.zoom, b.zoom, zoom);
+        return interpolateZoomPreset(ZOOM_VISUAL_PRESETS[a.preset], ZOOM_VISUAL_PRESETS[b.preset], t, zoom);
+      }
+
+      function currentMapLevel() {
+        return getSkinZoomLevel(state.mapReady ? state.map.getZoom() : DEFAULT_VIEW.zoom);
+      }
+
+      function applyMapLevel() {
+        if (!state.mapReady || !state.map.getLayer("aerial-base")) return;
+        const level = currentMapLevel();
+        if (state.mapLevel === level) return;
+        state.mapLevel = level;
+        applyMapVisualMode();
+      }
+
+      function getMapEdgeOpacityByZoom(zoom) {
+        if (zoom < 12.5) return 0.18;
+        if (zoom < 14) return 0.26;
+        if (zoom < 15.5) return 0.34;
+        return 0.42;
+      }
+
+      function applyMapVisualMode() {
+        if (!realMap) return;
+        const visual = MAP_VISUAL_MODES[state.mapVisualMode] || MAP_VISUAL_MODES.balanced;
+        const timeVisual = getMapVisualByHour(state.selectedHour);
+        const currentZoom = state.mapReady ? state.map.getZoom() : DEFAULT_VIEW.zoom;
+        const zoomMod = getZoomVisualModifier(currentZoom);
+
+        const finalBrightness = visual.tileBrightness * timeVisual.brightness * zoomMod.brightnessMul;
+        const finalContrast   = visual.tileContrast * timeVisual.contrast;
+        const finalSaturation = visual.tileSaturation * timeVisual.saturation;
+        const finalOpacity    = timeVisual.opacity * zoomMod.opacityMul;
+        const finalOverlay    = clamp(timeVisual.overlayDarkness + zoomMod.overlayAdd, 0.18, 0.58);
+
+        realMap.style.filter = `brightness(${finalBrightness.toFixed(3)}) contrast(${finalContrast.toFixed(3)}) saturate(${finalSaturation.toFixed(3)})`;
+        realMap.style.opacity = finalOpacity.toFixed(3);
+        document.documentElement.style.setProperty("--map-overlay-darkness", finalOverlay.toFixed(3));
+
+        if (!state.mapReady || !state.map.getLayer("aerial-base")) return;
+        const preset = getContinuousZoomPreset();
+        const edge = getMapEdgeOpacityByZoom(currentZoom) * visual.edgeBoost;
+        state.map.setPaintProperty("aerial-base", "raster-opacity",          clamp(visual.baseOpacity * finalOpacity, 0.48, 0.90));
+        state.map.setPaintProperty("aerial-base", "raster-brightness-max",   1);
+        state.map.setPaintProperty("aerial-base", "raster-contrast",         preset.rasterContrastBase + edge * 0.10);
+      }
+
+      function resizeCanvas() {
+        const rect = app.getBoundingClientRect();
+        state.dpr = Math.min(window.devicePixelRatio || 1, 2);
+        state.width = Math.floor(rect.width || window.innerWidth || 360);
+        state.height = Math.floor(rect.height || window.innerHeight || 640);
+        canvas.width = Math.floor(state.width * state.dpr);
+        canvas.height = Math.floor(state.height * state.dpr);
+        canvas.style.width = state.width + "px";
+        canvas.style.height = state.height + "px";
+        ctx.setTransform(state.dpr, 0, 0, state.dpr, 0, 0);
+        if (state.mapReady) state.map.resize();
+        rebuildGrids();
+      }
+
+      function clamp(value, min, max) {
+        return Math.max(min, Math.min(max, value));
+      }
+
+      function haversine(a, b) {
+        const R = 6371000;
+        const dLat = (b.lat - a.lat) * Math.PI / 180;
+        const dLng = (b.lng - a.lng) * Math.PI / 180;
+        const lat1 = a.lat * Math.PI / 180;
+        const lat2 = b.lat * Math.PI / 180;
+        const h = Math.sin(dLat / 2) ** 2 + Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLng / 2) ** 2;
+        return 2 * R * Math.asin(Math.sqrt(h));
+      }
+
+      function distanceMeters(a, b) {
+        return haversine({ lat: a.lat, lng: a.lng }, { lat: b.lat, lng: b.lng });
+      }
+
+      function getMetersPerScreenPixels(pixels = DOT_DENSITY_VISUAL.targetScreenSpacingPx) {
+        if (!state.mapReady || !state.map) {
+          return pixels * 14;
+        }
+        const center = state.map.getCenter();
+        const p0 = state.map.project([center.lng, center.lat]);
+        const p1 = { x: p0.x + pixels, y: p0.y };
+        const ll1 = state.map.unproject([p1.x, p1.y]);
+        const meters = distanceMeters(
+          { lng: center.lng, lat: center.lat },
+          { lng: ll1.lng, lat: ll1.lat }
+        );
+        return Number.isFinite(meters) && meters > 0 ? meters : pixels * 14;
+      }
+
+      function getStableDotSpacingMeters() {
+        const meters = getMetersPerScreenPixels(DOT_DENSITY_VISUAL.targetScreenSpacingPx);
+        return clamp(meters, 18, 180);
+      }
+
+      function mapScaleAt(origin) {
+        if (!state.mapReady) return null;
+        const here = state.map.project([origin.lng, origin.lat]);
+        const east = metersToLatLng(1000, 0, origin);
+        const there = state.map.project([east.lng, east.lat]);
+        return Math.max(0.001, Math.hypot(there.x - here.x, there.y - here.y) / 1000);
+      }
+
+      function project(pos, origin = activeOrigin()) {
+        if (state.mapReady) {
+          const point = state.map.project([pos.lng, pos.lat]);
+          return {
+            x: point.x,
+            y: point.y,
+            scale: mapScaleAt(origin)
+          };
+        }
+        const latMeters = (pos.lat - origin.lat) * 111320;
+        const lngMeters = (pos.lng - origin.lng) * 111320 * Math.cos(origin.lat * Math.PI / 180);
+        const usable = Math.min(state.width, state.height - 140) * 0.42;
+        const scale = usable / RADIUS_METERS * state.zoom;
+        return {
+          x: state.width / 2 + lngMeters * scale + state.centerOffset.x,
+          y: state.height / 2 - 18 - latMeters * scale + state.centerOffset.y,
+          scale
+        };
+      }
+
+      function unprojectCell(x, y, scale, origin = activeOrigin()) {
+        if (state.mapReady) {
+          const lngLat = state.map.unproject([x, y]);
+          return latLngToMeters({ lat: lngLat.lat, lng: lngLat.lng }, origin);
+        }
+        const dx = (x - state.width / 2 - state.centerOffset.x) / scale;
+        const dy = -(y - (state.height / 2 - 18) - state.centerOffset.y) / scale;
+        return { dx, dy };
+      }
+
+      async function initAudio() {
+        if (state.audioReady) return;
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+          const AudioContext = window.AudioContext || window.webkitAudioContext;
+          const audioCtx = new AudioContext();
+          const source = audioCtx.createMediaStreamSource(stream);
+          const analyser = audioCtx.createAnalyser();
+          analyser.fftSize = 256;
+          analyser.smoothingTimeConstant = 0.82;
+          source.connect(analyser);
+          state.analyser = analyser;
+          state.freq = new Uint8Array(analyser.frequencyBinCount);
+          state.audioReady = true;
+          state.audioMode = "mic";
+        } catch {
+          state.audioReady = true;
+          state.audioMode = "sim";
+          showToast("マイクを使えません。仮の音で記録します。");
+        }
+      }
+
+      function updateAudio() {
+        if (state.audioMode === "mic" && state.analyser) {
+          state.analyser.getByteFrequencyData(state.freq);
+          let sum = 0;
+          let peak = 0;
+          for (let i = 0; i < state.freq.length; i++) {
+            sum += state.freq[i];
+            peak = Math.max(peak, state.freq[i]);
+          }
+          state.volume = sum / state.freq.length / 255;
+          state.peak = peak / 255;
+        } else {
+          const base = 0.13 + Math.sin(state.t * 0.7) * 0.04 + Math.random() * 0.03;
+          const pulse = Math.random() > 0.965 ? 0.42 : 0;
+          state.volume = clamp(base + pulse, 0, 1);
+          state.peak = clamp(base + pulse * 1.45, 0, 1);
+          for (let i = 0; i < state.freq.length; i++) {
+            const wave = Math.sin(i * 0.18 + state.t * 2.1) * 22;
+            state.freq[i] = clamp((state.volume * 210) + wave + Math.random() * 18, 0, 255);
+          }
+        }
+      }
+
+      function initLocation() {
+        if (!navigator.geolocation) {
+          showToast("位置情報を使えません。国分寺付近を表示します。");
+          return;
+        }
+        navigator.geolocation.getCurrentPosition(
+          pos => {
+            state.position = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+            state.heading = Number.isFinite(pos.coords.heading) ? pos.coords.heading : state.heading;
+            state.origin = state.personalRecords.length ? state.origin : state.position;
+            if (state.view === "radius") syncMapToActiveCenter(false);
+            rebuildGrids();
+          },
+          () => {
+            showToast("位置情報を使えません。国分寺付近を表示します。");
+          },
+          { enableHighAccuracy: true, timeout: 8000, maximumAge: 10000 }
+        );
+        navigator.geolocation.watchPosition(
+          pos => {
+            state.position = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+            state.heading = Number.isFinite(pos.coords.heading) ? pos.coords.heading : state.heading;
+            if (state.recording) state.path.push({ ...state.position, at: Date.now() });
+          },
+          () => {},
+          { enableHighAccuracy: true, maximumAge: 3000 }
+        );
+      }
+
+      function currentPositionWithDrift() {
+        const base = state.position || state.origin;
+        return {
+          lat: base.lat + (Math.random() - 0.5) * 0.00008,
+          lng: base.lng + (Math.random() - 0.5) * 0.00008
+        };
+      }
+
+      function timeSlot(date = new Date()) {
+        const hour = date.getHours();
+        if (hour >= 5 && hour < 11) return "morning";
+        if (hour >= 11 && hour < 17) return "day";
+        if (hour >= 17 && hour < 22) return "evening";
+        return "night";
+      }
+
+      function movementFromPath(path) {
+        if (path.length < 2) return { type: "still", distance: 0, speed: 0, angle: 0 };
+        const first = path[0];
+        const last = path[path.length - 1];
+        const distance = haversine(first, last);
+        const seconds = Math.max(1, (last.at - first.at) / 1000);
+        const speed = distance / seconds;
+        const angle = Math.atan2(last.lat - first.lat, last.lng - first.lng);
+        if (speed < 0.35) return { type: "still", distance, speed, angle };
+        if (speed < 1.4) return { type: "slow", distance, speed, angle };
+        return { type: "passing", distance, speed, angle };
+      }
+
+      function startRecording(event) {
+        event.preventDefault();
+        if (state.view !== "sense") return;
+        if (state.recording) return;
+        initAudio();
+        state.recording = true;
+        state.recordStart = performance.now();
+        state.samples = [];
+        state.path = [{ ...(state.position || state.origin), at: Date.now() }];
+        state.lastBreathPhase = "";
+        pressTarget.classList.add("recording");
+        senseState.textContent = "息を吸って、世界を近くに置く";
+        if (navigator.vibrate) navigator.vibrate([32, 160, 28]);
+        requestRender();
+      }
+
+      function stopRecording(event) {
+        if (event) event.preventDefault();
+        if (state.view !== "sense") {
+          cancelRecording();
+          return;
+        }
+        if (!state.recording) return;
+        const elapsed = performance.now() - state.recordStart;
+        if (elapsed >= DURATION) {
+          completeRecording();
+        } else {
+          cancelRecording();
+        }
+      }
+
+      function cancelRecording() {
+        state.recording = false;
+        state.samples = [];
+        pressTarget.classList.remove("recording");
+        pressTarget.style.setProperty("--breath-scale", "1");
+        senseState.textContent = "静かにして、まわりの世界を感じる";
+        requestRender();
+      }
+
+      function completeRecording() {
+        state.recording = false;
+        pressTarget.classList.remove("recording");
+        const samples = state.samples.length ? state.samples : [{ volume: state.volume, peak: state.peak }];
+        const avg = samples.reduce((acc, s) => acc + s.volume, 0) / samples.length;
+        const peaks = samples.map(s => s.peak);
+        const flux = clamp(Math.max(...peaks) - Math.min(...samples.map(s => s.volume)), 0, 1);
+        const movement = movementFromPath(state.path);
+        const date = new Date();
+        const pos = currentPositionWithDrift();
+        state.pending = {
+          id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now()),
+          lat: pos.lat,
+          lng: pos.lng,
+          noise: clamp(avg, 0, 1),
+          flux: clamp(flux, 0, 1),
+          peak: clamp(Math.max(...peaks), 0, 1),
+          movement: movement.type,
+          direction: movement.angle,
+          distance: movement.distance,
+          word: null,
+          slot: timeSlot(date),
+          createdAt: date.toISOString()
+        };
+        state.selectedWord = null;
+        state.wordGroups = suggestWordGroups(state.pending);
+        state.wordGroupIndex = 0;
+        openRecordModal();
+        pressTarget.style.setProperty("--breath-scale", "1");
+        senseState.textContent = "静かにして、まわりの世界を感じる";
+        requestRender();
+      }
+
+      function openRecordModal() {
+        updateRecordModalStats();
+        renderLabelSelect();
+        recordModal.classList.add("active");
+      }
+
+      function updateRecordModalStats() {
+        if (!state.pending) return;
+        const noise = clamp(state.pending.noise, 0, 1);
+        const flux = clamp(state.pending.flux, 0, 1);
+        const moveLabel = {
+          still: "静止",
+          slow: "ゆっくり",
+          passing: "通過"
+        }[state.pending.movement] || "静止";
+        document.getElementById("modalNoise").style.width = `${noise * 100}%`;
+        document.getElementById("modalNoiseValue").textContent = noise.toFixed(2);
+        document.getElementById("modalFlux").style.width = `${flux * 100}%`;
+        document.getElementById("modalFluxValue").textContent = flux.toFixed(2);
+        document.getElementById("modalMove").textContent = moveLabel;
+      }
+
+      function suggestWordGroups(record) {
+        const scored = WORDS.map(word => {
+          let score = 0;
+          if (word === "ざらつく") score += record.flux * 2.2 + record.peak * 0.9;
+          if (word === "重い") score += record.noise * 1.8 + (record.movement === "still" ? 0.35 : 0);
+          if (word === "詰まる") score += record.noise * 1.1 + record.flux * 1.2;
+          if (word === "乾く") score += (1 - record.noise) * 1.5 + (record.slot === "day" ? 0.2 : 0);
+          if (word === "浮く") score += (1 - record.noise) * 0.8 + (record.movement === "passing" ? 0.5 : 0);
+          if (word === "眠い") score += (record.slot === "night" ? 1 : 0) + (1 - record.flux) * 0.7;
+          if (word === "遠い") score += (record.movement !== "still" ? 0.8 : 0) + (1 - record.noise) * 0.5;
+          if (word === "ほどける") score += (1 - record.flux) * 1.1 + (record.noise < 0.22 ? 0.45 : 0);
+          return { word, score };
+        }).sort((a, b) => b.score - a.score).map(item => item.word);
+        return [
+          scored.slice(0, 3),
+          scored.slice(3, 6),
+          scored.slice(6, 8)
+        ].filter(group => group.length);
+      }
+
+      function renderLabelSelect() {
+        labelSelect.innerHTML = "";
+        const group = state.wordGroups[state.wordGroupIndex] || [];
+        const positions = [
+          { left: "50%", top: "25%" },
+          { left: "29%", top: "58%" },
+          { left: "70%", top: "58%" }
+        ];
+        group.forEach((word, index) => {
+          const btn = document.createElement("button");
+          btn.type = "button";
+          btn.className = "label-btn";
+          btn.textContent = word;
+          btn.style.left = positions[index].left;
+          btn.style.top = positions[index].top;
+          btn.style.animationDelay = `${index * 140}ms`;
+          btn.addEventListener("click", () => {
+            state.selectedWord = word;
+            savePending();
+          });
+          labelSelect.appendChild(btn);
+        });
+
+        const skip = document.createElement("button");
+        skip.type = "button";
+        skip.className = "label-btn skip";
+        skip.textContent = "スキップ";
+        skip.style.left = "50%";
+        skip.style.top = "82%";
+        skip.style.animationDelay = `${group.length * 140}ms`;
+        skip.addEventListener("click", () => {
+          if (state.wordGroupIndex < state.wordGroups.length - 1) {
+            state.wordGroupIndex += 1;
+            renderLabelSelect();
+          } else {
+            state.selectedWord = null;
+            savePending();
+          }
+        });
+        labelSelect.appendChild(skip);
+      }
+
+      function savePending() {
+        if (!state.pending) return;
+        state.pending.word = state.selectedWord;
+        state.personalRecords.push(state.pending);
+        saveRecords();
+        state.pending = null;
+        recordModal.classList.remove("active");
+        rebuildGrids();
+        updateStats();
+        switchView("radius");
+      }
+
+      function discardPending() {
+        state.pending = null;
+        recordModal.classList.remove("active");
+      }
+
+      function switchView(view) {
+        if (state.recording && view !== "sense") cancelRecording();
+        state.view = view;
+        app.dataset.view = view;
+        if (view !== "radius") setRadiusDetails(false);
+        views.forEach(el => el.classList.toggle("active", el.dataset.view === view));
+        navBtns.forEach(btn => btn.classList.toggle("active", btn.dataset.target === view));
+        if (view === "world" || view === "radius") syncMapToActiveCenter();
+        updateStats();
+        requestRender();
+      }
+
+      function setRadiusDetails(open) {
+        state.radiusDetailsOpen = open;
+        radiusPanel.classList.toggle("open", open);
+        radiusToggle.textContent = open ? "地図 ↑" : "詳細 ↓";
+      }
+
+      function canNavigateMap() {
+        return state.view === "world" || state.view === "radius";
+      }
+
+      function setZoom(nextZoom, anchorX = state.width / 2, anchorY = state.height / 2) {
+        const oldZoom = state.zoom;
+        const newZoom = clamp(nextZoom, 0.72, 2.65);
+        if (Math.abs(newZoom - oldZoom) < 0.001) return;
+        state.centerOffset.x = anchorX - (anchorX - state.centerOffset.x - state.width / 2) * (newZoom / oldZoom) - state.width / 2;
+        state.centerOffset.y = anchorY - (anchorY - state.centerOffset.y - (state.height / 2 - 18)) * (newZoom / oldZoom) - (state.height / 2 - 18);
+        state.zoom = newZoom;
+        rebuildGrids();
+      }
+
+      function handleCanvasPointerDown(event) {
+        if (!canNavigateMap()) return;
+        canvas.setPointerCapture(event.pointerId);
+        state.pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+        if (state.pointers.size === 1) {
+          state.dragStart = {
+            x: event.clientX,
+            y: event.clientY,
+            offsetX: state.centerOffset.x,
+            offsetY: state.centerOffset.y
+          };
+        } else if (state.pointers.size === 2) {
+          const pts = Array.from(state.pointers.values());
+          const dist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
+          state.pinchStart = { dist, zoom: state.zoom };
+        }
+      }
+
+      function handleCanvasPointerMove(event) {
+        if (!state.pointers.has(event.pointerId) || !canNavigateMap()) return;
+        state.pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+        if (state.pointers.size === 1 && state.dragStart) {
+          state.centerOffset.x = state.dragStart.offsetX + event.clientX - state.dragStart.x;
+          state.centerOffset.y = state.dragStart.offsetY + event.clientY - state.dragStart.y;
+        } else if (state.pointers.size === 2 && state.pinchStart) {
+          const pts = Array.from(state.pointers.values());
+          const dist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
+          const anchorX = (pts[0].x + pts[1].x) / 2;
+          const anchorY = (pts[0].y + pts[1].y) / 2;
+          setZoom(state.pinchStart.zoom * (dist / Math.max(1, state.pinchStart.dist)), anchorX, anchorY);
+        }
+      }
+
+      function handleCanvasPointerEnd(event) {
+        state.pointers.delete(event.pointerId);
+        if (state.pointers.size < 2) state.pinchStart = null;
+        if (state.pointers.size === 0) state.dragStart = null;
+      }
+
+      function handleCanvasWheel(event) {
+        if (!canNavigateMap()) return;
+        event.preventDefault();
+        const factor = Math.exp(-event.deltaY * 0.0012);
+        setZoom(state.zoom * factor, event.clientX, event.clientY);
+      }
+
+      function drawBackground() {
+        const mapMode = state.mapReady && canNavigateMap();
+        ctx.clearRect(0, 0, state.width, state.height);
+        if (mapMode) return;
+
+        ctx.fillStyle = "#020304";
+        ctx.fillRect(0, 0, state.width, state.height);
+
+        const cx = state.width / 2;
+        const cy = state.height / 2 - 18;
+        const radius = Math.min(state.width, state.height - 130) * 0.43;
+
+        const glow = ctx.createRadialGradient(cx, cy, radius * 0.06, cx, cy, radius * 1.16);
+        glow.addColorStop(0, "rgba(154, 180, 184, 0.16)");
+        glow.addColorStop(0.48, "rgba(31, 45, 48, 0.17)");
+        glow.addColorStop(1, "rgba(2, 3, 4, 0)");
+        ctx.fillStyle = glow;
+        ctx.fillRect(0, 0, state.width, state.height);
+
+        ctx.filter = "none";
+      }
+
+      function rebuildGrids() {
+        if (!state.width || !state.height) return;
+        state.grid.world = [];
+        state.grid.radius = [];
+        invalidateField(true);
+      }
+
+      function requestRender() {
+        state.renderDirty = true;
+        if (state.renderHandle) return;
+        state.renderHandle = requestAnimationFrame(render);
+      }
+
+      function invalidateField(immediate = false) {
+        state.fieldDirty = true;
+        state.fieldTransition = null;
+        clearTimeout(state.renderTimer);
+        if (immediate) {
+          requestRender();
+          return;
+        }
+        state.renderTimer = setTimeout(requestRender, PERF.renderDebounceMs);
+      }
+
+      function gridRenderConfig() {
+        const zoom = state.mapReady ? state.map.getZoom() : DEFAULT_VIEW.zoom;
+        const preset = getContinuousZoomPreset(zoom);
+        const baseSigma = state.view === "world" ? 145 : 105;
+        const sigmaMeters = baseSigma * preset.sigmaScale;
+        const dotSpacingMeters = getStableDotSpacingMeters();
+        const isMobile = state.width < 768;
+        const maxDots = isMobile ? DOT_DENSITY_VISUAL.maxDotsMobile : DOT_DENSITY_VISUAL.maxDotsDesktop;
+        return {
+          ...preset,
+          level: getSkinZoomLevel(zoom),
+          densityMode: DOT_DENSITY_VISUAL.densityMode,
+          dotSpacingMeters,
+          sigmaMeters,
+          cellSize: clamp(sigmaMeters * 0.9, 96, 180),
+          gain: state.view === "world" ? 0.58 : 0.72,
+          influenceCutoff: GRID_VISUAL.influenceCutoff,
+          maxDots,
+          minDots: DOT_DENSITY_VISUAL.minDotsVisible,
+          maxInfluenceDistance: clamp(sigmaMeters * 3, 180, 420)
+        };
+      }
+
+      function viewBoundsMeters(origin) {
+        if (!state.mapReady) {
+          const half = RADIUS_METERS / Math.max(1, state.zoom);
+          return { minX: -half, maxX: half, minY: -half, maxY: half };
+        }
+        const pad = 180;
+        const points = [
+          [-pad, -pad],
+          [state.width + pad, -pad],
+          [state.width + pad, state.height + pad],
+          [-pad, state.height + pad]
+        ].map(([x, y]) => {
+          const ll = state.map.unproject([x, y]);
+          return latLngToMeters({ lat: ll.lat, lng: ll.lng }, origin);
+        });
+        return {
+          minX: Math.min(...points.map(p => p.dx)),
+          maxX: Math.max(...points.map(p => p.dx)),
+          minY: Math.min(...points.map(p => p.dy)),
+          maxY: Math.max(...points.map(p => p.dy))
+        };
+      }
+
+      function buildGeoGridField(records) {
+        const config = gridRenderConfig();
+        const origin = activeOrigin();
+        const bounds = viewBoundsMeters(origin);
+        const sigmaBase = config.sigmaMeters;
+        const maxDistance = config.maxInfluenceDistance;
+        const cellSize = config.cellSize;
+        const estimatedDots = ((bounds.maxX - bounds.minX) / config.dotSpacingMeters) * ((bounds.maxY - bounds.minY) / config.dotSpacingMeters);
+        let spacing = config.dotSpacingMeters;
+        if (estimatedDots > config.maxDots) {
+          const ratio = estimatedDots / config.maxDots;
+          spacing = config.dotSpacingMeters * Math.min(Math.pow(ratio, 0.35), 1.28);
+        } else if (estimatedDots > 0 && estimatedDots < config.minDots) {
+          spacing = config.dotSpacingMeters * Math.sqrt(estimatedDots / config.minDots);
+        }
+        spacing = clamp(spacing, 16, 240);
+        config.actualDotSpacingMeters = spacing;
+        const visibleRecords = records.slice(0, PERF.maxVisibleRecords).map(rec => {
+          const m = latLngToMeters(rec, origin);
+          const visual = applyWordBias(recordBaseVisual(rec), rec.word);
+          return {
+            ...rec,
+            noise: recordNoise(rec),
+            flux: recordFlux(rec),
+            movement: recordMove(rec),
+            slot: recordSlot(rec),
+            createdAt: recordTime(rec),
+            mx: m.dx,
+            my: m.dy,
+            tw: temporalWeight(rec),
+            visual
+          };
+        }).filter(rec => (
+          rec.tw > 0.025 &&
+          rec.mx >= bounds.minX - maxDistance &&
+          rec.mx <= bounds.maxX + maxDistance &&
+          rec.my >= bounds.minY - maxDistance &&
+          rec.my <= bounds.maxY + maxDistance
+        ));
+
+        const bins = new Map();
+        visibleRecords.forEach(rec => {
+          const bx = Math.floor(rec.mx / cellSize);
+          const by = Math.floor(rec.my / cellSize);
+          const key = `${bx}:${by}`;
+          if (!bins.has(key)) bins.set(key, []);
+          bins.get(key).push(rec);
+        });
+
+        const cells = [];
+        const startX = Math.floor(bounds.minX / spacing) * spacing;
+        const endX = Math.ceil(bounds.maxX / spacing) * spacing;
+        const startY = Math.floor(bounds.minY / spacing) * spacing;
+        const endY = Math.ceil(bounds.maxY / spacing) * spacing;
+        let row = 0;
+        for (let my = startY; my <= endY; my += spacing, row++) {
+          let col = 0;
+          for (let mx = startX; mx <= endX; mx += spacing, col++) {
+            const ll = metersToLatLng(mx, my, origin);
+            const p = state.mapReady ? state.map.project([ll.lng, ll.lat]) : project(ll, origin);
+            if (p.x < -120 || p.x > state.width + 120 || p.y < -140 || p.y > state.height + 140) continue;
+            let sum = 0;
+            let strength = 0;
+            let flux = 0;
+            let contrast = 0;
+            let warmth = 0;
+            let boundary = 0;
+            let breathSpeed = 0;
+            let radiusBias = 0;
+            let rust = 0;
+            let heightBias = 0;
+            const bx = Math.floor(mx / cellSize);
+            const by = Math.floor(my / cellSize);
+            for (let oy = -2; oy <= 2; oy++) {
+              for (let ox = -2; ox <= 2; ox++) {
+                const nearby = bins.get(`${bx + ox}:${by + oy}`);
+                if (!nearby) continue;
+                for (const rec of nearby) {
+                  const dx = mx - rec.mx;
+                  const dy = my - rec.my;
+                  const sigma = sigmaBase * rec.visual.spread;
+                  const d2 = dx * dx + dy * dy;
+                  if (d2 > maxDistance * maxDistance || d2 > sigma * sigma * 9) continue;
+                  const influence = Math.exp(-d2 / (2 * sigma * sigma));
+                  if (influence < config.influenceCutoff) continue;
+                  const w = influence * (0.55 + rec.noise * 0.45) * rec.tw;
+                  sum += w;
+                  strength += w * rec.visual.strength;
+                  flux += w * rec.visual.flux;
+                  contrast += w * rec.visual.contrast;
+                  warmth += w * rec.visual.warmth;
+                  boundary += w * rec.visual.boundary;
+                  breathSpeed += w * rec.visual.breathSpeed;
+                  radiusBias += w * rec.visual.radiusBias;
+                  rust += w * rec.visual.rust;
+                  heightBias += w * rec.visual.heightBias;
+                }
+              }
+            }
+            const normalizedStrength = sum ? clamp(1 - Math.exp(-strength * config.gain), 0, VISUAL_LIMITS.strength) : 0;
+            const normalizedContrast = sum ? clamp((contrast / sum) * config.contrastScale, 0, VISUAL_LIMITS.contrast) : 0;
+            const normalizedBoundary = sum && config.showBoundary ? clamp((boundary / sum) * config.boundaryScale, 0, VISUAL_LIMITS.boundaryAlpha) : 0;
+            const normalizedHeightBias = sum ? clamp(heightBias / sum, -24, 32) : 0;
+            cells.push({
+              x: p.x,
+              y: p.y,
+              mx,
+              my,
+              row,
+              col,
+              base: 0.010,
+              spacing,
+              screenRecords: visibleRecords.length,
+              strength: normalizedStrength,
+              flux: sum ? clamp(flux / sum, 0, VISUAL_LIMITS.flux) : 0,
+              baseContrast: normalizedContrast,
+              warmth: sum ? clamp(warmth / sum, -0.35, 0.35) : -0.05,
+              boundary: normalizedBoundary,
+              breathSpeed: sum ? clamp(breathSpeed / sum, 0.65, 1.2) : 1,
+              radiusBias: sum ? clamp(radiusBias / sum, -0.24, 0.44) : 0,
+              rust: sum ? clamp(rust / sum, 0, 0.28) : 0,
+              heightBias: normalizedHeightBias,
+              height: getDotHeight({
+                strength: normalizedStrength,
+                contrast: normalizedContrast,
+                boundary: normalizedBoundary,
+                heightBias: normalizedHeightBias
+              }) * config.heightScale,
+              contrast: 0
+            });
+          }
+        }
+
+        const byKey = new Map(cells.map(cell => [`${cell.row}:${cell.col}`, cell]));
+        cells.forEach(cell => {
+          const neighbors = [
+            byKey.get(`${cell.row}:${cell.col - 1}`),
+            byKey.get(`${cell.row}:${cell.col + 1}`),
+            byKey.get(`${cell.row - 1}:${cell.col}`),
+            byKey.get(`${cell.row + 1}:${cell.col}`)
+          ].filter(Boolean);
+          if (!neighbors.length) return;
+          const avg = neighbors.reduce((acc, other) => acc + other.strength, 0) / neighbors.length;
+          const fluxAvg = neighbors.reduce((acc, other) => acc + other.flux, 0) / neighbors.length;
+          const contrastAvg = neighbors.reduce((acc, other) => acc + other.baseContrast, 0) / neighbors.length;
+          cell.contrast = clamp(
+            (
+              cell.baseContrast * 0.72 +
+              Math.abs(cell.strength - avg) * 1.85 +
+              Math.abs(cell.flux - fluxAvg) * 0.9 +
+              Math.abs(cell.baseContrast - contrastAvg) * 1.1 +
+              cell.boundary * 0.72
+            ) * config.contrastScale,
+            0,
+            VISUAL_LIMITS.contrast
+          );
+          cell.localContrast = config.showBoundary
+            ? clamp((Math.abs(cell.strength - avg) * 1.9 + Math.abs(cell.flux - fluxAvg) * 0.72) * config.boundaryScale, 0, VISUAL_LIMITS.contrast)
+            : 0;
+        });
+        return cells;
+      }
+
+      function drawGridTexture(cells = state.cachedCells) {
+        const config = gridRenderConfig();
+        ctx.save();
+        ctx.globalCompositeOperation = "screen";
+        const hourWarmth = state.view === "world" ? Math.cos((state.selectedHour - 14) / 24 * Math.PI * 2) : 0;
+        const daylight = getDaylightAmount(state.selectedHour);
+        const nightBoost = 1 - daylight;
+        const origin = activeOrigin();
+        const stats = {
+          records: activeRecords().length,
+          screenRecords: cells[0]?.screenRecords || 0,
+          strengthMin: Infinity,
+          strengthMax: 0,
+          strengthSum: 0,
+          contrastMin: Infinity,
+          contrastMax: 0,
+          contrastSum: 0,
+          alphaMin: Infinity,
+          alphaMax: 0,
+          alphaSum: 0,
+          radiusMax: 0,
+          cells: cells.length,
+          sigma: config.sigmaMeters,
+          spacing: cells[0]?.spacing || config.dotSpacingMeters,
+          targetScreenSpacing: DOT_DENSITY_VISUAL.targetScreenSpacingPx,
+          level: config.level,
+          zoom: state.mapReady ? state.map.getZoom() : state.zoom
+        };
+        for (const cell of cells) {
+          let surfaceX = cell.x;
+          let surfaceY = cell.y;
+          if (state.mapReady && Number.isFinite(cell.mx) && Number.isFinite(cell.my)) {
+            const ll = metersToLatLng(cell.mx, cell.my, origin);
+            const point = state.map.project([ll.lng, ll.lat]);
+            surfaceX = point.x;
+            surfaceY = point.y;
+          }
+          if (surfaceX < -160 || surfaceX > state.width + 160 || surfaceY < -180 || surfaceY > state.height + 180) continue;
+          const params = {
+            strength: cell.strength,
+            flux: cell.flux,
+            contrast: cell.contrast,
+            warmth: clamp(cell.warmth + hourWarmth * 0.12 + (cell.localContrast || 0) * 0.04, -0.35, 0.35),
+            boundary: cell.boundary,
+            breathSpeed: cell.breathSpeed,
+            radiusBias: cell.radiusBias,
+            rust: clamp(cell.rust + Math.max(0, cell.flux - 0.5) * 0.12 + cell.boundary * 0.16, 0, 0.28),
+            heightBias: cell.heightBias
+          };
+          const baseSkinAlpha = 0.010;
+          const rawAlpha = cell.strength < GRID_VISUAL.strengthCutoff
+            ? baseSkinAlpha + getDotAlpha(params) * 0.22
+            : baseSkinAlpha + getDotAlpha(params) + (cell.localContrast || 0) * 0.14;
+          const depth = clamp(1.02 - (surfaceY / Math.max(1, state.height)) * 0.16, 0.86, 1.02);
+          const alpha = clamp(rawAlpha * depth * config.alphaScale * (1 + nightBoost * 0.1), GRID_VISUAL.minAlpha, GRID_VISUAL.maxAlpha);
+          const radius = clamp(getDotRadius(params), DOT_DENSITY_VISUAL.minRadiusPx, DOT_DENSITY_VISUAL.maxRadiusPx);
+          const color = getDotColor(params);
+          const heightScale = state.mapReady ? 0.36 * Math.sin(state.map.getPitch() * Math.PI / 180) : 0.2;
+          const heightOffset = cell.height * heightScale * depth;
+          const x = surfaceX;
+          const y = surfaceY - heightOffset;
+          stats.strengthMin = Math.min(stats.strengthMin, cell.strength);
+          stats.strengthMax = Math.max(stats.strengthMax, cell.strength);
+          stats.strengthSum += cell.strength;
+          stats.contrastMin = Math.min(stats.contrastMin, cell.contrast);
+          stats.contrastMax = Math.max(stats.contrastMax, cell.contrast);
+          stats.contrastSum += cell.contrast;
+          stats.alphaMin = Math.min(stats.alphaMin, alpha);
+          stats.alphaMax = Math.max(stats.alphaMax, alpha);
+          stats.alphaSum += alpha;
+          stats.radiusMax = Math.max(stats.radiusMax, radius);
+          if (cell.height > 22 && cell.strength > 0.16) {
+            ctx.strokeStyle = `rgba(${color.r}, ${color.g}, ${color.b}, ${alpha * 0.18})`;
+            ctx.lineWidth = 0.55;
+            ctx.beginPath();
+            ctx.moveTo(surfaceX, surfaceY);
+            ctx.lineTo(x, y);
+            ctx.stroke();
+          }
+          ctx.fillStyle = `rgba(${color.r}, ${color.g}, ${color.b}, ${alpha})`;
+          ctx.beginPath();
+          ctx.arc(x, y, radius, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        ctx.restore();
+        state.debugStats = {
+          ...stats,
+          strengthAvg: stats.cells ? stats.strengthSum / stats.cells : 0,
+          contrastAvg: stats.cells ? stats.contrastSum / stats.cells : 0,
+          alphaAvg: stats.cells ? stats.alphaSum / stats.cells : 0,
+          radiusMax: stats.radiusMax,
+          strengthMin: Number.isFinite(stats.strengthMin) ? stats.strengthMin : 0,
+          contrastMin: Number.isFinite(stats.contrastMin) ? stats.contrastMin : 0,
+          alphaMin: Number.isFinite(stats.alphaMin) ? stats.alphaMin : 0
+        };
+      }
+
+      function renderDebugPanel() {
+        if (!debugPanel) return;
+        debugPanel.classList.toggle("active", state.debug);
+        if (!state.debug) return;
+        const s = state.debugStats || {};
+        const fixed = value => Number.isFinite(value) ? value.toFixed(3) : "0.000";
+        debugPanel.textContent = [
+          `記録数: ${s.records || 0}`,
+          `画面内記録: ${s.screenRecords || 0}`,
+          `強度: ${fixed(s.strengthMin)} / ${fixed(s.strengthMax)} / ${fixed(s.strengthAvg)}`,
+          `差分: ${fixed(s.contrastMin)} / ${fixed(s.contrastMax)} / ${fixed(s.contrastAvg)}`,
+          `透明度: ${fixed(s.alphaMin)} / ${fixed(s.alphaMax)} / ${fixed(s.alphaAvg)}`,
+          `最大半径: ${fixed(s.radiusMax)}`,
+          `シグマ: ${fixed(s.sigma)}`,
+          `間隔: ${fixed(s.spacing)}`,
+          `目標px: ${s.targetScreenSpacing || DOT_DENSITY_VISUAL.targetScreenSpacingPx}`,
+          `階層: ${s.level || "-"}`,
+          `ズーム: ${fixed(s.zoom)}`,
+          `ピッチ: ${state.mapReady ? state.map.getPitch().toFixed(1) : "0.0"}`,
+          `方位: ${state.mapReady ? state.map.getBearing().toFixed(1) : "0.0"}`,
+          `昼光: ${getDaylightAmount(state.selectedHour).toFixed(2)}`,
+          `時間状態: ${getMapVisualByHour(state.selectedHour).state}`,
+          `移動中: ${state.mapReady && state.map.isMoving() ? "はい" : "いいえ"}`,
+          `Canvas操作: ${getComputedStyle(canvas).pointerEvents}`,
+          `地図: ${state.mapVisualMode}`
+        ].join("\n");
+      }
+
+      function interpolateCells(fromCells, toCells, t) {
+        if (!fromCells?.length || fromCells.length !== toCells.length) return toCells;
+        return toCells.map((cell, index) => {
+          const from = fromCells[index];
+          return {
+            ...cell,
+            strength: from.strength + (cell.strength - from.strength) * t,
+            flux: from.flux + (cell.flux - from.flux) * t,
+            baseContrast: from.baseContrast + (cell.baseContrast - from.baseContrast) * t,
+            contrast: from.contrast + (cell.contrast - from.contrast) * t,
+            localContrast: (from.localContrast || 0) + ((cell.localContrast || 0) - (from.localContrast || 0)) * t,
+            warmth: from.warmth + (cell.warmth - from.warmth) * t,
+            boundary: from.boundary + (cell.boundary - from.boundary) * t,
+            radiusBias: from.radiusBias + (cell.radiusBias - from.radiusBias) * t,
+            rust: from.rust + (cell.rust - from.rust) * t,
+            heightBias: from.heightBias + (cell.heightBias - from.heightBias) * t,
+            height: from.height + (cell.height - from.height) * t
+          };
+        });
+      }
+
+      function easeInOutCubic(t) {
+        return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+      }
+
+      function rebuildFieldCache() {
+        state.cachedCells = buildGeoGridField(activeRecords());
+        state.fieldDirty = false;
+        state.fieldTransition = null;
+      }
+
+      function startFieldTransition() {
+        const from = state.cachedCells.length ? state.cachedCells : buildGeoGridField(activeRecords());
+        const to = buildGeoGridField(activeRecords());
+        state.fieldTransition = {
+          from,
+          to,
+          start: performance.now(),
+          duration: 420
+        };
+        state.fieldDirty = false;
+        requestRender();
+      }
+
+      function drawCurrentMarker() {
+        if (!canNavigateMap()) return;
+        const pos = state.position || activeOrigin();
+        const p = project(pos);
+        if (p.x < -80 || p.x > state.width + 80 || p.y < -80 || p.y > state.height + 80) return;
+        let heading = state.heading;
+        if (!Number.isFinite(heading) && state.path.length >= 2) {
+          const first = state.path[0];
+          const last = state.path[state.path.length - 1];
+          const dx = (last.lng - first.lng) * Math.cos(pos.lat * Math.PI / 180);
+          const dy = last.lat - first.lat;
+          if (Math.hypot(dx, dy) > 0.000001) heading = (Math.atan2(dx, dy) * 180 / Math.PI + 360) % 360;
+        }
+        if (!Number.isFinite(heading)) heading = 0;
+        const rad = heading * Math.PI / 180;
+        const dest = metersToLatLng(Math.sin(rad) * 140, Math.cos(rad) * 140, pos);
+        const ahead = project(dest);
+        const screenAngle = Math.atan2(ahead.y - p.y, ahead.x - p.x);
+
+        ctx.save();
+        ctx.globalCompositeOperation = "screen";
+        ctx.translate(p.x, p.y);
+        const pulse = 0.5 + Math.sin(state.t * 2.2) * 0.5;
+        const halo = ctx.createRadialGradient(0, 0, 0, 0, 0, 34 + pulse * 8);
+        halo.addColorStop(0, "rgba(225, 242, 255, 0.22)");
+        halo.addColorStop(0.46, "rgba(135, 184, 255, 0.08)");
+        halo.addColorStop(1, "rgba(0, 0, 0, 0)");
+        ctx.fillStyle = halo;
+        ctx.beginPath();
+        ctx.arc(0, 0, 42, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.strokeStyle = "rgba(232, 244, 255, 0.78)";
+        ctx.lineWidth = 1.2;
+        ctx.beginPath();
+        ctx.arc(0, 0, 10, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.fillStyle = "rgba(232, 244, 255, 0.95)";
+        ctx.beginPath();
+        ctx.arc(0, 0, 3.2, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.rotate(screenAngle);
+        ctx.fillStyle = "rgba(232, 244, 255, 0.9)";
+        ctx.beginPath();
+        ctx.moveTo(22, 0);
+        ctx.lineTo(10, -5);
+        ctx.lineTo(12, 0);
+        ctx.lineTo(10, 5);
+        ctx.closePath();
+        ctx.fill();
+        ctx.restore();
+      }
+
+      function drawContactLayer() {
+        if (!state.recording || state.view !== "sense") return;
+        const pos = project(state.position || state.origin);
+        const elapsed = performance.now() - state.recordStart;
+        const pct = clamp(elapsed / DURATION, 0, 1);
+        const rings = 4;
+        ctx.save();
+        ctx.translate(pos.x, pos.y);
+        ctx.globalCompositeOperation = "screen";
+        for (let ring = 0; ring < rings; ring++) {
+          const points = 96;
+          const base = 36 + ring * 18 + pct * 34;
+          ctx.beginPath();
+          for (let i = 0; i <= points; i++) {
+            const a = (Math.PI * 2 * i) / points;
+            const freq = state.freq[(i * 3 + ring * 11) % state.freq.length] / 255;
+            const ripple = Math.sin(a * (3 + ring) + state.t * (1.2 + ring * 0.25)) * 8;
+            const sound = freq * (12 + state.volume * 26);
+            const r = base + ripple + sound;
+            const x = Math.cos(a) * r;
+            const y = Math.sin(a) * r;
+            if (i === 0) ctx.moveTo(x, y);
+            else ctx.lineTo(x, y);
+          }
+          const alpha = 0.34 - ring * 0.055 + state.volume * 0.18;
+          ctx.strokeStyle = `rgba(232, 242, 243, ${alpha})`;
+          ctx.lineWidth = ring === 0 ? 1.6 : 1;
+          ctx.stroke();
+        }
+        ctx.restore();
+        ctx.globalCompositeOperation = "source-over";
+      }
+
+      function updateRecordingProgress() {
+        if (!state.recording) return;
+        const elapsed = performance.now() - state.recordStart;
+        const pct = clamp(elapsed / DURATION, 0, 1);
+        const cycle = (elapsed % (BREATH_IN_MS + BREATH_OUT_MS));
+        const isInhale = cycle < BREATH_IN_MS;
+        const phasePct = isInhale ? cycle / BREATH_IN_MS : (cycle - BREATH_IN_MS) / BREATH_OUT_MS;
+        const eased = 0.5 - Math.cos(phasePct * Math.PI) / 2;
+        const scale = isInhale ? 0.86 + eased * 0.28 : 1.14 - eased * 0.28;
+        pressTarget.style.setProperty("--breath-scale", scale.toFixed(3));
+        const phase = isInhale ? "in" : "out";
+        if (phase !== state.lastBreathPhase) {
+          state.lastBreathPhase = phase;
+          senseState.textContent = phase === "in" ? "息を吸って、世界を近くに置く" : "息を吐いて、音をほどく";
+          if (navigator.vibrate) navigator.vibrate(phase === "in" ? 36 : 22);
+        }
+        state.samples.push({ volume: state.volume, peak: state.peak, at: Date.now() });
+        if (pct >= 1) completeRecording();
+      }
+
+      function visibleVoidCount() {
+        if (state.personalRecords.length === 0) return "--";
+        const center = project(state.origin, state.origin);
+        const scale = center.scale;
+        let voids = 0;
+        for (let x = center.x - 240; x <= center.x + 240; x += 80) {
+          for (let y = center.y - 240; y <= center.y + 240; y += 80) {
+            const cell = unprojectCell(x, y, scale, state.origin);
+            if (Math.hypot(cell.dx, cell.dy) > RADIUS_METERS) continue;
+            const nearest = state.personalRecords.reduce((min, rec) => {
+              const rp = project(rec, state.origin);
+              return Math.min(min, Math.hypot(x - rp.x, y - rp.y));
+            }, Infinity);
+            if (nearest > 96) voids++;
+          }
+        }
+        return String(voids);
+      }
+
+      function updateStats() {
+        const records = state.personalRecords;
+        const avgNoise = records.length ? records.reduce((acc, r) => acc + r.noise, 0) / records.length : 0;
+        document.getElementById("recordCount").textContent = `世界 ${state.worldRecords.length} / 自分 ${records.length}`;
+        document.getElementById("metricRecords").textContent = String(records.length);
+        document.getElementById("metricVoid").textContent = visibleVoidCount();
+        document.getElementById("metricNoise").textContent = avgNoise.toFixed(2);
+
+        const timeSlice = document.getElementById("timeSlice");
+        timeSlice.innerHTML = "";
+        const maxSlot = Math.max(1, ...TIME_SLOTS.map(slot => records.filter(r => r.slot === slot).length));
+        TIME_SLOTS.forEach(slot => {
+          const count = records.filter(r => r.slot === slot).length;
+          const row = document.createElement("div");
+          row.className = "slice";
+          const slotLabel = { morning: "朝", day: "昼", evening: "夕", night: "夜" }[slot] || slot;
+          row.innerHTML = `<span>${slotLabel}</span><span class="track"><span class="fill" style="width:${(count / maxSlot) * 100}%"></span></span><span>${count}</span>`;
+          timeSlice.appendChild(row);
+        });
+
+        const tagGrid = document.getElementById("tagGrid");
+        tagGrid.innerHTML = "";
+        WORDS.forEach(word => {
+          const count = records.filter(r => r.word === word).length;
+          const cell = document.createElement("div");
+          cell.className = "tag-cell" + (count ? " active" : "");
+          cell.textContent = count ? `${word} ${count}` : word;
+          tagGrid.appendChild(cell);
+        });
+
+      }
+
+      function render() {
+        state.renderHandle = null;
+        state.t += 1 / Math.max(1, PERF.targetFPS);
+        if (state.recording) updateAudio();
+        if (state.recording) updateRecordingProgress();
+        if (state.fieldDirty && canNavigateMap()) rebuildFieldCache();
+        drawBackground();
+        if (state.view === "world" || state.view === "radius") {
+          let cells = state.cachedCells;
+          if (state.fieldTransition) {
+            const progress = clamp((performance.now() - state.fieldTransition.start) / state.fieldTransition.duration, 0, 1);
+            cells = interpolateCells(state.fieldTransition.from, state.fieldTransition.to, easeInOutCubic(progress));
+            if (progress >= 1) {
+              state.cachedCells = state.fieldTransition.to;
+              state.fieldTransition = null;
+            }
+          }
+          drawGridTexture(cells);
+          drawCurrentMarker();
+        }
+        drawContactLayer();
+        renderDebugPanel();
+        state.renderDirty = false;
+        if (state.recording || state.fieldTransition) requestRender();
+      }
+
+      function bindEvents() {
+        window.addEventListener("resize", resizeCanvas);
+        navBtns.forEach(btn => btn.addEventListener("click", () => switchView(btn.dataset.target)));
+        pressTarget.addEventListener("pointerdown", startRecording);
+        pressTarget.addEventListener("pointerup", stopRecording);
+        pressTarget.addEventListener("pointercancel", stopRecording);
+        pressTarget.addEventListener("pointerleave", stopRecording);
+        document.getElementById("saveBtn").addEventListener("click", savePending);
+        document.getElementById("discardBtn").addEventListener("click", discardPending);
+        radiusToggle.addEventListener("click", () => setRadiusDetails(!state.radiusDetailsOpen));
+        timeSlider.addEventListener("input", () => {
+          state.selectedHour = Number(timeSlider.value);
+          timeAxisLabel.textContent = `${String(state.selectedHour).padStart(2, "0")}:00`;
+          applyMapVisualMode();
+          startFieldTransition();
+        });
+        canvas.addEventListener("pointerdown", handleCanvasPointerDown);
+        canvas.addEventListener("pointermove", handleCanvasPointerMove);
+        canvas.addEventListener("pointerup", handleCanvasPointerEnd);
+        canvas.addEventListener("pointercancel", handleCanvasPointerEnd);
+        canvas.addEventListener("wheel", handleCanvasWheel, { passive: false });
+        document.getElementById("centerBtn").addEventListener("click", () => {
+          if (state.mapReady && canNavigateMap()) {
+            syncMapToActiveCenter();
+            showToast("地図の中心へ戻りました。");
+            return;
+          }
+          state.centerOffset = { x: 0, y: 0 };
+          state.zoom = 1;
+          rebuildGrids();
+          showToast("半径の中心へ戻りました。");
+        });
+        document.getElementById("clearBtn").addEventListener("click", () => {
+          if (!state.personalRecords.length) return;
+          state.personalRecords = [];
+          saveRecords();
+          rebuildGrids();
+          updateStats();
+          showToast("自分の記録を消しました。");
+        });
+        window.addEventListener("contextmenu", event => event.preventDefault());
+        window.addEventListener("keydown", event => {
+          const key = event.key.toLowerCase();
+          if (key === "d") {
+            state.debug = !state.debug;
+            renderDebugPanel();
+            requestRender();
+          }
+          if (key === "m") {
+            const modes = ["dark", "balanced", "bright"];
+            const next = modes[(modes.indexOf(state.mapVisualMode) + 1) % modes.length];
+            state.mapVisualMode = next;
+            applyMapVisualMode();
+            const modeLabel = { dark: "暗め", balanced: "標準", bright: "明るめ" }[next] || next;
+            showToast(`地図表示 ${modeLabel}`);
+            requestRender();
+          }
+          if (key === "r") resetMapView();
+        });
+      }
+
+      function boot() {
+        initRealMap();
+        resizeCanvas();
+        bindEvents();
+        initLocation();
+        updateStats();
+        invalidateField(true);
+      }
+
+      boot();
+    })();
+  </script>
+</body>
+</html>
