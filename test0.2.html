@@ -1348,7 +1348,9 @@
       app.dataset.view = state.view;
 
       function maybeSeedPersonalRecords(records) {
-        if (localStorage.getItem(SEED_KEY)) return records;
+        const alreadySeeded = !!localStorage.getItem(SEED_KEY);
+        const hasSenseData  = records.length > 0 && !!records[0]?.senseVector;
+        if (alreadySeeded && hasSenseData) return records;
         const source = window.MY_SKIN_DATA?.records || [];
         if (!source.length) return records;
         try {
@@ -1362,6 +1364,7 @@
           }));
           localStorage.setItem(STORAGE_KEY, JSON.stringify(seeded));
           localStorage.setItem(SEED_KEY, "1");
+          console.log("[WorldSkin] seeded", seeded.length, "personal records with senseVector:", !!seeded[0]?.senseVector);
           return seeded;
         } catch {
           return records;
