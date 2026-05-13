@@ -95,6 +95,7 @@
 - [ ] `recordBaseVisual()` 中 spread 读取 `senseSpacious` 偏置
 - [ ] alpha 不随 spaciousness 主控（由 gravity 主控）
 - [ ] 手机端验收：点阵规则性不破坏，不变成热力图，void 区域仍可见
+- [ ] 验收数据：按 T 切换测试数据，确认 Row 0 从西到东 radius/spread 平稳梯度变化，testdata.js 中 ROW_SPACIOUSNESS 标注 ✓
 
 ---
 
@@ -109,6 +110,7 @@
 - [ ] `getDotHeight()` 读取 `senseGravity` 偏置（bias range: -10 ~ +14，受现有 height 上限约束）
 - [ ] 沉重不得变成黑色热力图；高度有绝对上限（不超过现有 heightMax）
 - [ ] 手机端验收：轻盈不让记录消失，沉重不爆亮，height 无溢出
+- [ ] 验收数据：按 T 切换测试数据，确认 Row 1 从西到东 alpha/height 平稳梯度变化，testdata.js 中 ROW_GRAVITY 标注 ✓
 
 ---
 
@@ -124,6 +126,7 @@
 - [ ] boundary 读取 `senseTension` 偏置
 - [ ] 不画线、不画轮廓、不画裂缝
 - [ ] 手机端验收：差异可感知但克制
+- [ ] 验收数据：按 T 切换测试数据，确认 Row 2 从西到东 contrast/edgeHardness 平稳梯度变化，testdata.js 中 ROW_TENSION 标注 ✓
 
 ---
 
@@ -138,6 +141,7 @@
 - [ ] 方向性/anisotropy 实现：sigma 在 passing 方向轻微拉伸（不画线，不画轨迹）
 - [ ] 不使用 jitter，不画 corridor polyline，不画轨迹线
 - [ ] 手机端验收：通过场形态感知流动，不出现视觉线条
+- [ ] 验收数据：按 T 切换测试数据，确认 Row 3 从西到东 flux 平稳梯度变化，testdata.js 中 ROW_FLOW 标注 ✓
 
 ---
 
@@ -153,6 +157,7 @@
 - [ ] sharpness → edgeHardness（与 tension 叠加，总值受 clamp 约束）
 - [ ] 安静区域仍有暗点（不消失）；Sense UI 不显示声音数据
 - [ ] 手机端验收：安静/嘈杂对比可感知；不闪烁
+- [ ] 验收数据：按 T 切换测试数据，确认 Row 4 从西到东 loudness 对 strength 的影响平稳可见，testdata.js 中 ROW_SOUND 标注 ✓
 
 ---
 
@@ -168,6 +173,7 @@
 - [ ] clarity → contrast 微调；dryness → warmth 负向偏置
 - [ ] 不变成主题色切换；不出现高饱和色
 - [ ] 手机端验收：只是表面质感修饰，不影响主轴分工
+- [ ] 验收数据：按 T 切换测试数据，确认 Row 5 从西到东色温平稳从冷灰过渡到暖灰，testdata.js 中 ROW_TEXTURE 标注 ✓
 
 ---
 
