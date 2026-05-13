@@ -1639,16 +1639,13 @@
         const c = clamp(params.contrast, 0, 1);
         const b = clamp(params.boundary, 0, 1);
         const f = clamp(params.flux, 0, 1);
-        // gravity: heavy(+1)→more alpha, light(-1)→less alpha
-        const gBias = clamp((params.senseGravity ?? 0) * 0.14, -0.10, +0.14);
         if (s < GRID_VISUAL.strengthCutoff) return clamp(0.012 + c * 0.035, GRID_VISUAL.minAlpha, 0.045);
         return clamp(
           0.018 +
           Math.pow(s, 1.18) * 0.48 +
           Math.pow(c, 1.05) * 0.16 +
           Math.pow(b, 1.05) * 0.14 +
-          Math.pow(f, 1.2) * 0.08 +
-          gBias,
+          Math.pow(f, 1.2) * 0.08,
           GRID_VISUAL.minAlpha,
           GRID_VISUAL.maxAlpha
         );
@@ -1687,17 +1684,9 @@
       }
 
       function getDotHeight(params) {
-        // gravity: heavy(+1)→taller, light(-1)→flatter
-        const ghBias = clamp((params.senseGravity ?? 0) * 14, -10, +14);
-        return clamp(
-          Math.pow(clamp(params.strength, 0, 1), 1.25) * 72 +
-          Math.pow(clamp(params.contrast, 0, 1), 1.1) * 28 +
-          clamp(params.boundary, 0, 1) * 18 +
-          (params.heightBias || 0) +
-          ghBias,
-          0,
-          96
-        );
+        // gravity only: heavy(+1)→raised, light(-1)→flat; record density has no effect
+        const g = clamp(params.senseGravity ?? 0, -1, 1);
+        return clamp(58 + g * 100, 4, 126);
       }
 
       function temporalWeight(record) {
