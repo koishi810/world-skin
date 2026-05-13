@@ -1077,6 +1077,7 @@
   <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
   <script src="world_data.js"></script>
   <script src="my_data.js"></script>
+  <script src="testdata.js"></script>
   <script>
     (() => {
       const STORAGE_KEY = "world-skin-v02-records";
@@ -1100,6 +1101,7 @@
       const WORDS = window.WORLD_SKIN_DATA?.words || ["浮く", "重い", "乾く", "ざらつく", "眠い", "遠い", "詰まる", "ほどける"];
       const TIME_SLOTS = ["morning", "day", "evening", "night"];
       const WORLD_RECORDS = window.WORLD_SKIN_DATA?.records || [];
+      const TEST_RECORDS  = window.TEST_SKIN_DATA?.records  || [];
       if (!window.WORLD_SKIN_DATA) {
         console.warn("World Skin: world_data.js was not loaded. World Map will start without aggregate records.");
       }
@@ -1396,6 +1398,7 @@
         view: "world",
         personalRecords: loadRecords(),
         worldRecords: WORLD_RECORDS,
+        testMode: false,
         origin: DEFAULT_ORIGIN,
         position: null,
         heading: null,
@@ -3061,6 +3064,12 @@
             requestRender();
           }
           if (key === "r") resetMapView();
+          if (key === "t") {
+            state.testMode = !state.testMode;
+            state.worldRecords = state.testMode ? TEST_RECORDS : WORLD_RECORDS;
+            rebuildGrids();
+            showToast(state.testMode ? "テストデータ ON（T で解除）" : "通常データ に切り替え");
+          }
         });
       }
 
