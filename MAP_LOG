@@ -1,5 +1,203 @@
 # MAP_LOG
 
+## Render Performance Pass / 2026-05-13
+
+### Problems
+
+* Field rebuild copied full record objects and used chained `slice().map().filter()` on the hot path.
+* Spatial hash and neighbor lookup created many string keys during grid construction.
+* Dot rendering allocated a new params object and color object for every visible cell.
+* Neighbor contrast smoothing allocated short arrays and used `filter` / `reduce` per cell.
+
+### Changes
+
+* Replaced visible-record map/filter chain with a single loop and minimal normalized record objects.
+* Switched field/bin and neighbor lookup keys from repeated template strings to numeric keys.
+* Reused dot render params, projected coordinate containers, and color output objects per frame.
+* Added `metersToLatLngInto()` to avoid per-dot lat/lng object allocation during projection.
+* Replaced neighbor array/filter/reduce with direct four-neighbor accumulation.
+* Kept visual parameters and rendering formulas unchanged.
+
+### Files Modified
+
+* `test0.2.html`
+* `MAP_LOG`
+
+### Known Limitations
+
+* This pass is static hot-path optimization; it still needs phone profiling for exact frame-time measurement.
+
+## Day Background Dimming / 2026-05-13
+
+### Changes
+
+* Lowered daytime map brightness and opacity.
+* Increased daytime overlay darkness so the dot layer reads with stronger contrast.
+* Left dot brightness, color, radius, and field logic unchanged.
+
+## Cool Color Range Boost / 2026-05-13
+
+### Changes
+
+* Strengthened cold blue gray, cyan gray, and silver anchors.
+* Increased cool / cyan / silver blend weights so cold states read as clearly as warm states.
+* Kept warm color tuning unchanged.
+
+## Dot Brightness And Color Range Tuning / 2026-05-13
+
+### Changes
+
+* Removed flow/direction from finalColor synthesis to reduce color-stage work; flow remains active only for height-line endpoint direction.
+* Increased dot alpha visibility through higher active alpha multiplier, night boost, raw alpha, and max alpha.
+* Raised overall dot brightness one more step by increasing alpha multipliers, night boost, void alpha contribution, active alpha contribution, and alpha caps.
+* Raised the dot radius floor so the smallest points remain visible without changing grid density.
+* Expanded finalColor anchors to include cold blue gray, cyan gray, silver gray, warm gray, amber gray, rust orange gray, dark purple gray, and dark red-brown.
+* Strengthened warm / amber / rust paths while keeping colors low-saturation and avoiding pure red / blue / green, neon gradients, and heatmap palettes.
+* Further loosened saturation limits for warm states: amber gray, rust orange gray, and dark red-brown now have stronger chroma and higher blend weights while staying muted.
+* Pushed the warm range one additional step: higher amber/rust/red-brown chroma, higher warm blend caps, and slightly stronger active alpha.
+* Increased tension-driven color variance: loose states now produce stronger stable cold/warm and dark/bright micro differences, while tight states stay flatter.
+* Pulled tension color variance further apart: loose states now have much wider stable chroma and brightness spread; tight states clamp closer to a uniform surface.
+
+
+## Multi-Axis Color Synthesis / 2026-05-13
+
+### Problems
+
+* 旧 textureModifier 将干湿 / 冷热作为独立材料层，与新的现象学感知轴结构不一致
+* 颜色逻辑与感知轴分工割裂
+* 需要让颜色成为多轴综合结果，而不是独立材料分类
+
+### Changes
+
+* 降级 / 兼容旧 textureModifier
+* 新增 / 调整 finalColor 合成逻辑
+* 由 spaciousness / gravity / tension / flow / soundVector / data strength 共同生成颜色
+* 限制颜色在低饱和灰阶 / 冷灰 / 银灰 / 暖灰 / 锈灰范围内
+* tension 控制局部颜色微差幅度
+* gravity 影响银灰 / 暗暖灰倾向
+* soundVector 影响颜色激活与颗粒色差
+* 保持旧数据 fallback
+
+### Files Modified
+
+* `test0.2.html`
+* `testdata.js`
+* `TODO`
+* `MAP_SPEC`
+* `MAP_LOG`
+
+### Known Limitations
+
+* 当前颜色参数仍为 v1 调试值，需要手机端实测继续微调
+* 旧 textureModifier 暂时保留兼容，但不再作为新系统主控
+* 颜色合成仍限制在低饱和灰阶系统中
+
+### Next Task
+
+* 手机端验证 B2 finalColor 方阵和实际 World Map 的低饱和灰阶差异
+
+## SoundVector Tuning Boost / 2026-05-13
+
+### Changes
+
+* Slightly increased loudness influence on strength.
+* Slightly increased turbulence influence on flux, contrast, and static grain.
+* Slightly increased sharpness influence on edgeHardness and boundary.
+* Slightly widened continuity's alpha continuity factor.
+* Kept sound as a micro layer: no UI, no waveform, no jitter, no animation.
+
+## SoundVector Field Integration / 2026-05-13
+
+### Problems
+
+* `soundVector` was sampled and stored but did not yet affect the rendered field.
+* TODO 9 needed a clear split between loudness, turbulence, sharpness, continuity, and texture.
+* Sound changes needed to remain a micro layer, not override the main perceptual axes.
+
+### Changes
+
+* `recordBaseVisual()` now reads `soundVector` and applies restrained loudness and turbulence bias to strength / flux / contrast.
+* `buildGeoGridField()` aggregates soundVector five-component averages into each cell.
+* `sharpness` now drives `edgeHardness` for alpha falloff, independent of tension.
+* `continuity` adds a subtle continuity factor to alpha.
+* `texture` and turbulence add static grain through deterministic per-cell noise, without animation or jitter.
+* Field interpolation now includes sound fields and edgeHardness.
+
+### Files Modified
+
+* `test0.2.html`
+* `TODO`
+* `MAP_SPEC`
+* `MAP_LOG`
+
+### Known Limitations
+
+* B1 sound test still needs visual / mobile acceptance.
+* `my_data.js` demo records still lack explicit v2 soundVector values and rely on fallback until v2-TODO 12.
+
+## Project Consistency Sync / 2026-05-13
+
+### Problems
+
+* `MAP_SPEC` still described the old 「沉 / 躁 / 空 / 绷」 label state even though v2 Japanese sense words are implemented.
+* `MAP_SPEC` still described older 5km / 100-user data and horizontal 2D dot assumptions.
+* `TODO` still implied `TASK.md` was only obsolete history, but the latest flow task used it as a one-off implementation spec.
+* Documentation still treated the missing `guide book` file as the active local source of truth.
+
+### Changes
+
+* Updated `MAP_SPEC` to match the current v2 axis split: spaciousness, gravity, tension, flow, soundVector, textureModifier.
+* Updated rendering pipeline language to describe height lines, flow endpoint offset, and current 8km / 200-user / 10-day / 5000-record world data.
+* Updated `TODO` source-of-truth wording: long-term plan lives in TODO; `TASK.md` is a task-specific spec that must be synced back after use.
+* Marked current documentation sync items complete in v2-TODO 13.
+
+### Files Modified
+
+* `MAP_SPEC`
+* `TODO`
+* `MAP_LOG`
+
+### Known Limitations
+
+* `my_data.js` still lacks v2 `senseVector / soundVector / textureModifier`; this remains tracked under v2-TODO 12.
+* `guide book` is currently absent from the working tree; documentation now treats it as historical context rather than the active local source.
+
+## Flow Height-Line Direction Refactor / 2026-05-13
+
+### Problems
+
+* 原 flow 方向感表现容易变成风向图 / 轨迹图
+* flow 与 gravity / tension 的视觉主权不够清晰
+* 旧 TODO 8 中的 anisotropy / sigma 拉伸方向已不符合当前分工
+
+### Changes
+
+* 将 flow 主控改为高度线终点偏移，复用现有高度线，不新增 flow 线
+* `recordBaseVisual()` 根据 `senseVector.flow`、movement、`soundVector.turbulence` 和 `trustScore` 计算 `flowStrength / flowPersistence`
+* `buildGeoGridField()` 聚合 screen-space `flowDir`、方向一致性的 `flowAmount` 和 `senseFlow`
+* slow / passing 记录优先使用移动方向；still / 无方向记录只使用稳定弱 fallback
+* 使用方向一致性阈值与 `smoothstep(0.12, 0.55, flowAmount)` 控制偏斜出现
+* 对 flow field 做一次轻量邻域平滑，减少逐点乱歪
+* flow 高记录轻微放宽时间权重窗口，形成时间残留
+* 保持 gravity 控制高度量、tension 控制高度微差、flow 只控制高度向量偏斜
+
+### Files Modified
+
+* `test0.2.html`
+* `TODO`
+* `testdata.js`
+* `MAP_LOG`
+
+### Known Limitations
+
+* flow 方向依赖记录移动方向和聚合方向，still 记录只能使用极弱 fallback
+* 时间残留为轻量实现，后续仍可继续微调
+* flow 参数仍需根据手机实机效果继续调参
+
+### Next Task
+
+* 手机端验收 B0 flow 测试方阵，确认高度线偏斜克制且不出现风向图感
+
 ## Rollback: 清除感知轴与视觉通道 / 2026-05-13
 
 ### 目标

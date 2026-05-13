@@ -1121,7 +1121,7 @@
         maxRadius: 2.4,
         minAlpha: 0.008,
         voidAlpha: 0.018,
-        maxAlpha: 0.62,
+        maxAlpha: 0.88,
         minGlow: 0,
         maxGlow: 8,
         maxJitter: 0.8,
@@ -1130,30 +1130,40 @@
         strengthCutoff: 0.014,
         colors: {
           void:      { r: 35,  g: 40,  b: 46  },
-          voidWarm:  { r: 52,  g: 36,  b: 32  },
-          voidCool:  { r: 22,  g: 32,  b: 54  },
-          cold:      { r: 102, g: 146, b: 218 },
-          neutral:   { r: 210, g: 218, b: 226 },
-          bright:    { r: 226, g: 238, b: 250 },
-          warmBright:{ r: 250, g: 234, b: 208 },
-          warm:      { r: 234, g: 194, b: 154 },
-          rust:      { r: 216, g: 88,  b: 88  },
-          violet:    { r: 158, g: 158, b: 196 }
+          voidWarm:  { r: 49,  g: 43,  b: 39  },
+          voidCool:  { r: 18,  g: 28,  b: 54  },
+          cold:      { r: 82,  g: 148, b: 215 },
+          cyanGray:  { r: 72,  g: 198, b: 190 },
+          neutral:   { r: 204, g: 212, b: 220 },
+          bright:    { r: 225, g: 236, b: 248 },
+          silver:    { r: 188, g: 224, b: 252 },
+          warmBright:{ r: 252, g: 220, b: 168 },
+          warm:      { r: 238, g: 182, b: 118 },
+          amberGray: { r: 245, g: 162, b: 52  },
+          rust:      { r: 218, g: 88,  b: 32  },
+          purpleGray:{ r: 148, g: 72,  b: 148 },
+          redBrown:  { r: 168, g: 44,  b: 22  },
+          blueBlack:   { r: 23,  g: 32,  b: 41  },
+          mossTeal:    { r: 48,  g: 128, b: 116 },
+          stoneBlue:   { r: 52,  g: 86,  b: 158 },
+          indigoNight: { r: 28,  g: 36,  b: 112 },
+          oliveAsh:    { r: 148, g: 148, b: 58  },
+          dustGray:    { r: 155, g: 142, b: 118 }
         }
       };
       const DOT_VISUAL_TUNING = {
-        alphaMul:       0.94,
-        activeAlphaMul: 0.96,
-        nightAlphaBoost: 1.04,
-        maxAlpha:       0.58
+        alphaMul:       1.28,
+        activeAlphaMul: 1.60,
+        nightAlphaBoost: 1.18,
+        maxAlpha:       0.92
       };
       const DOT_DENSITY_VISUAL = {
         targetScreenSpacingPx: 11.0,
         minScreenSpacingPx: 9,
         maxScreenSpacingPx: 13,
         baseRadiusPx: 1.10,
-        minRadiusPx: 0.35,
-        maxRadiusPx: 4,
+        minRadiusPx: 0.7,
+        maxRadiusPx: 6,
         maxDotsDesktop: 9600,
         maxDotsMobile: 6800,
         minDotsVisible: 2600,
@@ -1226,7 +1236,10 @@
         renderDebounceMs: 60,
         useOffscreenCache: true
       };
-      // Each entry: { word, sv:{spaciousness,gravity,tension,flow}, tex:{warmth,roughness,clarity,dryness} }
+      const FIELD_KEY_SCALE = 1000000;
+      function fieldKey(a, b) { return a * FIELD_KEY_SCALE + b; }
+      // Each entry: { word, sv:{spaciousness,gravity,tension,flow}, tex:{...legacy only} }
+      // tex is kept for old-record compatibility notes; new records do not write textureModifier.
       // sv axes: subjective spatial/structural feel. tex: surface/material quality.
       // Values in [-1,+1]; texture-heavy words (ざらつく, 乾く, etc.) concentrate weight in tex.
       const SENSE_WORD_LIST = [
@@ -1282,20 +1295,6 @@
         };
       }
 
-      function aggregateTexMod(words) {
-        const zero = { warmth: 0, roughness: 0, clarity: 0, dryness: 0 };
-        if (!words.length) return zero;
-        const hits = words.map(w => SENSE_WORD_LIST.find(e => e.word === w)?.tex).filter(Boolean);
-        if (!hits.length) return zero;
-        const n = hits.length;
-        return {
-          warmth:    hits.reduce((a, v) => a + v.warmth,    0) / n,
-          roughness: hits.reduce((a, v) => a + v.roughness, 0) / n,
-          clarity:   hits.reduce((a, v) => a + v.clarity,   0) / n,
-          dryness:   hits.reduce((a, v) => a + v.dryness,   0) / n,
-        };
-      }
-
       // ── Sense Axis V2: visual channel ownership map ───────────────────────
       // These constants define which visual channels each axis owns as primary
       // driver and what bias limits apply. No rendering code reads them yet —
@@ -1323,21 +1322,20 @@
           },
         },
         tension: {
-          primaryChannels: ["contrastBias", "boundaryBias", "edgeHardnessBias"],
-          forbidPrimary:   [],
+          primaryChannels: ["microAlphaVariance", "microHeightVariance"],
+          forbidPrimary:   ["boundaryBias", "edgeHardnessBias"],
           bias: {
-            contrastBias:     { min: -0.14, max: +0.16 },
-            boundaryBias:     { min: -0.12, max: +0.14 },
-            edgeHardnessBias: { min: -0.14, max: +0.14 },
+            microAlphaVariance:  { min: +0.05, max: +0.30 },
+            microHeightVariance: { min: +0.05, max: +0.34 },
           },
         },
         flow: {
-          primaryChannels: ["fluxBias", "directionalityBias", "anisotropyBias"],
+          primaryChannels: ["heightLineEndpointOffset", "flowCoherence", "timePersistence"],
           forbidPrimary:   [],
           bias: {
             fluxBias:           { min: -0.12, max: +0.12 },
-            directionalityBias: { min: -0.18, max: +0.20 },
-            anisotropyBias:     { min: -0.14, max: +0.16 },
+            endpointOffsetScale:{ min:  0.00, max: +0.35 },
+            persistenceBias:    { min:  0.00, max: +0.55 },
           },
         },
       };
@@ -1352,13 +1350,12 @@
         texture:    { channels: ["grain"],                     weight: 0.5 },
       };
 
-      // textureModifier has 4 components (dry/wet/cold/hot).
-      // direction: -1 means the channel is driven in the negative direction.
-      const TEXTURE_VISUAL_MAP = {
-        warmth:    { channels: ["warmthBias"],                 weight: 0.8 },
-        roughness: { channels: ["grain", "edgeHardnessBias"],  weight: 0.6 },
-        clarity:   { channels: ["contrastBias"],               weight: 0.5 },
-        dryness:   { channels: ["warmthBias"], direction: -1,  weight: 0.6 },
+      // finalColor is synthesized from the existing field state. Color remains
+      // a restrained gray-skin result, not an independent perceptual axis.
+      const COLOR_SYNTHESIS_MAP = {
+        inputs: ["strength", "spaciousness", "gravity", "tension", "soundVector"],
+        anchors: ["coldBlueGray", "cyanGray", "silverGray", "neutralGray", "warmGray", "amberGray", "rustOrangeGray", "darkPurpleGray", "darkRedBrown", "blueBlack"],
+        role: "secondaryAtmosphere",
       };
       // ── end Sense Axis V2 constants ────────────────────────────────────────
 
@@ -1495,6 +1492,12 @@
         };
       }
 
+      function metersToLatLngInto(dx, dy, origin, out) {
+        out.lat = origin.lat + dy / 111320;
+        out.lng = origin.lng + dx / (111320 * Math.cos(origin.lat * Math.PI / 180));
+        return out;
+      }
+
       function latLngToMeters(pos, origin = WORLD_ORIGIN) {
         return {
           dx: (pos.lng - origin.lng) * 111320 * Math.cos(origin.lat * Math.PI / 180),
@@ -1548,6 +1551,7 @@
       }
 
       function getTexMod(rec) {
+        // Legacy fallback only. New records no longer write or depend on textureModifier.
         if (rec.textureModifier) return rec.textureModifier;
         return { warmth: 0, roughness: 0, clarity: 0, dryness: 0 };
       }
@@ -1607,32 +1611,56 @@
         const movement = recordMove(record);
         const slot = recordSlot(record);
         const sv = getSV(record);
+        const snd = getSoundV(record);
+        const legacyTex = getTexMod(record);
+        const legacyWarmth = clamp(((legacyTex.warmth ?? 0) - (legacyTex.dryness ?? 0) * 0.35) * 0.035, -0.035, 0.035);
+        const flowNorm = clamp(((sv.flow ?? 0) + 1) / 2, 0, 1);
+        const soundLoudness = clamp(snd.loudness ?? noise, 0, 1);
+        const soundTurbulence = clamp(snd.turbulence ?? flux, 0, 1);
+        const soundSharpness = clamp(snd.sharpness ?? 0.3, 0, 1);
+        const soundContinuity = clamp(snd.continuity ?? 0.8, 0, 1);
+        const soundTexture = clamp(snd.texture ?? 0.3, 0, 1);
+        const loudnessBias = clamp((soundLoudness - 0.45) * 0.16, -0.055, 0.095);
+        const turbulenceBias = clamp((soundTurbulence - 0.20) * 0.22, -0.09, 0.13);
+        const flowBase = movement === "passing"
+          ? 0.72 + flowNorm * 0.26
+          : movement === "slow"
+            ? 0.48 + flowNorm * 0.24
+            : 0.15 + flowNorm * 0.10;
+        const flowStrength = clamp((flowBase + clamp((snd.turbulence - 0.20) * 0.22, 0, 0.12)) * clamp(Number(record.trustScore ?? 1), 0.45, 1), 0.05, 1);
         const activeSlot = slot === "day" ? 0.08 : slot === "evening" ? 0.02 : slot === "night" ? -0.12 : -0.03;
         const movementFlux = movement === "passing" ? 0.08 : movement === "slow" ? 0.03 : -0.02;
         const movementSpread = movement === "passing" ? 0.08 : movement === "slow" ? 0.03 : -0.02;
         return {
-          strength: clamp(0.04 + noise * 0.38 + peak * 0.16 + (movement === "still" ? 0.03 : 0), 0.04, VISUAL_LIMITS.strength),
-          flux: clamp(flux + movementFlux, 0, VISUAL_LIMITS.flux),
-          contrast: clamp(flux * 0.2 + peak * 0.14 + (noise > 0.65 ? 0.04 : 0), 0, VISUAL_LIMITS.contrast),
-          warmth: clamp(activeSlot + (noise - 0.5) * 0.08, -0.35, 0.35),
-          spread: clamp(0.9 + noise * 0.16 + movementSpread + sv.spaciousness * 0.18, 0.65, 1.35),
-          boundary: clamp(flux * 0.16 + (movement === "passing" ? 0.04 : 0), 0, VISUAL_LIMITS.boundaryAlpha),
+          strength: clamp(0.04 + noise * 0.38 + peak * 0.16 + loudnessBias + (movement === "still" ? 0.03 : 0), 0.04, VISUAL_LIMITS.strength),
+          flux: clamp(flux + movementFlux + (sv.flow ?? 0) * 0.10 + turbulenceBias, 0, VISUAL_LIMITS.flux),
+          contrast: clamp(flux * 0.2 + peak * 0.14 + soundTurbulence * 0.075 + (noise > 0.65 ? 0.04 : 0), 0, VISUAL_LIMITS.contrast),
+          warmth: clamp(activeSlot + (noise - 0.5) * 0.08 + legacyWarmth, -0.35, 0.35),
+          spread: clamp(0.9 + noise * 0.16 + movementSpread + sv.spaciousness * 0.18 + (soundContinuity - 0.8) * 0.05, 0.65, 1.35),
+          boundary: clamp(flux * 0.16 + (movement === "passing" ? 0.04 : 0) + Math.max(0, sv.flow ?? 0) * 0.035 + soundSharpness * 0.026, 0, VISUAL_LIMITS.boundaryAlpha),
           breathSpeed: clamp(1 - flux * 0.08 + (slot === "night" ? -0.06 : 0), 0.65, 1.2),
           radiusBias: clamp((noise - 0.45) * 0.18 + peak * 0.08, -0.16, 0.28),
           heightBias: clamp((noise - 0.45) * 16 + peak * 8, -12, 18),
           senseSpacious: sv.spaciousness,
           senseGravity:  sv.gravity,
           senseTension:  sv.tension ?? 0,
+          flowStrength,
+          flowPersistence: clamp(flowStrength * (0.35 + Math.max(0, sv.flow ?? 0) * 0.45), 0, 1),
+          soundLoudness,
+          soundTurbulence,
+          soundSharpness,
+          soundContinuity,
+          soundTexture,
+          edgeHardness: clamp((soundSharpness - 0.30) * 0.38, -0.10, 0.22),
         };
       }
 
-      function mixColor(a, b, amount) {
+      function mixColorInto(color, target, amount) {
         const t = clamp(amount, 0, 1);
-        return {
-          r: Math.round(a.r + (b.r - a.r) * t),
-          g: Math.round(a.g + (b.g - a.g) * t),
-          b: Math.round(a.b + (b.b - a.b) * t)
-        };
+        color.r = Math.round(color.r + (target.r - color.r) * t);
+        color.g = Math.round(color.g + (target.g - color.g) * t);
+        color.b = Math.round(color.b + (target.b - color.b) * t);
+        return color;
       }
 
       function getDotAlpha(params) {
@@ -1640,17 +1668,19 @@
         const c = clamp(params.contrast, 0, 1);
         const b = clamp(params.boundary, 0, 1);
         const f = clamp(params.flux, 0, 1);
-        // tension: tight(+1)→harder edge drop-off; loose(-1)→softer, more gradual fade
-        const t   = params.senseTension ?? 0;
-        const sExp = clamp(1.18 + t * 0.40, 0.78, 1.58);
-        const cExp = clamp(1.05 + t * 0.28, 0.77, 1.33);
-        if (s < GRID_VISUAL.strengthCutoff) return clamp(0.012 + c * 0.035, GRID_VISUAL.minAlpha, 0.045);
+        const e = clamp(params.edgeHardness ?? 0, -0.16, 0.24);
+        const sExp = clamp(0.95 + e * 0.9, 0.78, 1.20);
+        const cExp = clamp(0.92 + e * 0.6, 0.78, 1.10);
+        if (s < GRID_VISUAL.strengthCutoff) {
+          const voidAlpha = clamp(0.016 + c * 0.038 - Math.max(0, e) * 0.012, GRID_VISUAL.minAlpha, 0.058);
+          return voidAlpha;
+        }
         return clamp(
-          0.018 +
-          Math.pow(s, sExp) * 0.48 +
-          Math.pow(c, cExp) * 0.16 +
-          Math.pow(b, 1.05) * 0.14 +
-          Math.pow(f, 1.2) * 0.08,
+          0.030 +
+          Math.pow(s, sExp) * 0.70 +
+          Math.pow(c, cExp) * 0.20 +
+          Math.pow(b, 1.05) * 0.16 +
+          Math.pow(f, 1.2) * 0.10,
           GRID_VISUAL.minAlpha,
           GRID_VISUAL.maxAlpha
         );
@@ -1660,12 +1690,12 @@
         const s = clamp(params.strength, 0, 1);
         const f = clamp(params.flux, 0, 1);
         const b = clamp(params.boundary, 0, 1);
-        // spacious(+1)→smaller dots; dense(-1)→larger dots
-        const spBias = clamp(-(params.senseSpacious ?? 0) * 2, -2, +2);
+        // spacious(+1)→larger dots (stay visible); dense(-1)→slightly smaller (strength already big)
+        const spBias = clamp((params.senseSpacious ?? 0) * 1.6, -0.5, +1.6);
         return clamp(
           DOT_DENSITY_VISUAL.baseRadiusPx +
-          Math.pow(s, 1.25) * 0.75 +
-          Math.pow(f, 1.4) * 0.18 +
+          Math.pow(s, 1.0) * 1.85 +
+          Math.pow(f, 1.4) * 0.22 +
           b * 0.12 +
           (params.radiusBias || 0) +
           spBias,
@@ -1674,34 +1704,117 @@
         );
       }
 
-      function getDotColor(params) {
+      function getDotColor(params, out = { r: 0, g: 0, b: 0 }) {
         const s = clamp(params.strength, 0, 1);
-        const w = clamp(params.warmth, -0.35, 0.35);
-        if (s < GRID_VISUAL.strengthCutoff) return GRID_VISUAL.colors.void;
-        const coldT = Math.pow(Math.abs(w) / 0.35, 0.58);
-        const warmT = Math.pow(w / 0.35, 0.58);
-        let color = w < 0
-          ? mixColor(GRID_VISUAL.colors.neutral, GRID_VISUAL.colors.cold, coldT)
-          : mixColor(GRID_VISUAL.colors.neutral, GRID_VISUAL.colors.warm, warmT);
-        const brightTarget = w < 0 ? GRID_VISUAL.colors.bright : GRID_VISUAL.colors.warmBright;
-        color = mixColor(color, brightTarget, clamp(s * 0.38, 0, 0.50));
+        const sp = clamp(params.senseSpacious ?? 0, -1, 1);
+        const g = clamp(params.senseGravity ?? 0, -1, 1);
+        const t = clamp(params.senseTension ?? 0, -1, 1);
+        const loud = clamp(params.soundLoudness ?? 0.18, 0, 1);
+        const turbulence = clamp(params.soundTurbulence ?? 0.08, 0, 1);
+        const sharp = clamp(params.soundSharpness ?? 0.30, 0, 1);
+        const continuity = clamp(params.soundContinuity ?? 0.80, 0, 1);
+        const texture = clamp(params.soundTexture ?? 0.30, 0, 1);
+        const micro = clamp(params.colorMicro ?? 0, -1, 1);
+        const grain = clamp(params.soundGrain ?? 0, -1, 1);
+        const localContrast = clamp(params.localContrast ?? 0, 0, 1);
+        const timeWarmth = clamp(params.warmth ?? 0, -0.35, 0.35);
+        if (s < GRID_VISUAL.strengthCutoff) {
+          const voidLift = clamp(s * 1.8 + loud * 0.04, 0, 0.08);
+          out.r = GRID_VISUAL.colors.void.r;
+          out.g = GRID_VISUAL.colors.void.g;
+          out.b = GRID_VISUAL.colors.void.b;
+          return mixColorInto(out, GRID_VISUAL.colors.voidCool, clamp(sp * 0.05, 0, 0.08) + voidLift);
+        }
+        const activation = clamp(0.24 + s * 0.76 + loud * 0.20 + localContrast * 0.12, 0, 0.98);
+        const color = out;
+        color.r = GRID_VISUAL.colors.void.r;
+        color.g = GRID_VISUAL.colors.void.g;
+        color.b = GRID_VISUAL.colors.void.b;
+        mixColorInto(color, GRID_VISUAL.colors.neutral, activation);
+
+        // 冷暖方向互斥：heatBias > 0 暖色赢，< 0 冷色赢；双方不再同时满载
+        const heatBias = clamp(
+          (Math.max(0, -sp) + Math.max(0, g) * 1.2) * 0.45
+          - (Math.max(0, sp) + Math.max(0, -g)) * 0.45
+          + timeWarmth * 0.65
+        , -1, 1);
+        const coldScale = clamp((-heatBias + 0.18) / 0.68, 0, 1);
+        const warmScale = clamp(( heatBias + 0.18) / 0.68, 0, 1);
+
+        const silverRaw     = (-g) * 0.310 + sharp * 0.120 + Math.max(0, sp) * 0.090 + loud * 0.080;
+        const coolRaw       = Math.max(0, sp) * 0.240 + Math.max(0, -g) * 0.280 + sharp * 0.100 + Math.max(0, -timeWarmth) * 0.110;
+        const cyanRaw       = Math.max(0, sp) * 0.180 + turbulence * 0.072 + Math.max(0, -timeWarmth) * 0.185 + texture * 0.068;
+        const warmRaw       = Math.max(0, -sp) * 0.190 + Math.max(0, g) * 0.240 + Math.max(0, timeWarmth) * 0.310;
+        const amberRaw      = Math.max(0, timeWarmth) * 0.320 + loud * 0.110 + localContrast * 0.120;
+        const rustRaw       = Math.max(0, g) * 0.280 + turbulence * 0.150 + localContrast * 0.110;
+        const purpleRaw     = Math.max(0, g) * Math.max(0, -sp) * 0.160 + (1 - continuity) * 0.110;
+        const redBrownRaw   = Math.max(0, g) * turbulence * 0.220 + Math.max(0, timeWarmth) * Math.max(0, g) * 0.180;
+
+        const silverAmount   = clamp(silverRaw   * coldScale, 0, 0.60);
+        const coolAmount     = clamp(coolRaw     * coldScale, 0, 0.62);
+        const cyanAmount     = clamp(cyanRaw     * coldScale, 0, 0.52);
+        const warmAmount     = clamp(warmRaw     * warmScale, 0, 0.60);
+        const amberAmount    = clamp(amberRaw    * warmScale, 0, 0.52);
+        const rustAmount     = clamp(rustRaw     * warmScale, 0, 0.50);
+        const purpleAmount   = clamp(purpleRaw   * warmScale, 0, 0.30);
+        const redBrownAmount = clamp(redBrownRaw * warmScale, 0, 0.36);
+        const darkAmount     = clamp(Math.max(0, g) * 0.035 + (1 - s) * 0.045 - loud * 0.060, 0, 0.10);
+
+        mixColorInto(color, GRID_VISUAL.colors.cold, coolAmount);
+        mixColorInto(color, GRID_VISUAL.colors.cyanGray, cyanAmount);
+        mixColorInto(color, GRID_VISUAL.colors.silver, silverAmount);
+        mixColorInto(color, GRID_VISUAL.colors.warm, warmAmount);
+        mixColorInto(color, GRID_VISUAL.colors.amberGray, amberAmount);
+        mixColorInto(color, GRID_VISUAL.colors.rust, rustAmount);
+        mixColorInto(color, GRID_VISUAL.colors.purpleGray, purpleAmount);
+        mixColorInto(color, GRID_VISUAL.colors.redBrown, redBrownAmount);
+        mixColorInto(color, GRID_VISUAL.colors.blueBlack, darkAmount);
+
+        // 感知轴组合色加权：非线性放大，组合越强权重越高
+        const comboDenseHeavy    = Math.max(0, -sp) * Math.max(0,  g);  // 密集+沉重 → stoneBlue
+        const comboSpaciousLight = Math.max(0,  sp) * Math.max(0, -g);  // 空旷+轻盈 → mossTeal
+        const comboTenseDense    = Math.max(0,  t)  * Math.max(0, -sp); // 绷紧+密集 → indigoNight
+        const comboReleasedOpen  = Math.max(0, -t)  * Math.max(0,  sp); // 松开+空旷 → dustGray
+        const comboReleasedHeavy = Math.max(0, -t)  * Math.max(0,  g);  // 松开+沉重 → oliveAsh
+        const cw = v => Math.pow(clamp(v, 0, 1), 0.65); // 弱组合保持克制，强组合明显放大
+        mixColorInto(color, GRID_VISUAL.colors.stoneBlue,   clamp(cw(comboDenseHeavy)    * 0.58, 0, 0.58));
+        mixColorInto(color, GRID_VISUAL.colors.mossTeal,    clamp(cw(comboSpaciousLight) * 0.54, 0, 0.54));
+        mixColorInto(color, GRID_VISUAL.colors.indigoNight, clamp(cw(comboTenseDense)    * 0.58, 0, 0.58));
+        mixColorInto(color, GRID_VISUAL.colors.dustGray,    clamp(cw(comboReleasedOpen)  * 0.42, 0, 0.42));
+        mixColorInto(color, GRID_VISUAL.colors.oliveAsh,    clamp(cw(comboReleasedHeavy) * 0.50, 0, 0.50));
+
+        const varianceAmount = clamp(0.082 - t * 0.092 + turbulence * 0.045 + texture * 0.034, 0.004, 0.285);
+        const soundFragment = clamp(1.08 - continuity * 0.22, 0.86, 1.08);
+        const chromaShift = clamp((micro * varianceAmount + grain * texture * 0.052) * soundFragment, -0.295, 0.320);
+        const warmMicroTarget = chromaShift > 0 && g > 0.45 ? GRID_VISUAL.colors.rust : GRID_VISUAL.colors.amberGray;
+        const coolMicroTarget = sharp > 0.55 ? GRID_VISUAL.colors.silver : GRID_VISUAL.colors.cyanGray;
+        mixColorInto(color, chromaShift < 0 ? coolMicroTarget : warmMicroTarget, Math.abs(chromaShift));
+        const brightnessMicro = clamp(micro * varianceAmount * 1.18 + grain * turbulence * 0.030 + loud * 0.030, -0.170, 0.230);
+        mixColorInto(color, brightnessMicro < 0 ? GRID_VISUAL.colors.void : GRID_VISUAL.colors.bright, Math.abs(brightnessMicro));
         return color;
       }
 
       function getDotHeight(params) {
-        // gravity only: heavy(+1)→raised, light(-1)→flat; record density has no effect
         const g = clamp(params.senseGravity ?? 0, -1, 1);
-        return clamp(58 + g * 100, 4, 126);
+        return clamp(
+          Math.pow(clamp(params.strength, 0, 1), 1.25) * 72 +
+          Math.pow(clamp(params.contrast, 0, 1), 1.1)  * 28 +
+          clamp(params.boundary, 0, 1) * 18 +
+          (params.heightBias || 0) +
+          g * 68,
+          4, 126
+        );
       }
 
-      function temporalWeight(record) {
+      function temporalWeight(record, visual = null) {
         if (state.view !== "world") return 1;
         const date = new Date(recordTime(record));
         const hour = Number.isFinite(record.hour) ? record.hour : date.getUTCHours();
         const day = Math.floor((date.getTime() - Date.UTC(2026, 4, 4)) / 86400000);
         const selectedHour = state.selectedHour;
         const hourDiff = Math.min(Math.abs(hour - selectedHour), 24 - Math.abs(hour - selectedHour));
-        const hourWeight = Math.exp(-(hourDiff * hourDiff) / (2 * 1.55 * 1.55));
+        const hourSigma = 1.55 + (visual?.flowPersistence || 0) * 0.55;
+        const hourWeight = Math.exp(-(hourDiff * hourDiff) / (2 * hourSigma * hourSigma));
         const dayWeight = day === 6 ? 1 : 0.35;
         const threeDayWeight = day >= 4 ? 1 : 0.45;
         const weekWeight = 1;
@@ -1853,11 +1966,11 @@
       function getMapVisualByHour(hour) {
         const daylight = getDaylightAmount(hour);
         const base = {
-          brightness:      lerp(0.58, 0.78, daylight),
+          brightness:      lerp(0.58, 0.66, daylight),
           contrast:        lerp(1.22, 1.16, daylight),
           saturation:      lerp(0.18, 0.26, daylight),
-          opacity:         lerp(0.76, 0.84, daylight),
-          overlayDarkness: lerp(0.42, 0.26, daylight),
+          opacity:         lerp(0.76, 0.78, daylight),
+          overlayDarkness: lerp(0.42, 0.34, daylight),
           daylight,
           state: getDaylightState(hour)
         };
@@ -1977,6 +2090,40 @@
 
       function clamp(value, min, max) {
         return Math.max(min, Math.min(max, value));
+      }
+
+      function stableSignedNoise(a, b, salt = 0) {
+        let x = (Math.round(a) * 374761393) ^ (Math.round(b) * 668265263) ^ (salt * 1442695041);
+        x = Math.imul(x ^ (x >>> 13), 1274126177);
+        return ((((x ^ (x >>> 16)) >>> 0) / 4294967295) * 2) - 1;
+      }
+
+      function normalizeVector(x, y) {
+        const len = Math.hypot(x, y);
+        return len > 0.0001 ? { x: x / len, y: y / len, length: len } : { x: 0, y: -1, length: 0 };
+      }
+
+      function directionToMeters(direction, fallbackAngle = 0) {
+        const d = Number(direction);
+        if (Number.isFinite(d)) {
+          if (Math.abs(d) > Math.PI * 2) {
+            const rad = d * Math.PI / 180;
+            return { dx: Math.sin(rad), dy: Math.cos(rad) };
+          }
+          return { dx: Math.cos(d), dy: Math.sin(d) };
+        }
+        return { dx: Math.cos(fallbackAngle), dy: Math.sin(fallbackAngle) };
+      }
+
+      function screenFlowDirectionForRecord(record, origin) {
+        const fallbackAngle = stableSignedNoise(record.mx / 220, record.my / 220, 19) * Math.PI;
+        const moving = record.movement === "passing" || record.movement === "slow";
+        const v = directionToMeters(moving ? record.direction : null, fallbackAngle);
+        const from = metersToLatLng(record.mx, record.my, origin);
+        const to = metersToLatLng(record.mx + v.dx * 28, record.my + v.dy * 28, origin);
+        const a = state.mapReady ? state.map.project([from.lng, from.lat]) : project(from, origin);
+        const b = state.mapReady ? state.map.project([to.lng, to.lat]) : project(to, origin);
+        return normalizeVector(b.x - a.x, b.y - a.y);
       }
 
       function haversine(a, b) {
@@ -2302,7 +2449,6 @@
         state.pending.word = state.selectedWords[0] || null;
         state.pending.selectedWords = [...state.selectedWords];
         state.pending.senseVector    = aggregateSV(state.selectedWords);
-        state.pending.textureModifier = aggregateTexMod(state.selectedWords);
         state.personalRecords.push(state.pending);
         saveRecords();
         state.pending = null;
@@ -2448,7 +2594,7 @@
       function gridRenderConfig() {
         const zoom = state.mapReady ? state.map.getZoom() : DEFAULT_VIEW.zoom;
         const preset = getContinuousZoomPreset(zoom);
-        const baseSigma = state.view === "world" ? 145 : 105;
+        const baseSigma = state.view === "world" ? 88 : 66;
         const sigmaMeters = baseSigma * preset.sigmaScale;
         const dotSpacingMeters = getStableDotSpacingMeters();
         const isMobile = state.width < 768;
@@ -2508,37 +2654,42 @@
         }
         spacing = clamp(spacing, 16, 240);
         config.actualDotSpacingMeters = spacing;
-        const visibleRecords = records.slice(0, PERF.maxVisibleRecords).map(rec => {
+        const visibleRecords = [];
+        const recordLimit = Math.min(records.length, PERF.maxVisibleRecords);
+        for (let i = 0; i < recordLimit; i++) {
+          const rec = records[i];
           const m = latLngToMeters(rec, origin);
           const visual = recordBaseVisual(rec);
-          return {
-            ...rec,
+          const tw = temporalWeight(rec, visual);
+          if (
+            tw <= 0.025 ||
+            m.dx < bounds.minX - maxDistance ||
+            m.dx > bounds.maxX + maxDistance ||
+            m.dy < bounds.minY - maxDistance ||
+            m.dy > bounds.maxY + maxDistance
+          ) continue;
+          const normalized = {
             noise: recordNoise(rec),
             flux: recordFlux(rec),
             movement: recordMove(rec),
-            slot: recordSlot(rec),
-            createdAt: recordTime(rec),
+            direction: rec.direction,
             mx: m.dx,
             my: m.dy,
-            tw: temporalWeight(rec),
+            tw,
             visual
           };
-        }).filter(rec => (
-          rec.tw > 0.025 &&
-          rec.mx >= bounds.minX - maxDistance &&
-          rec.mx <= bounds.maxX + maxDistance &&
-          rec.my >= bounds.minY - maxDistance &&
-          rec.my <= bounds.maxY + maxDistance
-        ));
+          normalized.flowDir = screenFlowDirectionForRecord(normalized, origin);
+          visibleRecords.push(normalized);
+        }
 
         const bins = new Map();
-        visibleRecords.forEach(rec => {
+        for (const rec of visibleRecords) {
           const bx = Math.floor(rec.mx / cellSize);
           const by = Math.floor(rec.my / cellSize);
-          const key = `${bx}:${by}`;
+          const key = fieldKey(bx, by);
           if (!bins.has(key)) bins.set(key, []);
           bins.get(key).push(rec);
-        });
+        }
 
         const cells = [];
         const startX = Math.floor(bounds.minX / spacing) * spacing;
@@ -2564,11 +2715,20 @@
             let senseSpacious = 0;
             let senseGravity  = 0;
             let senseTension  = 0;
+            let soundLoudness = 0;
+            let soundTurbulence = 0;
+            let soundSharpness = 0;
+            let soundContinuity = 0;
+            let soundTexture = 0;
+            let edgeHardness = 0;
+            let flowX = 0;
+            let flowY = 0;
+            let flowWeight = 0;
             const bx = Math.floor(mx / cellSize);
             const by = Math.floor(my / cellSize);
             for (let oy = -2; oy <= 2; oy++) {
               for (let ox = -2; ox <= 2; ox++) {
-                const nearby = bins.get(`${bx + ox}:${by + oy}`);
+                const nearby = bins.get(fieldKey(bx + ox, by + oy));
                 if (!nearby) continue;
                 for (const rec of nearby) {
                   const dx = mx - rec.mx;
@@ -2591,6 +2751,16 @@
                   senseSpacious += w * rec.visual.senseSpacious;
                   senseGravity  += w * rec.visual.senseGravity;
                   senseTension  += w * rec.visual.senseTension;
+                  soundLoudness += w * rec.visual.soundLoudness;
+                  soundTurbulence += w * rec.visual.soundTurbulence;
+                  soundSharpness += w * rec.visual.soundSharpness;
+                  soundContinuity += w * rec.visual.soundContinuity;
+                  soundTexture += w * rec.visual.soundTexture;
+                  edgeHardness += w * rec.visual.edgeHardness;
+                  const fw = w * rec.visual.flowStrength;
+                  flowX += rec.flowDir.x * fw;
+                  flowY += rec.flowDir.y * fw;
+                  flowWeight += w;
                 }
               }
             }
@@ -2600,6 +2770,14 @@
             const normalizedHeightBias = sum ? clamp(heightBias / sum, -24, 32) : 0;
             const normalizedSenseGravity  = sum ? clamp(senseGravity  / sum, -1, 1) : 0;
             const normalizedSenseTension  = sum ? clamp(senseTension  / sum, -1, 1) : 0;
+            const normalizedSoundLoudness = sum ? clamp(soundLoudness / sum, 0, 1) : 0.18;
+            const normalizedSoundTurbulence = sum ? clamp(soundTurbulence / sum, 0, 1) : 0.08;
+            const normalizedSoundSharpness = sum ? clamp(soundSharpness / sum, 0, 1) : 0.30;
+            const normalizedSoundContinuity = sum ? clamp(soundContinuity / sum, 0, 1) : 0.80;
+            const normalizedSoundTexture = sum ? clamp(soundTexture / sum, 0, 1) : 0.30;
+            const normalizedEdgeHardness = sum ? clamp(edgeHardness / sum, -0.16, 0.24) : 0;
+            const flowDir = normalizeVector(flowX, flowY);
+            const flowAmount = flowWeight > 0 ? clamp(flowDir.length / flowWeight, 0, 1) : 0;
             cells.push({
               x: p.x,
               y: p.y,
@@ -2618,9 +2796,21 @@
               breathSpeed: sum ? clamp(breathSpeed / sum, 0.65, 1.2) : 1,
               radiusBias: sum ? clamp(radiusBias / sum, -0.24, 0.44) : 0,
               heightBias: normalizedHeightBias,
-              senseSpacious: sum ? clamp(senseSpacious / sum, -1, 1) : 0,
-              senseGravity:  normalizedSenseGravity,
-              senseTension:  normalizedSenseTension,
+              senseSpacious: sum ? clamp(senseSpacious / sum * 1.7, -1, 1) : 0,
+              senseGravity:  sum ? clamp(normalizedSenseGravity  * 1.7, -1, 1) : 0,
+              senseTension:  sum ? clamp(normalizedSenseTension  * 1.7, -1, 1) : 0,
+              soundLoudness: sum ? clamp(normalizedSoundLoudness  * 1.5, 0, 1) : 0.18,
+              soundTurbulence: sum ? clamp(normalizedSoundTurbulence * 1.5, 0, 1) : 0.08,
+              soundSharpness: sum ? clamp(normalizedSoundSharpness  * 1.5, 0, 1) : 0.30,
+              soundContinuity: sum ? clamp(normalizedSoundContinuity * 1.4, 0, 1) : 0.80,
+              soundTexture: sum ? clamp(normalizedSoundTexture    * 1.5, 0, 1) : 0.30,
+              edgeHardness: normalizedEdgeHardness,
+              flowX: flowDir.x,
+              flowY: flowDir.y,
+              flowRawX: flowDir.x,
+              flowRawY: flowDir.y,
+              flowRawAmount: flowAmount,
+              flowAmount,
               height: getDotHeight({
                 strength: normalizedStrength,
                 contrast: normalizedContrast,
@@ -2633,18 +2823,25 @@
           }
         }
 
-        const byKey = new Map(cells.map(cell => [`${cell.row}:${cell.col}`, cell]));
+        const byKey = new Map();
+        for (const cell of cells) byKey.set(fieldKey(cell.row, cell.col), cell);
         cells.forEach(cell => {
-          const neighbors = [
-            byKey.get(`${cell.row}:${cell.col - 1}`),
-            byKey.get(`${cell.row}:${cell.col + 1}`),
-            byKey.get(`${cell.row - 1}:${cell.col}`),
-            byKey.get(`${cell.row + 1}:${cell.col}`)
-          ].filter(Boolean);
-          if (!neighbors.length) return;
-          const avg = neighbors.reduce((acc, other) => acc + other.strength, 0) / neighbors.length;
-          const fluxAvg = neighbors.reduce((acc, other) => acc + other.flux, 0) / neighbors.length;
-          const contrastAvg = neighbors.reduce((acc, other) => acc + other.baseContrast, 0) / neighbors.length;
+          const n0 = byKey.get(fieldKey(cell.row, cell.col - 1));
+          const n1 = byKey.get(fieldKey(cell.row, cell.col + 1));
+          const n2 = byKey.get(fieldKey(cell.row - 1, cell.col));
+          const n3 = byKey.get(fieldKey(cell.row + 1, cell.col));
+          let neighborCount = 0;
+          let strengthTotal = 0;
+          let fluxTotal = 0;
+          let contrastTotal = 0;
+          if (n0) { neighborCount++; strengthTotal += n0.strength; fluxTotal += n0.flux; contrastTotal += n0.baseContrast; }
+          if (n1) { neighborCount++; strengthTotal += n1.strength; fluxTotal += n1.flux; contrastTotal += n1.baseContrast; }
+          if (n2) { neighborCount++; strengthTotal += n2.strength; fluxTotal += n2.flux; contrastTotal += n2.baseContrast; }
+          if (n3) { neighborCount++; strengthTotal += n3.strength; fluxTotal += n3.flux; contrastTotal += n3.baseContrast; }
+          if (!neighborCount) return;
+          const avg = strengthTotal / neighborCount;
+          const fluxAvg = fluxTotal / neighborCount;
+          const contrastAvg = contrastTotal / neighborCount;
           cell.contrast = clamp(
             (
               cell.baseContrast * 0.72 +
@@ -2659,6 +2856,17 @@
           cell.localContrast = config.showBoundary
             ? clamp((Math.abs(cell.strength - avg) * 1.9 + Math.abs(cell.flux - fluxAvg) * 0.72) * config.boundaryScale, 0, VISUAL_LIMITS.contrast)
             : 0;
+          let sx = (cell.flowRawX || 0) * (cell.flowRawAmount || 0) * 1.6;
+          let sy = (cell.flowRawY || 0) * (cell.flowRawAmount || 0) * 1.6;
+          let sw = 1.6;
+          if (n0) { sx += (n0.flowRawX || 0) * (n0.flowRawAmount || 0) * 0.55; sy += (n0.flowRawY || 0) * (n0.flowRawAmount || 0) * 0.55; sw += 0.55; }
+          if (n1) { sx += (n1.flowRawX || 0) * (n1.flowRawAmount || 0) * 0.55; sy += (n1.flowRawY || 0) * (n1.flowRawAmount || 0) * 0.55; sw += 0.55; }
+          if (n2) { sx += (n2.flowRawX || 0) * (n2.flowRawAmount || 0) * 0.55; sy += (n2.flowRawY || 0) * (n2.flowRawAmount || 0) * 0.55; sw += 0.55; }
+          if (n3) { sx += (n3.flowRawX || 0) * (n3.flowRawAmount || 0) * 0.55; sy += (n3.flowRawY || 0) * (n3.flowRawAmount || 0) * 0.55; sw += 0.55; }
+          const smoothedFlow = normalizeVector(sx, sy);
+          cell.flowX = smoothedFlow.x;
+          cell.flowY = smoothedFlow.y;
+          cell.flowAmount = clamp(smoothedFlow.length / sw, 0, 1);
         });
         return cells;
       }
@@ -2671,6 +2879,10 @@
         const daylight = getDaylightAmount(state.selectedHour);
         const nightBoost = 1 - daylight;
         const origin = activeOrigin();
+        const params = {};
+        const color = { r: 0, g: 0, b: 0 };
+        const projectedLatLng = { lat: 0, lng: 0 };
+        const projectedLngLat = [0, 0];
         const stats = {
           records: activeRecords().length,
           screenRecords: cells[0]?.screenRecords || 0,
@@ -2695,41 +2907,64 @@
           let surfaceX = cell.x;
           let surfaceY = cell.y;
           if (state.mapReady && Number.isFinite(cell.mx) && Number.isFinite(cell.my)) {
-            const ll = metersToLatLng(cell.mx, cell.my, origin);
-            const point = state.map.project([ll.lng, ll.lat]);
+            const ll = metersToLatLngInto(cell.mx, cell.my, origin, projectedLatLng);
+            projectedLngLat[0] = ll.lng;
+            projectedLngLat[1] = ll.lat;
+            const point = state.map.project(projectedLngLat);
             surfaceX = point.x;
             surfaceY = point.y;
           }
           if (surfaceX < -160 || surfaceX > state.width + 160 || surfaceY < -180 || surfaceY > state.height + 180) continue;
-          const params = {
-            strength: cell.strength,
-            flux: cell.flux,
-            contrast: cell.contrast,
-            warmth: clamp(cell.warmth + hourWarmth * 0.12 + (cell.localContrast || 0) * 0.04, -0.35, 0.35),
-            boundary: cell.boundary,
-            breathSpeed: cell.breathSpeed,
-            radiusBias: cell.radiusBias,
-            heightBias: cell.heightBias,
-            senseSpacious: cell.senseSpacious ?? 0,
-            senseGravity:  cell.senseGravity  ?? 0,
-            senseTension:  cell.senseTension  ?? 0,
-          };
-          const baseSkinAlpha = 0.010;
+          params.strength = cell.strength;
+          params.flux = cell.flux;
+          params.contrast = cell.contrast;
+          params.warmth = clamp(cell.warmth + hourWarmth * 0.12 + (cell.localContrast || 0) * 0.04, -0.35, 0.35);
+          params.boundary = cell.boundary;
+          params.breathSpeed = cell.breathSpeed;
+          params.radiusBias = cell.radiusBias;
+          params.heightBias = cell.heightBias;
+          params.senseSpacious = cell.senseSpacious ?? 0;
+          params.senseGravity = cell.senseGravity ?? 0;
+          params.senseTension = cell.senseTension ?? 0;
+          params.soundLoudness = cell.soundLoudness ?? 0.18;
+          params.soundTurbulence = cell.soundTurbulence ?? 0.08;
+          params.soundSharpness = cell.soundSharpness ?? 0.30;
+          params.soundContinuity = cell.soundContinuity ?? 0.80;
+          params.soundTexture = cell.soundTexture ?? 0.30;
+          params.localContrast = cell.localContrast || 0;
+          params.edgeHardness = cell.edgeHardness ?? 0;
+          const baseSkinAlpha = 0.012;
           const rawAlpha = cell.strength < GRID_VISUAL.strengthCutoff
-            ? baseSkinAlpha + getDotAlpha(params) * 0.22
-            : baseSkinAlpha + getDotAlpha(params) + (cell.localContrast || 0) * 0.14;
+            ? baseSkinAlpha + getDotAlpha(params) * 0.34
+            : baseSkinAlpha + getDotAlpha(params) * 1.32 + (cell.localContrast || 0) * 0.21;
           const depth = clamp(1.02 - (surfaceY / Math.max(1, state.height)) * 0.16, 0.86, 1.02);
           const aMul = cell.strength >= GRID_VISUAL.strengthCutoff ? DOT_VISUAL_TUNING.activeAlphaMul : DOT_VISUAL_TUNING.alphaMul;
           const nightMul = lerp(1, DOT_VISUAL_TUNING.nightAlphaBoost, nightBoost);
           // spaciousness secondary alpha: spacious(+1)→thinner presence, dense(-1)→thicker
           const spAlphaFactor = clamp(1 - (params.senseSpacious ?? 0) * 0.18, 0.72, 1.22);
-          const alpha = clamp(rawAlpha * spAlphaFactor * aMul * nightMul * depth * config.alphaScale, GRID_VISUAL.minAlpha, DOT_VISUAL_TUNING.maxAlpha);
+          // tension controls static inner variance: loose(-1)→stronger dot-to-dot light/height differences.
+          const tension = clamp(params.senseTension ?? 0, -1, 1);
+          const micro = stableSignedNoise(cell.mx / Math.max(1, cell.spacing), cell.my / Math.max(1, cell.spacing), 7);
+          const activeMicroMul = cell.strength >= GRID_VISUAL.strengthCutoff ? 1 : 0.35;
+          const microAlphaAmp = clamp(0.175 - tension * 0.125, 0.05, 0.30) * activeMicroMul;
+          const microHeightAmp = clamp(0.195 - tension * 0.145, 0.05, 0.34) * activeMicroMul;
+          const soundGrain = stableSignedNoise(cell.mx / Math.max(1, cell.spacing), cell.my / Math.max(1, cell.spacing), 23);
+          const soundGrainAmp = clamp((cell.soundTexture ?? 0.3) * 0.13 + (cell.soundTurbulence ?? 0.08) * 0.07, 0, 0.17) * activeMicroMul;
+          const soundContinuityFactor = clamp(0.92 + (cell.soundContinuity ?? 0.8) * 0.11, 0.92, 1.055);
+          params.colorMicro = micro;
+          params.soundGrain = soundGrain;
+          const microAlphaFactor = clamp(1 + micro * microAlphaAmp + soundGrain * soundGrainAmp, 0.64, 1.38);
+          const alpha = clamp(rawAlpha * microAlphaFactor * spAlphaFactor * soundContinuityFactor * aMul * nightMul * depth * config.alphaScale, GRID_VISUAL.minAlpha, DOT_VISUAL_TUNING.maxAlpha);
           const radius = clamp(getDotRadius(params), DOT_DENSITY_VISUAL.minRadiusPx, DOT_DENSITY_VISUAL.maxRadiusPx);
-          const color = getDotColor(params);
+          getDotColor(params, color);
           const heightScale = state.mapReady ? 0.36 * Math.sin(state.map.getPitch() * Math.PI / 180) : 0.2;
-          const heightOffset = cell.height * heightScale * depth;
-          const x = surfaceX;
-          const y = surfaceY - heightOffset;
+          const microHeightFactor = clamp(1 + micro * microHeightAmp + soundGrain * soundGrainAmp * 0.56, 0.62, 1.38);
+          const heightOffset = cell.height * microHeightFactor * heightScale * depth;
+          const hasHeightLine = cell.height > 22 && cell.strength > 0.16;
+          const flowVisible = hasHeightLine ? smoothstep(0.12, 0.55, cell.flowAmount || 0) : 0;
+          const flowOffset = Math.min(heightOffset * 0.35, heightOffset * flowVisible * 0.26);
+          const x = surfaceX + (cell.flowX || 0) * flowOffset;
+          const y = surfaceY - heightOffset + (cell.flowY || 0) * flowOffset;
           stats.strengthMin = Math.min(stats.strengthMin, cell.strength);
           stats.strengthMax = Math.max(stats.strengthMax, cell.strength);
           stats.strengthSum += cell.strength;
@@ -2740,7 +2975,7 @@
           stats.alphaMax = Math.max(stats.alphaMax, alpha);
           stats.alphaSum += alpha;
           stats.radiusMax = Math.max(stats.radiusMax, radius);
-          if (cell.height > 22 && cell.strength > 0.16) {
+          if (hasHeightLine) {
             ctx.strokeStyle = `rgba(${color.r}, ${color.g}, ${color.b}, ${alpha * 0.18})`;
             ctx.lineWidth = 0.55;
             ctx.beginPath();
@@ -2813,6 +3048,15 @@
             senseSpacious: (from.senseSpacious || 0) + ((cell.senseSpacious || 0) - (from.senseSpacious || 0)) * t,
             senseGravity:  (from.senseGravity  || 0) + ((cell.senseGravity  || 0) - (from.senseGravity  || 0)) * t,
             senseTension:  (from.senseTension  || 0) + ((cell.senseTension  || 0) - (from.senseTension  || 0)) * t,
+            soundLoudness: (from.soundLoudness || 0) + ((cell.soundLoudness || 0) - (from.soundLoudness || 0)) * t,
+            soundTurbulence: (from.soundTurbulence || 0) + ((cell.soundTurbulence || 0) - (from.soundTurbulence || 0)) * t,
+            soundSharpness: (from.soundSharpness || 0) + ((cell.soundSharpness || 0) - (from.soundSharpness || 0)) * t,
+            soundContinuity: (from.soundContinuity || 0) + ((cell.soundContinuity || 0) - (from.soundContinuity || 0)) * t,
+            soundTexture:  (from.soundTexture  || 0) + ((cell.soundTexture  || 0) - (from.soundTexture  || 0)) * t,
+            edgeHardness:  (from.edgeHardness  || 0) + ((cell.edgeHardness  || 0) - (from.edgeHardness  || 0)) * t,
+            flowX:         (from.flowX         || 0) + ((cell.flowX         || 0) - (from.flowX         || 0)) * t,
+            flowY:         (from.flowY         || 0) + ((cell.flowY         || 0) - (from.flowY         || 0)) * t,
+            flowAmount:    (from.flowAmount    || 0) + ((cell.flowAmount    || 0) - (from.flowAmount    || 0)) * t,
           };
         });
       }

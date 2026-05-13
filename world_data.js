@@ -183,6 +183,73 @@ const WORLD_SKIN_RECORDS = (() => {
     return "night";
   }
 
+  // senseVector base ranges per zone type [min, max] for each axis
+  const SV_BASE = {
+    station:     { sp:[-0.58,-0.14], g:[+0.24,+0.62], t:[+0.34,+0.72], f:[+0.16,+0.58] },
+    corridor:    { sp:[-0.36,+0.06], g:[-0.08,+0.28], t:[+0.08,+0.42], f:[+0.38,+0.82] },
+    school:      { sp:[-0.18,+0.22], g:[+0.08,+0.46], t:[-0.08,+0.34], f:[-0.28,+0.22] },
+    park:        { sp:[+0.34,+0.82], g:[-0.58,-0.08], t:[-0.68,-0.18], f:[-0.48,+0.12] },
+    shopping:    { sp:[-0.46,-0.08], g:[+0.18,+0.52], t:[+0.28,+0.62], f:[+0.08,+0.42] },
+    residential: { sp:[-0.08,+0.32], g:[+0.14,+0.52], t:[-0.48,+0.02], f:[-0.48,-0.08] },
+    shrine:      { sp:[+0.22,+0.62], g:[-0.38,+0.12], t:[-0.58,-0.18], f:[-0.58,-0.08] },
+    isolated:    { sp:[+0.22,+0.72], g:[-0.48,+0.12], t:[-0.38,+0.12], f:[-0.38,+0.12] },
+  };
+
+  // soundVector base sharpness / continuity / texture per zone type
+  const SND_BASE = {
+    station:     { sh:0.56, co:0.82, tx:0.56 },
+    corridor:    { sh:0.60, co:0.80, tx:0.54 },
+    school:      { sh:0.38, co:0.70, tx:0.42 },
+    shopping:    { sh:0.52, co:0.76, tx:0.50 },
+    residential: { sh:0.26, co:0.58, tx:0.30 },
+    park:        { sh:0.16, co:0.64, tx:0.20 },
+    shrine:      { sh:0.12, co:0.52, tx:0.16 },
+    isolated:    { sh:0.20, co:0.48, tx:0.26 },
+  };
+
+  function buildSenseVector(type, mobility, hour, day) {
+    const b = SV_BASE[type] || SV_BASE.isolated;
+    const commute = (hour >= 7 && hour <= 9) || (hour >= 17 && hour <= 20);
+    const night   = hour <= 5 || hour >= 23;
+    const weekend = day % 7 >= 5;
+    let sp = b.sp[0] + rand() * (b.sp[1] - b.sp[0]);
+    let g  = b.g[0]  + rand() * (b.g[1]  - b.g[0]);
+    let t  = b.t[0]  + rand() * (b.t[1]  - b.t[0]);
+    let f  = b.f[0]  + rand() * (b.f[1]  - b.f[0]);
+    if (mobility === "still")   { f -= 0.16 + rand() * 0.10; g += 0.06 + rand() * 0.08; }
+    if (mobility === "passing") { f += 0.16 + rand() * 0.14; g -= 0.06 + rand() * 0.06; }
+    if (commute)                { t += 0.08 + rand() * 0.08; sp -= 0.06; f += 0.04; }
+    if (night)                  { g += 0.06 + rand() * 0.08; sp -= 0.04; t -= 0.06; }
+    if (weekend && type === "park") { t -= 0.08; f -= 0.05; }
+    return {
+      spaciousness: Number(clamp(sp, -1, 1).toFixed(3)),
+      gravity:      Number(clamp(g,  -1, 1).toFixed(3)),
+      tension:      Number(clamp(t,  -1, 1).toFixed(3)),
+      flow:         Number(clamp(f,  -1, 1).toFixed(3)),
+    };
+  }
+
+  function buildSoundVector(noiseLevel, turbulence, type) {
+    const b = SND_BASE[type] || SND_BASE.isolated;
+    return {
+      loudness:   Number(clamp(noiseLevel  + (rand() - 0.5) * 0.06, 0, 1).toFixed(3)),
+      turbulence: Number(clamp(turbulence  + (rand() - 0.5) * 0.06, 0, 1).toFixed(3)),
+      sharpness:  Number(clamp(b.sh + (rand() - 0.5) * 0.20, 0, 1).toFixed(3)),
+      continuity: Number(clamp(b.co + (rand() - 0.5) * 0.22, 0, 1).toFixed(3)),
+      texture:    Number(clamp(b.tx + (rand() - 0.5) * 0.20, 0, 1).toFixed(3)),
+    };
+  }
+
+  function pickSelectedWords(words) {
+    if (!words || !words.length) return [];
+    const count = rand() < 0.12 ? 0 : rand() < 0.28 ? 2 : 1;
+    if (count === 0) return [];
+    const w1 = weighted(words);
+    if (count === 1) return [w1];
+    const pool2 = words.filter(([w]) => w !== w1);
+    return pool2.length ? [w1, weighted(pool2)] : [w1];
+  }
+
   function pushRecord(user, day, index) {
     const selected = zoneByType();
     let pos, direction = rand() * 360, profile, sourceId;
@@ -222,14 +289,17 @@ const WORLD_SKIN_RECORDS = (() => {
         + (weekend && profile.type === "park" ? 0.04 : 0),
       0.02, 0.92
     );
-    const peak      = clamp(noiseLevel + turbulence * 0.34 + rand() * 0.14, 0.05, 1);
-    const word      = weighted(profile.words);
-    const timestamp = new Date(baseDate + day * 86400000 + hour * 3600000 + minute * 60000 + Math.floor(rand() * 60000)).toISOString();
-    const duration  = Math.round(clamp(8 + rand() * 10 + (mobility === "still" ? 2 : 0), 8, 18));
-    const trustScore = clamp(0.62 + rand() * 0.34 - (night ? 0.05 : 0), 0.55, 1);
+    const peak           = clamp(noiseLevel + turbulence * 0.34 + rand() * 0.14, 0.05, 1);
+    const word           = weighted(profile.words);
+    const selectedWords  = pickSelectedWords(profile.words);
+    const senseVector    = buildSenseVector(profile.type || "isolated", mobility, hour, day);
+    const soundVector    = buildSoundVector(noiseLevel, turbulence, profile.type || "isolated");
+    const timestamp      = new Date(baseDate + day * 86400000 + hour * 3600000 + minute * 60000 + Math.floor(rand() * 60000)).toISOString();
+    const duration       = Math.round(clamp(8 + rand() * 10 + (mobility === "still" ? 2 : 0), 8, 18));
+    const trustScore     = clamp(0.62 + rand() * 0.34 - (night ? 0.05 : 0), 0.55, 1);
 
     records.push({
-      id: `kbj-v4c-u${String(user).padStart(3,"0")}-d${day}-${index}-${records.length}`,
+      id: `kbj-v4d-u${String(user).padStart(3,"0")}-d${day}-${index}-${records.length}`,
       userId: `user-${String(user).padStart(3,"0")}`,
       lat: Number(pos.lat.toFixed(7)),
       lng: Number(pos.lng.toFixed(7)),
@@ -243,9 +313,12 @@ const WORLD_SKIN_RECORDS = (() => {
       direction: Number(direction.toFixed(1)),
       duration,
       word,
+      selectedWords,
+      senseVector,
+      soundVector,
       trustScore: Number(trustScore.toFixed(3)),
       zoneId: sourceId,
-      source: "kokubunji-sim-v4-clean",
+      source: "kokubunji-sim-v4d",
       noise: Number(noiseLevel.toFixed(3)),
       flux: Number(turbulence.toFixed(3)),
       movement: mobility,

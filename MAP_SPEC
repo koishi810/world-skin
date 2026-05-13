@@ -1,7 +1,7 @@
 # MAP_SPEC
 
 更新时间：2026-05-13
-依据：`guide book`：《世界皮肤 / World Skin》项目说明书 v0.2。
+依据：当前实现 `test0.2.html`、进度文件 `TODO`、变更记录 `MAP_LOG`，以及历史项目说明书《世界皮肤 / World Skin》v0.2。
 
 ## 项目定位
 
@@ -59,7 +59,8 @@
 - 麦克风不可用时模拟噪波。
 - 10 秒长按记录。
 - 时间段描述。
-- 简短标签选择，但当前标签仍是「沉 / 躁 / 空 / 绷」，需要按 guide book 调整。
+- 多轮日文感知词选择，词库写入 `senseVector`，同时保留 `word / selectedWords` 兼容旧统计；旧 `textureModifier` 仅作 legacy fallback。
+- 记录写入 `soundVector`，包含 loudness / turbulence / sharpness / continuity / texture。
 
 ### 我的半径
 
@@ -173,15 +174,22 @@
 
 ### 视觉变量映射
 
-所有视觉变化必须来自数据，避免纯装饰。
+所有视觉变化必须来自数据，避免纯装饰。当前实现采用 v2 感知轴分工：
 
-- 声音平均值：颗粒密度、区域厚度、基础亮度。
-- 声音波动性：边缘粗糙度、轮廓抖动、局部裂隙。
-- 突发噪声峰值：短暂尖锐闪烁或局部破裂，但不能刺眼。
-- 停留时间：沉积厚度、中心凝聚度。
-- 移动方向：纹理拉伸方向、尾迹长度。
+- `spaciousness`：主控平面扩散 / 收缩与点半径；空旷更展开、更薄，密集更凝聚。
+- `gravity`：主控 alpha 与 height；轻盈更低更薄，沉重更高更厚。
+- `tension`：主控点阵内部微差幅度；松开时相邻小球明暗和高低差更大，绷紧时更均质。
+- `flow`：主控高度线终点偏移、方向一致性和轻微时间残留；不画箭头、轨迹、风向线，不拉伸点阵。
+- `soundVector`：接入环境激活、起伏、尖锐度、连续性与颗粒感；loudness 微调 strength，turbulence 微调 flux/contrast，sharpness 进入 edgeHardness，continuity 调整沉积连续性，texture 形成静态 grain。
+- `finalColor`：由数据显影强度、spaciousness、gravity、tension 与 soundVector 综合合成；颜色只负责低饱和状态气质，不成为独立主控轴。flow 不参与颜色，只保留高度线方向结构作用。
+- 旧 `textureModifier`：仅保留读取兼容；新记录不再写入，也不再作为干湿 / 冷热独立材料系统。
+
+基础数据仍参与底层场：
+
+- 声音平均值 / peak：基础强度、沉积亮度和高度。
+- 声音波动性 / movement：flux、局部 contrast、boundary 微调。
 - 记录次数：层叠复杂度，而不是简单热度亮度。
-- 时间段：色温、透明度、纹理松紧。
+- 时间段：色温、透明度、时间切片权重。
 
 ### 色彩规则
 
@@ -227,11 +235,11 @@
 
 功能拆分：
 
-- World Map：显示公共/预设聚合数据，当前原型使用“100 个用户在国分寺周边 5km 内连续使用一周”的模拟结果。
+- World Map：显示公共/预设聚合数据，当前原型使用“200 个用户在国分寺周边约 8km 内连续 10 天”的模拟结果，上限 5000 条记录。
 - My Radius：只显示本机用户自己的记录与统计。
 - Sense：只负责现场采样与主观词选择，写入 My Radius，不直接写入 World Map。
 - 预设数据必须放在独立数据文件中，不嵌入主原型文件。
-- 预设数据必须依附真实地图结构生成，不能在 5km 圆形范围内均匀随机撒点。
+- 预设数据必须依附真实地图结构生成，不能在测试半径内均匀随机撒点。
 - 地图底层需要接入真实地图引擎；当前原型使用 MapLibre GL 作为地图引擎，Canvas 只负责 World Skin 纹理覆盖层。
 - 整体视觉参考当前总图：暗色航拍地图、左侧竖向导航、底部 24H 时间轴、右上地图控制、固定点阵和冷暖数据光场。
 
@@ -242,22 +250,22 @@
 - Canvas 点阵必须使用地图引擎的 `project` 结果，而不是独立手写投影。
 - 真实地图瓦片当前使用正航拍图，不显示地名、POI 或普通导航地图标签。
 - 建立覆盖全地图的固定网格节点，每个节点都是世界表面的一个采样点。
-- 当前阶段将点阵纹理回退为水平二维覆盖层，暂时不做 pseudo-3D 隆起。
+- 当前阶段点阵仍保持规则网格，但 active 区域使用静态 height 与高度线表现沉积厚度。
 - 地图文字默认不显示；World Map 与 My Radius 都只保留点阵、真实地图边缘和必要控制 UI。
 - 地图道路、建筑、绿地和水系边缘必须来自真实航拍底图，避免手绘边界和真实地图不一致。
 - 地图边缘可见度按缩放层级调整：区域层较淡，街区层更清楚。
 - 点状纹理密度必须克制，优先保证真实地图边缘可读。
-- 点阵本体保持规则网格；当前稳定性能版允许数据激活区域产生受限的半径、透明度、低饱和色温和静态高度差异。
+- 点阵本体保持规则网格；当前稳定性能版允许数据激活区域产生受限的半径、透明度、低饱和色温、静态高度差异和高度线终点微偏移。
 - 点阵必须是稳定的屏幕二维规则网格；地图缩放、旋转、平移时，记录场源使用 MapLibre `project([lng, lat])` 重新投影，影响区域跟随地图移动。
 - 覆盖层必须保留清晰动态范围：空洞区、低强度生活底层、普通记录沉积、车站/通勤高密度区需要肉眼可分。
 - 未被记录影响的节点必须保持极暗空洞点，不允许用全局平均强度铺成均匀灰网格。
 - 地图中心需要显示当前所在位置和方向；无定位时回退到当前地图功能的中心点。
 - 每条记录作为场源影响周围节点，而不是被单独绘制。
-- 节点变化必须受限：radius `0.8-2.4px`，alpha `0.012-0.72`，height 不超过 `96`。
+- 节点变化必须受限：radius、alpha、height 和高度线偏移都必须保持克制，不能退化为柱状图、风向图或热力图。
 - active 区域允许静态变亮、变厚和轻微隆起；void 区域必须保持暗、小、低矮。
-- 声音平均值控制节点影响范围和基础亮度，但最终显示点半径保持固定。
+- 声音平均值控制节点影响范围和基础亮度；spaciousness 与数据强度可以对点半径做小幅偏置。
 - 声音波动性控制局部对比，不直接驱动点的快速运动。
-- 移动方向可以影响场源方向性，但不再让单个点产生可见偏移。
+- 移动方向只用于 flow 的 screen-space 聚合方向，并轻微偏移已有高度线终点；圆本体不脱离规则网格形成轨迹。
 - 附近环境变化需要被放大为局部对比：相邻节点的强度/波动差越大，点阵越容易形成可读的差异带和裂感。
 - alpha 计算使用非线性动态范围，避免线性平均造成全屏灰雾：
   - `baseVoidAlpha` 约 `0.012-0.03`。
@@ -267,10 +275,10 @@
 - 高斯影响需要设置 cutoff，低于阈值的远距离影响不参与累加，避免整张地图被抹平。
 - sigma 随 zoom 控制在约 `55-150px` 范围内，不超过 `180px`。
 - 主观词不直接显示在地图上。
-- 主观词目前只存储在记录中，用于 tagGrid 统计；**不影响任何视觉参数**（已回退，待重设计）。
-- 当前渲染管线：`recordBaseVisual(record)` 计算基础参数，直接进入 `getDotAlpha(params)` 和 `getDotColor(params)`；无词语偏置层。
+- 主观词写入 `senseVector`，并通过 field 聚合后参与结构微调和 finalColor 合成；旧 `textureModifier` 不再作为新记录主逻辑。
+- 当前渲染管线：`recordBaseVisual(record)` 计算基础参数与 v2 轴 fallback，`buildGeoGridField()` 聚合到 cell，`drawGridTexture()` 从 cell 读取最终参数并调用 `getDotAlpha(params)` / `getDotColor(params)`。
 
-**视觉通道重设计留空。** 当前只有：`noise + flux + time-of-day → strength / contrast / warmth / boundary → alpha / radius / cold/neutral/warm color / height`。下一阶段将在此基础上重新定义感知→视觉映射。
+当前颜色通道：`data strength + spaciousness + gravity + tension + soundVector → finalColor`。颜色限制在灰化冷暖色皮肤范围内，只作为状态气质；flow 方向不影响颜色。
 - World Map 使用真实地图边缘用于确认空间结构；地名不显示，避免变成普通导航地图。
 - My Radius 可以复用同一网格系统，但数据源必须是本机个人记录。
 
@@ -282,9 +290,9 @@
 4. 根据当前 MapLibre 视口反投影得到地理范围，在局部米制坐标中生成规则地理网格。
 5. 每个网格点转回 `lng / lat` 后使用 MapLibre `project([lng, lat])` 投影到屏幕，因此点阵贴合 pitch / bearing 后的地图表面。
 6. 记录先在局部米制坐标中进入 spatial hash，再按附近 cells 查询，用高斯衰减累加影响。
-7. 将影响场转换为 `strength / flux / warmth / boundary`。
+7. 将影响场转换为 `strength / flux / warmth / boundary / senseVector / soundVector`。
 8. 计算相邻节点差异，得到 `contrast`，用于突出附近环境变化。
-9. 根据 `strength / flux / contrast` 计算节点 alpha、色温、radius 和静态 height。
+9. 根据 `strength / flux / contrast / senseVector / soundVector` 计算节点 alpha、finalColor、radius 和静态 height。
 10. 使用 height 产生克制的屏幕上移偏移，模拟皮肤表面的静态起伏；不绘制柱状图，不绘制山峰，不绘制热力渐变。
 11. 真实地图道路/地块/水系边缘在点阵下方显示，并随缩放层级增强。
 12. World Map 使用预设聚合数据；My Radius 使用 `localStorage` 中的个人数据。
@@ -321,7 +329,7 @@
 - 住宅区约 18%：南町・東元町、戸倉・並木町等住宅肌理。低密度、分散、早晚较多，`眠い / 遠い / 乾く / ほどける` 权重高。
 - 孤岛记录约 6%：低记录区中的偶发停留或经过，影响周围点阵但不显示为 marker。
 - 空洞区域通过 `WORLD_SKIN_VOIDS` 排除，保留走廊夹缝、住宅深处和绿地内部的低记录区域，用于测试 Void 层。
-- 当前版本先手动定义接近真实地图结构的 seed zones / corridor polylines；后续可替换为真实 POI 或 vector tile 派生数据。
+- 当前版本先手动定义接近真实地图结构的 seed zones / corridor sampling points；后续可替换为真实 POI 或 vector tile 派生数据。渲染层不绘制 corridor polyline。
 
 地图交互：
 
@@ -457,7 +465,7 @@
 - 手机端单页 HTML 原型。
 - World Map 与 My Radius 已拆成两个功能。
 - Canvas 生成式网格点状纹理地图层。
-- World Map 默认中心：国分寺附近，半径约 5km。
+- World Map 默认中心：国分寺附近，半径约 8km。
 - World Map 数据来自外部文件 `world_data.js`。
 - World Map 当前预设数据：200 个用户在国分寺周边 8km 连续使用 10 天的模拟聚合记录。
 - 当前位置获取，失败时回退国分寺测试半径。
@@ -466,8 +474,8 @@
 - 航拍地图边缘根据当前测试区域显示；地名文字默认隐藏。
 - 环境底噪、波动性、噪声峰值计算。
 - 移动状态粗判：still、slow、passing。
-- 不同移动状态对应沉积或方向性痕迹。
-- 使用 guide book 中的日语感知词。
+- 不同移动状态参与沉积、flux 和 flow 高度线方向聚合。
+- 使用当前 v2 日语感知词库，生成 `senseVector`；旧 `textureModifier` 只保留读取兼容。
 - `localStorage` 本地持久化。
 - My Radius 默认先展示个人地图；具体信息通过下拉/抽屉按钮展开。
 - My Radius 详情面板展示个人记录数量、空洞单元、平均皮肤强度、时间剖面和感知词分布。
@@ -497,7 +505,7 @@
 
 ## 更新规则
 
-- `guide book` 是项目概念与设计原则的最高依据。
+- 当前实现以 `TODO` 的 v2 感知轴分工、`MAP_LOG` 的最新变更记录和 `test0.2.html` 的代码为准。
 - `MAP_SPEC` 记录可执行规格，随着实现持续更新。
 - `TODO` 记录当前进度和下一步。
-- `MAP_LOG` 记录每次重要修改、决策和偏离 guide book 的原因。
+- `MAP_LOG` 记录每次重要修改、决策和偏离既定规格的原因。
