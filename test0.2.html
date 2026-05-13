@@ -1655,7 +1655,7 @@
         const f = clamp(params.flux, 0, 1);
         const b = clamp(params.boundary, 0, 1);
         // spacious(+1)→smaller dots; dense(-1)→larger dots
-        const spBias = clamp(-(params.senseSpacious ?? 0) * 0.20, -0.18, +0.22);
+        const spBias = clamp(-(params.senseSpacious ?? 0) * 0.28, -0.28, +0.28);
         return clamp(
           DOT_DENSITY_VISUAL.baseRadiusPx +
           Math.pow(s, 1.25) * 0.75 +
@@ -2709,7 +2709,9 @@
           const depth = clamp(1.02 - (surfaceY / Math.max(1, state.height)) * 0.16, 0.86, 1.02);
           const aMul = cell.strength >= GRID_VISUAL.strengthCutoff ? DOT_VISUAL_TUNING.activeAlphaMul : DOT_VISUAL_TUNING.alphaMul;
           const nightMul = lerp(1, DOT_VISUAL_TUNING.nightAlphaBoost, nightBoost);
-          const alpha = clamp(rawAlpha * aMul * nightMul * depth * config.alphaScale, GRID_VISUAL.minAlpha, DOT_VISUAL_TUNING.maxAlpha);
+          // spaciousness secondary alpha: spacious(+1)→thinner presence, dense(-1)→thicker
+          const spAlphaFactor = clamp(1 - (params.senseSpacious ?? 0) * 0.18, 0.72, 1.22);
+          const alpha = clamp(rawAlpha * spAlphaFactor * aMul * nightMul * depth * config.alphaScale, GRID_VISUAL.minAlpha, DOT_VISUAL_TUNING.maxAlpha);
           const radius = clamp(getDotRadius(params), DOT_DENSITY_VISUAL.minRadiusPx, DOT_DENSITY_VISUAL.maxRadiusPx);
           const color = getDotColor(params);
           const heightScale = state.mapReady ? 0.36 * Math.sin(state.map.getPitch() * Math.PI / 180) : 0.2;
