@@ -1189,8 +1189,8 @@
         }
       };
       const DOT_VISUAL_TUNING = {
-        alphaMul:       1.28,
-        activeAlphaMul: 1.60,
+        alphaMul:       1.68,
+        activeAlphaMul: 2.10,
         nightAlphaBoost: 1.18,
         maxAlpha:       0.92
       };
@@ -1207,9 +1207,9 @@
         densityMode: "screen-stable"
       };
       const MAP_VISUAL_MODES = {
-        dark: { tileBrightness: 0.34, tileContrast: 1.62, tileSaturation: 0.26, hueRotate: 0, baseOpacity: 0.94, edgeBoost: 1.06 },
-        balanced: { tileBrightness: 0.42, tileContrast: 1.78, tileSaturation: 0.32, hueRotate: 0, baseOpacity: 1, edgeBoost: 1.24 },
-        bright: { tileBrightness: 0.52, tileContrast: 1.92, tileSaturation: 0.40, hueRotate: 0, baseOpacity: 1, edgeBoost: 1.42 }
+        dark: { tileBrightness: 0.62, tileContrast: 1.02, tileSaturation: 0.22, hueRotate: 0, baseOpacity: 0.94, edgeBoost: 1.06 },
+        balanced: { tileBrightness: 0.80, tileContrast: 1.06, tileSaturation: 0.30, hueRotate: 0, baseOpacity: 1, edgeBoost: 1.24 },
+        bright: { tileBrightness: 1.00, tileContrast: 1.10, tileSaturation: 0.40, hueRotate: 0, baseOpacity: 1, edgeBoost: 1.42 }
       };
       const MAP_TIME_VISUAL = {
         day:       { brightness: 0.76, contrast: 1.14, saturation: 0.26, opacity: 0.82, overlayDarkness: 0.24 },
@@ -1219,12 +1219,13 @@
         deepNight: { brightness: 0.44, contrast: 1.24, saturation: 0.12, opacity: 0.68, overlayDarkness: 0.60 }
       };
       const ZOOM_LEVELS = {
-        region: { min: 0, max: 12.4 },
-        area: { min: 12.4, max: 13.6 },
+        region:       { min: 0,    max: 12.4 },
+        area:         { min: 12.4, max: 13.6 },
         neighborhood: { min: 13.6, max: 15.0 },
-        street: { min: 15.0, max: 22 }
+        street:       { min: 15.0, max: 16.0 },
+        detail:       { min: 16.0, max: 22   }
       };
-      const ZOOM_ORDER = ["region", "area", "neighborhood", "street"];
+      const ZOOM_ORDER = ["region", "area", "neighborhood", "street", "detail"];
       const ZOOM_VISUAL_PRESETS = {
         region: {
           alphaScale: 0.75, heightScale: 0.88, sigmaScale: 0.62, contrastScale: 0.72,
@@ -1245,9 +1246,15 @@
           showSmallIslands: true, showLocalRecordDetail: true, showVoidLarge: true, showBoundary: true
         },
         street: {
-          alphaScale: 1.10, heightScale: 1.28, sigmaScale: 0.72, contrastScale: 1.12,
-          boundaryScale: 1.08, rasterContrastBase: 0.44, densityBias: 1.10,
-          maxInfluenceDist: 50,
+          alphaScale: 1.12, heightScale: 1.38, sigmaScale: 0.88, contrastScale: 1.08,
+          boundaryScale: 1.00, rasterContrastBase: 0.38, densityBias: 1.10,
+          maxInfluenceDist: 160,
+          showSmallIslands: true, showLocalRecordDetail: true, showVoidLarge: false, showBoundary: true
+        },
+        detail: {
+          alphaScale: 1.20, heightScale: 1.50, sigmaScale: 0.85, contrastScale: 1.10,
+          boundaryScale: 1.05, rasterContrastBase: 0.40, densityBias: 1.18,
+          maxInfluenceDist: 200,
           showSmallIslands: true, showLocalRecordDetail: true, showVoidLarge: false, showBoundary: true
         }
       };
@@ -1255,7 +1262,8 @@
         { zoom: 11.0, preset: "region"       },
         { zoom: 13.0, preset: "area"         },
         { zoom: 14.3, preset: "neighborhood" },
-        { zoom: 16.2, preset: "street"       }
+        { zoom: 15.5, preset: "street"       },
+        { zoom: 16.5, preset: "detail"       }
       ];
       const DEFAULT_VIEW = {
         center: [139.4800, 35.7000],
@@ -1826,7 +1834,7 @@
         const comboStillDense    = Math.max(0, -fl) * Math.max(0, -sp); // 静止+密集 → stoneBlue
         const comboLoudOpen      = clamp((loud - 0.45) / 0.55, 0, 1) * Math.max(0,  sp); // 嘈杂+空旷 → amberGray
         const comboQuietHeavy    = clamp((0.45 - loud) / 0.45, 0, 1) * Math.max(0,  g);  // 安静+沉重 → indigoNight
-        const cw = v => Math.pow(clamp(v, 0, 1), 0.65); // 弱组合保持克制，强组合明显放大
+        const cw = v => Math.pow(clamp(v, 0, 1), 0.4); // 弱组合保持克制，强组合明显放大
         mixColorInto(color, GRID_VISUAL.colors.stoneBlue,   clamp(cw(comboDenseHeavy)    * 0.70, 0, 0.70));
         mixColorInto(color, GRID_VISUAL.colors.mossTeal,    clamp(cw(comboSpaciousLight) * 0.76, 0, 0.76));
         mixColorInto(color, GRID_VISUAL.colors.concreteBlue,clamp(cw(comboOpenHeavy)     * 0.54, 0, 0.54));
@@ -1855,8 +1863,8 @@
         const g  = clamp(params.senseGravity  ?? 0, -1, 1);
         const sp = clamp(params.senseSpacious ?? 0, -1, 1);
         const base = 60 + Math.pow(clamp(params.strength, 0, 1), 1.25) * 5;
-        // 沉重(g=+1)→贴地(×0.15 min)  轻盈(g=-1)→浮起(×2.10 max)
-        const gFactor  = clamp(1 - g  * 0.92,  0.15, 2.10);
+        // 沉重(g=+1)→贴地(×0.15 min)  轻盈(g=-1)→浮起(×2.73 max)
+        const gFactor  = clamp(1 - g  * 1.20,  0.15, 2.73);
         // 密集(sp=-1)→下沉(×0.45 min)  空旷(sp=+1)→浮起(×1.50 max)
         const spFactor = clamp(1 + sp * 0.50,  0.45, 1.50);
         return clamp(base * gFactor * spFactor, 4, 160);
@@ -1925,7 +1933,7 @@
           center: MAP_VIEW.center,
           zoom: MAP_VIEW.zoom,
           minZoom: 11,
-          maxZoom: 18,
+          maxZoom: 17,
           bearing: MAP_VIEW.bearing,
           pitch: MAP_VIEW.pitch,
           maxPitch: 60,
@@ -1962,7 +1970,8 @@
         ["move", "zoom", "rotate", "pitch"].forEach(eventName => {
           state.map.on(eventName, handleMapFrameChange);
         });
-        ["moveend", "zoomend", "rotateend", "pitchend"].forEach(eventName => {
+        state.map.on("zoomend", () => { applyMapVisualMode(); startFieldTransition(); });
+        ["moveend", "rotateend", "pitchend"].forEach(eventName => {
           state.map.on(eventName, () => invalidateField(false));
         });
         state.map.on("resize", () => requestRender());
@@ -1993,7 +2002,8 @@
         if (zoom < ZOOM_LEVELS.area.min) return "region";
         if (zoom < ZOOM_LEVELS.neighborhood.min) return "area";
         if (zoom < ZOOM_LEVELS.street.min) return "neighborhood";
-        return "street";
+        if (zoom < ZOOM_LEVELS.detail.min) return "street";
+        return "detail";
       }
 
       function lerp(a, b, t) {
@@ -2039,7 +2049,7 @@
       }
 
       function getZoomLightAmount(zoom) {
-        const t = clamp((zoom - 12.0) / (16.0 - 12.0), 0, 1);
+        const t = clamp((zoom - 12.0) / (17.0 - 12.0), 0, 1);
         return smoothstep(0, 1, t);
       }
 
@@ -2601,6 +2611,7 @@
         setZoom(state.zoom * factor, event.clientX, event.clientY);
       }
 
+
       function drawBackground() {
         const mapMode = state.mapReady && canNavigateMap();
         ctx.clearRect(0, 0, state.width, state.height);
@@ -2996,7 +3007,7 @@
           const baseSkinAlpha = 0.012;
           const rawAlpha = cell.strength < GRID_VISUAL.strengthCutoff
             ? baseSkinAlpha + getDotAlpha(params) * 0.34
-            : baseSkinAlpha + getDotAlpha(params) * 1.32 + (cell.localContrast || 0) * 0.21;
+            : baseSkinAlpha + getDotAlpha(params) * 1.55 + (cell.localContrast || 0) * 0.21;
           const depth = clamp(1.02 - (surfaceY / Math.max(1, state.height)) * 0.16, 0.86, 1.02);
           const aMul = cell.strength >= GRID_VISUAL.strengthCutoff ? DOT_VISUAL_TUNING.activeAlphaMul : DOT_VISUAL_TUNING.alphaMul;
           const nightMul = lerp(1, DOT_VISUAL_TUNING.nightAlphaBoost, nightBoost);
@@ -3023,7 +3034,7 @@
           const heightOffset = cell.height * microHeightFactor * heightScale * depth;
           const hasHeightLine = cell.height > 22 && cell.strength > 0.16;
           const flowVisible = hasHeightLine ? smoothstep(0.12, 0.55, cell.flowAmount || 0) : 0;
-          const flowOffset = Math.min(heightOffset * 0.35, heightOffset * flowVisible * 0.26);
+          const flowOffset = Math.min(heightOffset * 0.175, heightOffset * flowVisible * 0.13);
           const x = surfaceX + (cell.flowX || 0) * flowOffset;
           const y = surfaceY - heightOffset + (cell.flowY || 0) * flowOffset;
           stats.strengthMin = Math.min(stats.strengthMin, cell.strength);
