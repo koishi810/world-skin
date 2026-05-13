@@ -1078,6 +1078,7 @@
   <script src="world_data.js"></script>
   <script src="my_data.js"></script>
   <script src="testdata.js"></script>
+  <script src="testdata2.js"></script>
   <script>
     (() => {
       const STORAGE_KEY = "world-skin-v02-records";
@@ -1101,7 +1102,39 @@
       const WORDS = window.WORLD_SKIN_DATA?.words || ["浮く", "重い", "乾く", "ざらつく", "眠い", "遠い", "詰まる", "ほどける"];
       const TIME_SLOTS = ["morning", "day", "evening", "night"];
       const WORLD_RECORDS = window.WORLD_SKIN_DATA?.records || [];
-      const TEST_RECORDS  = window.TEST_SKIN_DATA?.records  || [];
+      const TEST_RECORDS   = window.TEST_SKIN_DATA?.records   || [];
+      const TEST_RECORDS_2 = window.TEST_SKIN_DATA_2?.records || [];
+      const _LNG5T = [-2,-1,0,1,2].map(i => 139.4808 + i * 0.0220);
+      const TEST_LABELS_1 = [
+        { id:"A0", name:"spaciousness", lat:35.7200, lng:139.4808-0.0253 },
+        { id:"A1", name:"gravity",      lat:35.7200, lng:139.4808        },
+        { id:"A2", name:"tension",      lat:35.7200, lng:139.4808+0.0253 },
+        { id:"B0", name:"flow",         lat:35.6800, lng:139.4808-0.0253 },
+        { id:"B1", name:"sound",        lat:35.6800, lng:139.4808        },
+        { id:"B2", name:"finalColor",   lat:35.6800, lng:139.4808+0.0253 },
+        { id:"C0", name:"密集+沉重", lat:35.7560, lng:_LNG5T[0] },
+        { id:"C1", name:"密集+轻盈", lat:35.7560, lng:_LNG5T[1] },
+        { id:"C2", name:"空旷+沉重", lat:35.7560, lng:_LNG5T[2] },
+        { id:"C3", name:"空旷+轻盈", lat:35.7560, lng:_LNG5T[3] },
+        { id:"C4", name:"绷紧+空旷", lat:35.7560, lng:_LNG5T[4] },
+        { id:"D0", name:"松开+密集", lat:35.6440, lng:_LNG5T[0] },
+        { id:"D1", name:"流动+密集", lat:35.6440, lng:_LNG5T[1] },
+        { id:"D2", name:"静止+密集", lat:35.6440, lng:_LNG5T[2] },
+        { id:"D3", name:"嘈杂+空旷", lat:35.6440, lng:_LNG5T[3] },
+        { id:"D4", name:"安静+沉重", lat:35.6440, lng:_LNG5T[4] },
+      ];
+      const TEST_LABELS_2 = [
+        { id:"E0", name:"密集+沉重", lat:35.7920, lng:_LNG5T[0] },
+        { id:"E1", name:"密集+轻盈", lat:35.7920, lng:_LNG5T[1] },
+        { id:"E2", name:"空旷+沉重", lat:35.7920, lng:_LNG5T[2] },
+        { id:"E3", name:"空旷+轻盈", lat:35.7920, lng:_LNG5T[3] },
+        { id:"E4", name:"绷紧+空旷", lat:35.7920, lng:_LNG5T[4] },
+        { id:"F0", name:"松开+密集", lat:35.6080, lng:_LNG5T[0] },
+        { id:"F1", name:"流动+密集", lat:35.6080, lng:_LNG5T[1] },
+        { id:"F2", name:"静止+密集", lat:35.6080, lng:_LNG5T[2] },
+        { id:"F3", name:"嘈杂+空旷", lat:35.6080, lng:_LNG5T[3] },
+        { id:"F4", name:"安静+沉重", lat:35.6080, lng:_LNG5T[4] },
+      ];
       if (!window.WORLD_SKIN_DATA) {
         console.warn("World Skin: world_data.js was not loaded. World Map will start without aggregate records.");
       }
@@ -1148,7 +1181,11 @@
           stoneBlue:   { r: 52,  g: 86,  b: 158 },
           indigoNight: { r: 28,  g: 36,  b: 112 },
           oliveAsh:    { r: 148, g: 148, b: 58  },
-          dustGray:    { r: 155, g: 142, b: 118 }
+          dustGray:    { r: 155, g: 142, b: 118 },
+          concreteBlue:{ r: 88,  g: 104, b: 126 },
+          hazeWhite:   { r: 205, g: 210, b: 218 },
+          warmEarth:   { r: 162, g: 132, b: 88  },
+          flowSlate:   { r: 90,  g: 115, b: 150 }
         }
       };
       const DOT_VISUAL_TUNING = {
@@ -1170,9 +1207,9 @@
         densityMode: "screen-stable"
       };
       const MAP_VISUAL_MODES = {
-        dark: { tileBrightness: 0.34, tileContrast: 1.42, tileSaturation: 0.18, hueRotate: 0, baseOpacity: 0.94, edgeBoost: 1.06 },
-        balanced: { tileBrightness: 0.42, tileContrast: 1.55, tileSaturation: 0.22, hueRotate: 0, baseOpacity: 1, edgeBoost: 1.24 },
-        bright: { tileBrightness: 0.52, tileContrast: 1.68, tileSaturation: 0.28, hueRotate: 0, baseOpacity: 1, edgeBoost: 1.42 }
+        dark: { tileBrightness: 0.34, tileContrast: 1.62, tileSaturation: 0.26, hueRotate: 0, baseOpacity: 0.94, edgeBoost: 1.06 },
+        balanced: { tileBrightness: 0.42, tileContrast: 1.78, tileSaturation: 0.32, hueRotate: 0, baseOpacity: 1, edgeBoost: 1.24 },
+        bright: { tileBrightness: 0.52, tileContrast: 1.92, tileSaturation: 0.40, hueRotate: 0, baseOpacity: 1, edgeBoost: 1.42 }
       };
       const MAP_TIME_VISUAL = {
         day:       { brightness: 0.76, contrast: 1.14, saturation: 0.26, opacity: 0.82, overlayDarkness: 0.24 },
@@ -1190,26 +1227,26 @@
       const ZOOM_ORDER = ["region", "area", "neighborhood", "street"];
       const ZOOM_VISUAL_PRESETS = {
         region: {
-          alphaScale: 0.75, heightScale: 0.55, sigmaScale: 0.62, contrastScale: 0.72,
-          boundaryScale: 0.50, rasterContrastBase: 0.10, densityBias: 0.88,
+          alphaScale: 0.75, heightScale: 0.88, sigmaScale: 0.62, contrastScale: 0.72,
+          boundaryScale: 0.50, rasterContrastBase: 0.18, densityBias: 0.88,
           maxInfluenceDist: 260,
           showSmallIslands: false, showLocalRecordDetail: false, showVoidLarge: true, showBoundary: false
         },
         area: {
-          alphaScale: 1.00, heightScale: 0.85, sigmaScale: 0.82, contrastScale: 0.95,
-          boundaryScale: 0.78, rasterContrastBase: 0.18, densityBias: 1.00,
+          alphaScale: 1.00, heightScale: 1.34, sigmaScale: 0.82, contrastScale: 0.95,
+          boundaryScale: 0.78, rasterContrastBase: 0.28, densityBias: 1.00,
           maxInfluenceDist: 160,
           showSmallIslands: true, showLocalRecordDetail: false, showVoidLarge: true, showBoundary: true
         },
         neighborhood: {
-          alphaScale: 1.08, heightScale: 0.95, sigmaScale: 0.95, contrastScale: 1.05,
-          boundaryScale: 0.95, rasterContrastBase: 0.24, densityBias: 1.06,
+          alphaScale: 1.08, heightScale: 1.48, sigmaScale: 0.95, contrastScale: 1.05,
+          boundaryScale: 0.95, rasterContrastBase: 0.36, densityBias: 1.06,
           maxInfluenceDist: 90,
           showSmallIslands: true, showLocalRecordDetail: true, showVoidLarge: true, showBoundary: true
         },
         street: {
-          alphaScale: 1.10, heightScale: 0.80, sigmaScale: 0.72, contrastScale: 1.12,
-          boundaryScale: 1.08, rasterContrastBase: 0.30, densityBias: 1.10,
+          alphaScale: 1.10, heightScale: 1.28, sigmaScale: 0.72, contrastScale: 1.12,
+          boundaryScale: 1.08, rasterContrastBase: 0.44, densityBias: 1.10,
           maxInfluenceDist: 50,
           showSmallIslands: true, showLocalRecordDetail: true, showVoidLarge: false, showBoundary: true
         }
@@ -1644,6 +1681,7 @@
           senseSpacious: sv.spaciousness,
           senseGravity:  sv.gravity,
           senseTension:  sv.tension ?? 0,
+          senseFlow:     sv.flow ?? 0,
           flowStrength,
           flowPersistence: clamp(flowStrength * (0.35 + Math.max(0, sv.flow ?? 0) * 0.45), 0, 1),
           soundLoudness,
@@ -1690,15 +1728,19 @@
         const s = clamp(params.strength, 0, 1);
         const f = clamp(params.flux, 0, 1);
         const b = clamp(params.boundary, 0, 1);
-        // spacious(+1)→larger dots (stay visible); dense(-1)→slightly smaller (strength already big)
-        const spBias = clamp((params.senseSpacious ?? 0) * 1.6, -0.5, +1.6);
+        const _sp = params.senseSpacious ?? 0;
+        const spBias = _sp >= 0
+          ? clamp(_sp * 1.6, 0, 0.2)
+          : clamp(-_sp * 1.8, 0, 1.8);
+        // loose(t=-1)→bigger; tense(t=+1)→slightly smaller
+        const tBias = clamp(-(params.senseTension ?? 0) * 0.8, -0.3, 0.8);
         return clamp(
           DOT_DENSITY_VISUAL.baseRadiusPx +
           Math.pow(s, 1.0) * 1.85 +
           Math.pow(f, 1.4) * 0.22 +
           b * 0.12 +
           (params.radiusBias || 0) +
-          spBias,
+          spBias + tBias,
           DOT_DENSITY_VISUAL.minRadiusPx,
           DOT_DENSITY_VISUAL.maxRadiusPx
         );
@@ -1709,6 +1751,7 @@
         const sp = clamp(params.senseSpacious ?? 0, -1, 1);
         const g = clamp(params.senseGravity ?? 0, -1, 1);
         const t = clamp(params.senseTension ?? 0, -1, 1);
+        const fl = clamp(params.senseFlow ?? 0, -1, 1);
         const loud = clamp(params.soundLoudness ?? 0.18, 0, 1);
         const turbulence = clamp(params.soundTurbulence ?? 0.08, 0, 1);
         const sharp = clamp(params.soundSharpness ?? 0.30, 0, 1);
@@ -1773,15 +1816,29 @@
         // 感知轴组合色加权：非线性放大，组合越强权重越高
         const comboDenseHeavy    = Math.max(0, -sp) * Math.max(0,  g);  // 密集+沉重 → stoneBlue
         const comboSpaciousLight = Math.max(0,  sp) * Math.max(0, -g);  // 空旷+轻盈 → mossTeal
+        const comboOpenHeavy     = Math.max(0,  sp) * Math.max(0,  g);  // 空旷+沉重 → concreteBlue
         const comboTenseDense    = Math.max(0,  t)  * Math.max(0, -sp); // 绷紧+密集 → indigoNight
+        const comboTenseOpen     = Math.max(0,  t)  * Math.max(0,  sp); // 绷紧+空旷 → hazeWhite
         const comboReleasedOpen  = Math.max(0, -t)  * Math.max(0,  sp); // 松开+空旷 → dustGray
         const comboReleasedHeavy = Math.max(0, -t)  * Math.max(0,  g);  // 松开+沉重 → oliveAsh
+        const comboLooseDense    = Math.max(0, -t)  * Math.max(0, -sp); // 松开+密集 → warmEarth
+        const comboFlowDense     = Math.max(0,  fl) * Math.max(0, -sp); // 流动+密集 → flowSlate
+        const comboStillDense    = Math.max(0, -fl) * Math.max(0, -sp); // 静止+密集 → stoneBlue
+        const comboLoudOpen      = clamp((loud - 0.45) / 0.55, 0, 1) * Math.max(0,  sp); // 嘈杂+空旷 → amberGray
+        const comboQuietHeavy    = clamp((0.45 - loud) / 0.45, 0, 1) * Math.max(0,  g);  // 安静+沉重 → indigoNight
         const cw = v => Math.pow(clamp(v, 0, 1), 0.65); // 弱组合保持克制，强组合明显放大
-        mixColorInto(color, GRID_VISUAL.colors.stoneBlue,   clamp(cw(comboDenseHeavy)    * 0.58, 0, 0.58));
-        mixColorInto(color, GRID_VISUAL.colors.mossTeal,    clamp(cw(comboSpaciousLight) * 0.54, 0, 0.54));
+        mixColorInto(color, GRID_VISUAL.colors.stoneBlue,   clamp(cw(comboDenseHeavy)    * 0.70, 0, 0.70));
+        mixColorInto(color, GRID_VISUAL.colors.mossTeal,    clamp(cw(comboSpaciousLight) * 0.76, 0, 0.76));
+        mixColorInto(color, GRID_VISUAL.colors.concreteBlue,clamp(cw(comboOpenHeavy)     * 0.54, 0, 0.54));
         mixColorInto(color, GRID_VISUAL.colors.indigoNight, clamp(cw(comboTenseDense)    * 0.58, 0, 0.58));
+        mixColorInto(color, GRID_VISUAL.colors.hazeWhite,   clamp(cw(comboTenseOpen)     * 0.48, 0, 0.48));
         mixColorInto(color, GRID_VISUAL.colors.dustGray,    clamp(cw(comboReleasedOpen)  * 0.42, 0, 0.42));
         mixColorInto(color, GRID_VISUAL.colors.oliveAsh,    clamp(cw(comboReleasedHeavy) * 0.50, 0, 0.50));
+        mixColorInto(color, GRID_VISUAL.colors.warmEarth,   clamp(cw(comboLooseDense)    * 0.52, 0, 0.52));
+        mixColorInto(color, GRID_VISUAL.colors.flowSlate,   clamp(cw(comboFlowDense)     * 0.52, 0, 0.52));
+        mixColorInto(color, GRID_VISUAL.colors.stoneBlue,   clamp(cw(comboStillDense)    * 0.48, 0, 0.48));
+        mixColorInto(color, GRID_VISUAL.colors.amberGray,   clamp(cw(comboLoudOpen)      * 0.56, 0, 0.56));
+        mixColorInto(color, GRID_VISUAL.colors.indigoNight, clamp(cw(comboQuietHeavy)    * 0.50, 0, 0.50));
 
         const varianceAmount = clamp(0.082 - t * 0.092 + turbulence * 0.045 + texture * 0.034, 0.004, 0.285);
         const soundFragment = clamp(1.08 - continuity * 0.22, 0.86, 1.08);
@@ -1795,15 +1852,14 @@
       }
 
       function getDotHeight(params) {
-        const g = clamp(params.senseGravity ?? 0, -1, 1);
-        return clamp(
-          Math.pow(clamp(params.strength, 0, 1), 1.25) * 72 +
-          Math.pow(clamp(params.contrast, 0, 1), 1.1)  * 28 +
-          clamp(params.boundary, 0, 1) * 18 +
-          (params.heightBias || 0) +
-          g * 68,
-          4, 126
-        );
+        const g  = clamp(params.senseGravity  ?? 0, -1, 1);
+        const sp = clamp(params.senseSpacious ?? 0, -1, 1);
+        const base = 60 + Math.pow(clamp(params.strength, 0, 1), 1.25) * 5;
+        // 沉重(g=+1)→贴地(×0.15 min)  轻盈(g=-1)→浮起(×2.10 max)
+        const gFactor  = clamp(1 - g  * 0.92,  0.15, 2.10);
+        // 密集(sp=-1)→下沉(×0.45 min)  空旷(sp=+1)→浮起(×1.50 max)
+        const spFactor = clamp(1 + sp * 0.50,  0.45, 1.50);
+        return clamp(base * gFactor * spFactor, 4, 160);
       }
 
       function temporalWeight(record, visual = null) {
@@ -2655,7 +2711,7 @@
         spacing = clamp(spacing, 16, 240);
         config.actualDotSpacingMeters = spacing;
         const visibleRecords = [];
-        const recordLimit = Math.min(records.length, PERF.maxVisibleRecords);
+        const recordLimit = state.testMode ? records.length : Math.min(records.length, PERF.maxVisibleRecords);
         for (let i = 0; i < recordLimit; i++) {
           const rec = records[i];
           const m = latLngToMeters(rec, origin);
@@ -2715,6 +2771,7 @@
             let senseSpacious = 0;
             let senseGravity  = 0;
             let senseTension  = 0;
+            let senseFlow     = 0;
             let soundLoudness = 0;
             let soundTurbulence = 0;
             let soundSharpness = 0;
@@ -2751,6 +2808,7 @@
                   senseSpacious += w * rec.visual.senseSpacious;
                   senseGravity  += w * rec.visual.senseGravity;
                   senseTension  += w * rec.visual.senseTension;
+                  senseFlow     += w * rec.visual.senseFlow;
                   soundLoudness += w * rec.visual.soundLoudness;
                   soundTurbulence += w * rec.visual.soundTurbulence;
                   soundSharpness += w * rec.visual.soundSharpness;
@@ -2799,6 +2857,7 @@
               senseSpacious: sum ? clamp(senseSpacious / sum * 1.7, -1, 1) : 0,
               senseGravity:  sum ? clamp(normalizedSenseGravity  * 1.7, -1, 1) : 0,
               senseTension:  sum ? clamp(normalizedSenseTension  * 1.7, -1, 1) : 0,
+              senseFlow:     sum ? clamp(senseFlow     / sum * 1.7, -1, 1) : 0,
               soundLoudness: sum ? clamp(normalizedSoundLoudness  * 1.5, 0, 1) : 0.18,
               soundTurbulence: sum ? clamp(normalizedSoundTurbulence * 1.5, 0, 1) : 0.08,
               soundSharpness: sum ? clamp(normalizedSoundSharpness  * 1.5, 0, 1) : 0.30,
@@ -2926,6 +2985,7 @@
           params.senseSpacious = cell.senseSpacious ?? 0;
           params.senseGravity = cell.senseGravity ?? 0;
           params.senseTension = cell.senseTension ?? 0;
+          params.senseFlow = cell.senseFlow ?? 0;
           params.soundLoudness = cell.soundLoudness ?? 0.18;
           params.soundTurbulence = cell.soundTurbulence ?? 0.08;
           params.soundSharpness = cell.soundSharpness ?? 0.30;
@@ -2941,13 +3001,14 @@
           const aMul = cell.strength >= GRID_VISUAL.strengthCutoff ? DOT_VISUAL_TUNING.activeAlphaMul : DOT_VISUAL_TUNING.alphaMul;
           const nightMul = lerp(1, DOT_VISUAL_TUNING.nightAlphaBoost, nightBoost);
           // spaciousness secondary alpha: spacious(+1)→thinner presence, dense(-1)→thicker
-          const spAlphaFactor = clamp(1 - (params.senseSpacious ?? 0) * 0.18, 0.72, 1.22);
+          const spAlphaFactor = clamp(1 - (params.senseSpacious ?? 0) * 0.38, 0.50, 1.42);
           // tension controls static inner variance: loose(-1)→stronger dot-to-dot light/height differences.
           const tension = clamp(params.senseTension ?? 0, -1, 1);
           const micro = stableSignedNoise(cell.mx / Math.max(1, cell.spacing), cell.my / Math.max(1, cell.spacing), 7);
           const activeMicroMul = cell.strength >= GRID_VISUAL.strengthCutoff ? 1 : 0.35;
-          const microAlphaAmp = clamp(0.175 - tension * 0.125, 0.05, 0.30) * activeMicroMul;
-          const microHeightAmp = clamp(0.195 - tension * 0.145, 0.05, 0.34) * activeMicroMul;
+          const gravity = clamp(params.senseGravity ?? 0, -1, 1);
+          const microAlphaAmp = clamp(0.175 - tension * 0.125 - gravity * 0.045, 0.05, 0.44) * activeMicroMul;
+          const microHeightAmp = clamp(0.195 - tension * 0.145 - gravity * 0.065, 0.05, 0.34) * activeMicroMul;
           const soundGrain = stableSignedNoise(cell.mx / Math.max(1, cell.spacing), cell.my / Math.max(1, cell.spacing), 23);
           const soundGrainAmp = clamp((cell.soundTexture ?? 0.3) * 0.13 + (cell.soundTurbulence ?? 0.08) * 0.07, 0, 0.17) * activeMicroMul;
           const soundContinuityFactor = clamp(0.92 + (cell.soundContinuity ?? 0.8) * 0.11, 0.92, 1.055);
@@ -3048,6 +3109,7 @@
             senseSpacious: (from.senseSpacious || 0) + ((cell.senseSpacious || 0) - (from.senseSpacious || 0)) * t,
             senseGravity:  (from.senseGravity  || 0) + ((cell.senseGravity  || 0) - (from.senseGravity  || 0)) * t,
             senseTension:  (from.senseTension  || 0) + ((cell.senseTension  || 0) - (from.senseTension  || 0)) * t,
+            senseFlow:     (from.senseFlow     || 0) + ((cell.senseFlow     || 0) - (from.senseFlow     || 0)) * t,
             soundLoudness: (from.soundLoudness || 0) + ((cell.soundLoudness || 0) - (from.soundLoudness || 0)) * t,
             soundTurbulence: (from.soundTurbulence || 0) + ((cell.soundTurbulence || 0) - (from.soundTurbulence || 0)) * t,
             soundSharpness: (from.soundSharpness || 0) + ((cell.soundSharpness || 0) - (from.soundSharpness || 0)) * t,
@@ -3133,6 +3195,47 @@
         ctx.lineTo(10, 5);
         ctx.closePath();
         ctx.fill();
+        ctx.restore();
+      }
+
+      function drawTestLabels() {
+        if (!state.testMode || !state.mapReady) return;
+        // top-left zoom info
+        const zoom = state.map.getZoom();
+        const level = getSkinZoomLevel(zoom);
+        const config = gridRenderConfig();
+        ctx.save();
+        ctx.font = "11px monospace";
+        ctx.textAlign = "left";
+        ctx.textBaseline = "top";
+        const hud = `z${zoom.toFixed(2)}  ${level}  σ${config.sigmaMeters.toFixed(0)}m`;
+        const hw = ctx.measureText(hud).width + 12;
+        ctx.fillStyle = "rgba(0,0,0,0.62)";
+        ctx.fillRect(10, 10, hw, 20);
+        ctx.fillStyle = "rgba(140,210,255,0.92)";
+        ctx.fillText(hud, 16, 14);
+        ctx.restore();
+
+        const labels = state.testMode === "t1" ? TEST_LABELS_1 : TEST_LABELS_2;
+        ctx.save();
+        ctx.font = "bold 11px monospace";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        const PAD = 6, LH = 14, H = LH * 2 + PAD * 2;
+        for (const { lng, lat, id, name } of labels) {
+          const pt = state.map.project([lng, lat]);
+          const x = pt.x, y = pt.y;
+          if (x < -80 || x > state.width + 80 || y < -30 || y > state.height + 30) continue;
+          const w = Math.max(ctx.measureText(id).width, ctx.measureText(name).width) + PAD * 2;
+          ctx.fillStyle = "rgba(0,0,0,0.74)";
+          ctx.beginPath();
+          ctx.roundRect(x - w/2, y - H/2, w, H, 3);
+          ctx.fill();
+          ctx.fillStyle = "rgba(160,200,255,0.92)";
+          ctx.fillText(id, x, y - LH / 2);
+          ctx.fillStyle = "rgba(255,255,255,0.88)";
+          ctx.fillText(name, x, y + LH / 2);
+        }
         ctx.restore();
       }
 
@@ -3263,6 +3366,7 @@
           }
           drawGridTexture(cells);
           drawCurrentMarker();
+          drawTestLabels();
         }
         drawContactLayer();
         renderDebugPanel();
@@ -3335,10 +3439,16 @@
           }
           if (key === "r") resetMapView();
           if (key === "t") {
-            state.testMode = !state.testMode;
-            state.worldRecords = state.testMode ? TEST_RECORDS : WORLD_RECORDS;
+            state.testMode = state.testMode === "t1" ? false : "t1";
+            state.worldRecords = state.testMode === "t1" ? TEST_RECORDS : WORLD_RECORDS;
             rebuildGrids();
-            showToast(state.testMode ? "テストデータ ON（T で解除）" : "通常データ に切り替え");
+            showToast(state.testMode === "t1" ? "テストデータ1 ON（T で解除）" : "通常データ に切り替え");
+          }
+          if (key === "y") {
+            state.testMode = state.testMode === "t2" ? false : "t2";
+            state.worldRecords = state.testMode === "t2" ? TEST_RECORDS_2 : WORLD_RECORDS;
+            rebuildGrids();
+            showToast(state.testMode === "t2" ? "テストデータ2 ON（Y で解除）" : "通常データ に切り替え");
           }
         });
       }
