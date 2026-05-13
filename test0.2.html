@@ -1610,10 +1610,9 @@
         const activeSlot = slot === "day" ? 0.08 : slot === "evening" ? 0.02 : slot === "night" ? -0.12 : -0.03;
         const movementFlux = movement === "passing" ? 0.08 : movement === "slow" ? 0.03 : -0.02;
         const movementSpread = movement === "passing" ? 0.08 : movement === "slow" ? 0.03 : -0.02;
-        const dirRad = (record.direction ?? 0) * Math.PI / 180;
         return {
           strength: clamp(0.04 + noise * 0.38 + peak * 0.16 + (movement === "still" ? 0.03 : 0), 0.04, VISUAL_LIMITS.strength),
-          flux: clamp(flux + movementFlux + clamp((sv.flow ?? 0) * 0.12, -0.10, +0.12), 0, VISUAL_LIMITS.flux),
+          flux: clamp(flux + movementFlux, 0, VISUAL_LIMITS.flux),
           contrast: clamp(flux * 0.2 + peak * 0.14 + (noise > 0.65 ? 0.04 : 0), 0, VISUAL_LIMITS.contrast),
           warmth: clamp(activeSlot + (noise - 0.5) * 0.08, -0.35, 0.35),
           spread: clamp(0.9 + noise * 0.16 + movementSpread + sv.spaciousness * 0.18, 0.65, 1.35),
@@ -1622,10 +1621,7 @@
           radiusBias: clamp((noise - 0.45) * 0.18 + peak * 0.08, -0.16, 0.28),
           heightBias: clamp((noise - 0.45) * 16 + peak * 8, -12, 18),
           senseSpacious: sv.spaciousness,
-          senseGravity:  sv.gravity,
-          senseFlow:     sv.flow ?? 0,
-          flowDirCos:    Math.cos(dirRad),
-          flowDirSin:    Math.sin(dirRad),
+          senseGravity: sv.gravity,
         };
       }
 
@@ -2561,8 +2557,7 @@
             let radiusBias = 0;
             let heightBias = 0;
             let senseSpacious = 0;
-            let senseGravity  = 0;
-            let senseFlow     = 0;
+            let senseGravity = 0;
             const bx = Math.floor(mx / cellSize);
             const by = Math.floor(my / cellSize);
             for (let oy = -2; oy <= 2; oy++) {
@@ -2574,21 +2569,8 @@
                   const dy = my - rec.my;
                   const sigma = sigmaBase * rec.visual.spread;
                   const d2 = dx * dx + dy * dy;
-                  if (d2 > maxDistance * maxDistance) continue;
-                  const recFlow = rec.visual.senseFlow ?? 0;
-                  let influence;
-                  if (recFlow > 0.05) {
-                    const stretch = 1 + recFlow * 0.30;
-                    const sigmaA = sigma * stretch;
-                    const dA = dx * rec.visual.flowDirCos + dy * rec.visual.flowDirSin;
-                    const dP = -dx * rec.visual.flowDirSin + dy * rec.visual.flowDirCos;
-                    const d2n = (dA * dA) / (sigmaA * sigmaA) + (dP * dP) / (sigma * sigma);
-                    if (d2n > 9) continue;
-                    influence = Math.exp(-d2n / 2);
-                  } else {
-                    if (d2 > sigma * sigma * 9) continue;
-                    influence = Math.exp(-d2 / (2 * sigma * sigma));
-                  }
+                  if (d2 > maxDistance * maxDistance || d2 > sigma * sigma * 9) continue;
+                  const influence = Math.exp(-d2 / (2 * sigma * sigma));
                   if (influence < config.influenceCutoff) continue;
                   const w = influence * (0.55 + rec.noise * 0.45) * rec.tw;
                   sum += w;
@@ -2602,7 +2584,6 @@
                   heightBias += w * rec.visual.heightBias;
                   senseSpacious += w * rec.visual.senseSpacious;
                   senseGravity  += w * rec.visual.senseGravity;
-                  senseFlow     += w * rec.visual.senseFlow;
                 }
               }
             }
@@ -2611,7 +2592,6 @@
             const normalizedBoundary = sum && config.showBoundary ? clamp((boundary / sum) * config.boundaryScale, 0, VISUAL_LIMITS.boundaryAlpha) : 0;
             const normalizedHeightBias = sum ? clamp(heightBias / sum, -24, 32) : 0;
             const normalizedSenseGravity = sum ? clamp(senseGravity / sum, -1, 1) : 0;
-            const normalizedSenseFlow    = sum ? clamp(senseFlow    / sum, -1, 1) : 0;
             cells.push({
               x: p.x,
               y: p.y,
@@ -2631,8 +2611,7 @@
               radiusBias: sum ? clamp(radiusBias / sum, -0.24, 0.44) : 0,
               heightBias: normalizedHeightBias,
               senseSpacious: sum ? clamp(senseSpacious / sum, -1, 1) : 0,
-              senseGravity:  normalizedSenseGravity,
-              senseFlow:     normalizedSenseFlow,
+              senseGravity: normalizedSenseGravity,
               height: getDotHeight({
                 strength: normalizedStrength,
                 contrast: normalizedContrast,
@@ -2724,7 +2703,6 @@
             heightBias: cell.heightBias,
             senseSpacious: cell.senseSpacious ?? 0,
             senseGravity:  cell.senseGravity  ?? 0,
-            senseFlow:     cell.senseFlow     ?? 0,
           };
           const baseSkinAlpha = 0.010;
           const rawAlpha = cell.strength < GRID_VISUAL.strengthCutoff
@@ -2824,7 +2802,6 @@
             height: from.height + (cell.height - from.height) * t,
             senseSpacious: (from.senseSpacious || 0) + ((cell.senseSpacious || 0) - (from.senseSpacious || 0)) * t,
             senseGravity:  (from.senseGravity  || 0) + ((cell.senseGravity  || 0) - (from.senseGravity  || 0)) * t,
-            senseFlow:     (from.senseFlow     || 0) + ((cell.senseFlow     || 0) - (from.senseFlow     || 0)) * t,
           };
         });
       }
