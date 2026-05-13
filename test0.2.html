@@ -1621,7 +1621,8 @@
           radiusBias: clamp((noise - 0.45) * 0.18 + peak * 0.08, -0.16, 0.28),
           heightBias: clamp((noise - 0.45) * 16 + peak * 8, -12, 18),
           senseSpacious: sv.spaciousness,
-          senseGravity: sv.gravity,
+          senseGravity:  sv.gravity,
+          senseTension:  sv.tension ?? 0,
         };
       }
 
@@ -1639,11 +1640,15 @@
         const c = clamp(params.contrast, 0, 1);
         const b = clamp(params.boundary, 0, 1);
         const f = clamp(params.flux, 0, 1);
+        // tension: tight(+1)→harder edge drop-off; loose(-1)→softer, more gradual fade
+        const t   = params.senseTension ?? 0;
+        const sExp = clamp(1.18 + t * 0.40, 0.78, 1.58);
+        const cExp = clamp(1.05 + t * 0.28, 0.77, 1.33);
         if (s < GRID_VISUAL.strengthCutoff) return clamp(0.012 + c * 0.035, GRID_VISUAL.minAlpha, 0.045);
         return clamp(
           0.018 +
-          Math.pow(s, 1.18) * 0.48 +
-          Math.pow(c, 1.05) * 0.16 +
+          Math.pow(s, sExp) * 0.48 +
+          Math.pow(c, cExp) * 0.16 +
           Math.pow(b, 1.05) * 0.14 +
           Math.pow(f, 1.2) * 0.08,
           GRID_VISUAL.minAlpha,
@@ -2557,7 +2562,8 @@
             let radiusBias = 0;
             let heightBias = 0;
             let senseSpacious = 0;
-            let senseGravity = 0;
+            let senseGravity  = 0;
+            let senseTension  = 0;
             const bx = Math.floor(mx / cellSize);
             const by = Math.floor(my / cellSize);
             for (let oy = -2; oy <= 2; oy++) {
@@ -2584,6 +2590,7 @@
                   heightBias += w * rec.visual.heightBias;
                   senseSpacious += w * rec.visual.senseSpacious;
                   senseGravity  += w * rec.visual.senseGravity;
+                  senseTension  += w * rec.visual.senseTension;
                 }
               }
             }
@@ -2591,7 +2598,8 @@
             const normalizedContrast = sum ? clamp((contrast / sum) * config.contrastScale, 0, VISUAL_LIMITS.contrast) : 0;
             const normalizedBoundary = sum && config.showBoundary ? clamp((boundary / sum) * config.boundaryScale, 0, VISUAL_LIMITS.boundaryAlpha) : 0;
             const normalizedHeightBias = sum ? clamp(heightBias / sum, -24, 32) : 0;
-            const normalizedSenseGravity = sum ? clamp(senseGravity / sum, -1, 1) : 0;
+            const normalizedSenseGravity  = sum ? clamp(senseGravity  / sum, -1, 1) : 0;
+            const normalizedSenseTension  = sum ? clamp(senseTension  / sum, -1, 1) : 0;
             cells.push({
               x: p.x,
               y: p.y,
@@ -2611,7 +2619,8 @@
               radiusBias: sum ? clamp(radiusBias / sum, -0.24, 0.44) : 0,
               heightBias: normalizedHeightBias,
               senseSpacious: sum ? clamp(senseSpacious / sum, -1, 1) : 0,
-              senseGravity: normalizedSenseGravity,
+              senseGravity:  normalizedSenseGravity,
+              senseTension:  normalizedSenseTension,
               height: getDotHeight({
                 strength: normalizedStrength,
                 contrast: normalizedContrast,
@@ -2703,6 +2712,7 @@
             heightBias: cell.heightBias,
             senseSpacious: cell.senseSpacious ?? 0,
             senseGravity:  cell.senseGravity  ?? 0,
+            senseTension:  cell.senseTension  ?? 0,
           };
           const baseSkinAlpha = 0.010;
           const rawAlpha = cell.strength < GRID_VISUAL.strengthCutoff
@@ -2802,6 +2812,7 @@
             height: from.height + (cell.height - from.height) * t,
             senseSpacious: (from.senseSpacious || 0) + ((cell.senseSpacious || 0) - (from.senseSpacious || 0)) * t,
             senseGravity:  (from.senseGravity  || 0) + ((cell.senseGravity  || 0) - (from.senseGravity  || 0)) * t,
+            senseTension:  (from.senseTension  || 0) + ((cell.senseTension  || 0) - (from.senseTension  || 0)) * t,
           };
         });
       }

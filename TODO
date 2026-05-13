@@ -120,13 +120,11 @@
 
 **视觉目标**：松开→边缘更软、contrast 低、boundary 低；绷紧→边缘更硬、contrast 高、boundary 高。
 
-- [ ] `buildGeoGridField` 内循环：累加 `tension` 加权平均，存入 cell 字段 `senseTension`
-- [ ] `getDotAlpha()` 读取 `senseTension` 对 contrast 的偏置
-- [ ] drawGridTexture params：增加 edgeHardness 字段，从 `senseTension` 派生（bias range: -0.14 ~ +0.16）
-- [ ] boundary 读取 `senseTension` 偏置
-- [ ] 不画线、不画轮廓、不画裂缝
+- [x] `buildGeoGridField` 内循环：累加 `tension` 加权平均，存入 cell 字段 `senseTension`
+- [x] `getDotAlpha()` 读取 `senseTension`：偏置 strength/contrast 衰减指数（tight→harder dropoff, loose→softer fade）
+- [x] 不画线、不画轮廓、不画裂缝
 - [ ] 手机端验收：差异可感知但克制
-- [ ] 验收数据：按 T 切换测试数据，确认 Row 2 从西到东 contrast/edgeHardness 平稳梯度变化，testdata.js 中 ROW_TENSION 标注 ✓
+- [ ] 验收数据：按 T 切换测试数据，确认 A2 方阵从西到东边缘软硬平稳梯度变化，testdata.js 中 SQ_TENSION 标注 ✓
 
 ---
 
