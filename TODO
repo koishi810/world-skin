@@ -109,8 +109,8 @@
 - [x] `getDotAlpha()` 读取 `senseGravity` 偏置（bias range: -0.10 ~ +0.14）
 - [x] `getDotHeight()` 读取 `senseGravity` 偏置（bias range: -10 ~ +14，受现有 height 上限约束）
 - [x] 沉重不得变成黑色热力图；高度有绝对上限（不超过现有 heightMax）
-- [ ] 手机端验收：轻盈不让记录消失，沉重不爆亮，height 无溢出
-- [ ] 验收数据：按 T 切換测试数据，确认 A1 方阵从西到东 alpha/height 平稳梯度变化，testdata.js 中 SQ_GRAVITY 标注 ✓
+- [x] 手机端验收：轻盈不让记录消失，沉重不爆亮，height 无溢出
+- [x] 验收数据：按 T 切換测试数据，确认 A1 方阵从西到东 alpha/height 平稳梯度变化，testdata.js 中 SQ_GRAVITY 标注 ✓
 
 ---
 
@@ -136,12 +136,12 @@
 
 **视觉目标**：静止→flux 低、sigma 更圆、场更稳；流动→flux 高、方向性增强、场有轻微拖曳感。
 
-- [ ] `buildGeoGridField` 内循环：累加 `flow` 加权平均，存入 cell 字段 `senseFlow`
-- [ ] `recordBaseVisual()` 的 flux 读取 `senseFlow` 偏置（bias range: -0.10 ~ +0.12）
-- [ ] 方向性/anisotropy 实现：sigma 在 passing 方向轻微拉伸（不画线，不画轨迹）
-- [ ] 不使用 jitter，不画 corridor polyline，不画轨迹线
-- [ ] 手机端验收：通过场形态感知流动，不出现视觉线条
-- [ ] 验收数据：按 T 切换测试数据，确认 Row 3 从西到东 flux 平稳梯度变化，testdata.js 中 ROW_FLOW 标注 ✓
+- [x] `buildGeoGridField` 内循环：累加 `flow` 加权平均，存入 cell 字段 `senseFlow`
+- [x] `recordBaseVisual()` 的 flux 读取 `senseFlow` 偏置（bias range: -0.10 ~ +0.12）
+- [x] 方向性/anisotropy 实现：sigma 在 passing 方向轻微拉伸（不画线，不画轨迹）
+- [x] 不使用 jitter，不画 corridor polyline，不画轨迹线
+- [ ] 手机端验収：通过场形态感知流动，不出现视觉线条
+- [ ] 验收数据：按 T 切换测试数据，确认 B0 方阵从西到东 flux 平稳梯度变化，testdata.js 中 SQ_FLOW 标注 ✓
 
 ---
 
