@@ -1334,7 +1334,7 @@
           }));
           localStorage.setItem(STORAGE_KEY, JSON.stringify(seeded));
           localStorage.setItem(SEED_KEY, "1");
-          console.log("[WorldSkin] seeded", seeded.length, "personal records with senseVector:", !!seeded[0]?.senseVector);
+          console.log("[WorldSkin] seeded", seeded.length, "personal records");
           return seeded;
         } catch {
           return records;
@@ -2607,15 +2607,13 @@
         });
       }
 
-      function easeInOutCubic(t) {
-        return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
-      }
-
       function rebuildFieldCache() {
         state.cachedCells = buildGeoGridField(activeRecords());
         state.fieldDirty = false;
         state.fieldTransition = null;
       }
+
+
 
       function startFieldTransition() {
         const from = state.cachedCells.length ? state.cachedCells : buildGeoGridField(activeRecords());
