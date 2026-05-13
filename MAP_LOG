@@ -1,5 +1,107 @@
 # MAP_LOG
 
+## Bug Audit and Critical Fixes / 2026-05-14
+
+### Problems
+
+* 在地图拖动、缩放、切换视图、拖动时间轴等操作中，页面有概率出现黑屏或卡死。
+* `viewBoundsMeters` 在动画帧中调用 `map.unproject` 可能返回 NaN，导致 field 空数组 → 黑屏。
+* `startFieldTransition` 每次调用执行两次 `buildGeoGridField`，在主线程同步冻结 50–300ms。
+* `interpolateCells` 在跨 zoom 边界时 cell 数不一致，直接跳过动画（过渡从未生效）。
+* `flowOffset` 公式 `Math.min(h*0.175, h*flowVisible*0.13)` 中 0.175 分支永远不触发，最大偏移被错误限制在 13%。
+* `directionToMeters` 对度/弧度使用不同屏幕坐标系，导致 world_data 记录与个人记录流向方向不一致。
+* `temporalWeight` 硬编码 epoch，只有第 6 天（2026-05-10）的记录得到满权重，其余所有记录只有 35%。
+* `applyMapVisualMode` 在 level 变更时被调用两次（`applyMapLevel` 内部 + `handleMapFrameChange` 外部）。
+* `canvas.width` 赋值清空画布后未强制重新调度渲染，可能出现单帧黑屏。
+* `visibleVoidCount` 在每次 `switchView` 时执行 49×n 次同步 `map.project`，阻塞切换帧。
+
+### Changes
+
+* 新增 `isValidLngLat()` 辅助函数；`viewBoundsMeters` 对四角坐标做 NaN 验证，失败时回退中心 ±2000m。
+* `startFieldTransition` 改为只执行一次 `buildGeoGridField`，`from` 直接复用 `state.cachedCells.slice()`。
+* `interpolateCells` 在 cell 数不一致时改为从 0 淡入（strength 和 height 乘以进度 `t`）而非直接跳帧。
+* `flowOffset` 改为 `heightOffset * clamp(flowVisible * 0.35, 0, 0.35)`，偏移上限恢复到 35%。
+* `directionToMeters` 两个分支的 `dy` 统一加负号，将地理北向（+纬度）转为屏幕上方（−y）。
+* `temporalWeight` 中 `dayWeight` 改为常量 `1.0`，时间窗口由 `threeDayWeight` 统一控制。
+* 移除 `handleMapFrameChange` 中的冗余外层 `applyMapVisualMode()` 调用。
+* `resizeCanvas` 在 `canvas.width/height` 赋值后重置 `state.renderHandle = null`，强制新帧调度。
+* `visibleVoidCount` 只在 `state.view === "radius" && state.mapReady` 时执行。
+
+### Files Modified
+
+* `test0.2.html`
+* `BUGS`
+* `MAP_LOG`
+
+### Known Limitations
+
+* `startFieldTransition` 仍在主线程同步执行单次 `buildGeoGridField`，密集数据下可能有感知延迟（约 50–100ms）；后续可考虑移至 Worker。
+* `directionToMeters` 的度/弧度启发式判断（`Math.abs(d) > Math.PI * 2`）在 0–6° 附近仍有理论歧义。
+
+---
+
+## Background Clarity Fix / Zoom Levels / Detail Level / Dot Brightness / 2026-05-13
+
+### Problems
+
+* 背景地图在高缩放级别下消失或纹理不清晰：CSS `brightness(0.42) × contrast(2.03)` 产生像素压黑，tile 低于 ~75% 亮度的区域完全变黑。
+* 缩放层级只有四档（region / area / neighborhood / street），最大缩放细节不够。
+* 缩放层级切换不平滑，zoomend 时画面跳变明显。
+* 点阵颜色与亮度不足，数据区与背景区视觉对比不够。
+
+### Changes
+
+* `MAP_VISUAL_MODES` 全档提高 `tileBrightness`（最低从 0.42 升至 0.62）、大幅降低 `tileContrast`（最高从 2.03 降至 1.10），消除像素压黑问题。
+* 新增第五档缩放级别 `detail`（zoom ≥ 16.0），对应新的 `ZOOM_VISUAL_PRESETS.detail` 和 `ZOOM_ANCHORS` 第五锚点。
+* `getSkinZoomLevel` 加入 detail 分支。
+* `getZoomLightAmount` 扩展到 zoom 17。
+* `zoomend` 事件触发 `startFieldTransition()`，实现 420ms 平滑场过渡。
+* `DOT_VISUAL_TUNING.alphaMul`、`activeAlphaMul`、`nightAlphaBoost`、`maxAlpha` 上调，提高点阵整体亮度。
+* combo 颜色权重曲线指数从 0.65 改为 0.50，强化数据区颜色显影。
+
+### Files Modified
+
+* `test0.2.html`
+* `MAP_LOG`
+* `TODO`
+
+### Known Limitations
+
+* `detail` 层级的参数（heightScale / sigmaScale / maxInfluenceDist）为初始值，需手机实测继续微调。
+* 过渡动画在跨 zoom 边界（cell 数不一致）时仍直接跳帧（已在后续 Bug Audit 中修复）。
+
+---
+
+## Height System Overhaul / Combo Colors / Map Clarity / 2026-05-13
+
+### Problems
+
+* height 场整体偏低，高度差不够明显，沉积感弱。
+* combo 颜色合成参数需要进一步调整。
+* 地图清晰度在不同缩放层级下仍有差异。
+
+### Changes
+
+* `getDotHeight` 和 `ZOOM_VISUAL_PRESETS` 的 `heightScale` 全面提升；各层级高度梯度更清晰（region < area < neighborhood < street < detail）。
+* `rawAlpha` void/active 比例调整：void `* 0.34`，active `* 1.55`，基线 `baseSkinAlpha 0.012`。
+* `DOT_VISUAL_TUNING.alphaMul 1.68 / activeAlphaMul 2.10`。
+* combo 颜色权重曲线 `cw = v => Math.pow(v, 0.50)`（原 0.65）进一步拉开数据区颜色。
+* `neutral: { r: 204, g: 212, b: 220 }`、`bright: { r: 225, g: 236, b: 248 }`。
+* street 层 `maxInfluenceDist` 从 50 提升至 160，`sigmaScale` 从 0.72 升至 0.88，修复 street 层稀疏空洞。
+
+### Files Modified
+
+* `test0.2.html`
+* `world_data.js`
+* `MAP_LOG`
+* `TODO`
+
+### Known Limitations
+
+* my_data.js 48 条 demo 记录仍缺少 senseVector / soundVector（v2-TODO 12 未完成）。
+
+---
+
 ## Render Performance Pass / 2026-05-13
 
 ### Problems

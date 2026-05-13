@@ -1248,13 +1248,13 @@
         street: {
           alphaScale: 1.12, heightScale: 1.38, sigmaScale: 0.88, contrastScale: 1.08,
           boundaryScale: 1.00, rasterContrastBase: 0.38, densityBias: 1.10,
-          maxInfluenceDist: 160,
+          maxInfluenceDist: 160, heightLineScale: 2.2,
           showSmallIslands: true, showLocalRecordDetail: true, showVoidLarge: false, showBoundary: true
         },
         detail: {
           alphaScale: 1.20, heightScale: 1.50, sigmaScale: 0.85, contrastScale: 1.10,
           boundaryScale: 1.05, rasterContrastBase: 0.40, densityBias: 1.18,
-          maxInfluenceDist: 200,
+          maxInfluenceDist: 200, heightLineScale: 3.8,
           showSmallIslands: true, showLocalRecordDetail: true, showVoidLarge: false, showBoundary: true
         }
       };
@@ -1879,7 +1879,7 @@
         const hourDiff = Math.min(Math.abs(hour - selectedHour), 24 - Math.abs(hour - selectedHour));
         const hourSigma = 1.55 + (visual?.flowPersistence || 0) * 0.55;
         const hourWeight = Math.exp(-(hourDiff * hourDiff) / (2 * hourSigma * hourSigma));
-        const dayWeight = day === 6 ? 1 : 0.35;
+        const dayWeight = 1.0;
         const threeDayWeight = day >= 4 ? 1 : 0.45;
         const weekWeight = 1;
         const monthWeight = 0.55;
@@ -1964,7 +1964,6 @@
         });
         const handleMapFrameChange = () => {
           applyMapLevel();
-          applyMapVisualMode();
           requestRender();
         };
         ["move", "zoom", "rotate", "pitch"].forEach(eventName => {
@@ -2150,8 +2149,10 @@
         canvas.style.width = state.width + "px";
         canvas.style.height = state.height + "px";
         ctx.setTransform(state.dpr, 0, 0, state.dpr, 0, 0);
+        state.renderHandle = null;
         if (state.mapReady) state.map.resize();
         rebuildGrids();
+        requestRender();
       }
 
       function clamp(value, min, max) {
@@ -2174,11 +2175,11 @@
         if (Number.isFinite(d)) {
           if (Math.abs(d) > Math.PI * 2) {
             const rad = d * Math.PI / 180;
-            return { dx: Math.sin(rad), dy: Math.cos(rad) };
+            return { dx: Math.sin(rad), dy: -Math.cos(rad) };
           }
-          return { dx: Math.cos(d), dy: Math.sin(d) };
+          return { dx: Math.cos(d), dy: -Math.sin(d) };
         }
-        return { dx: Math.cos(fallbackAngle), dy: Math.sin(fallbackAngle) };
+        return { dx: Math.cos(fallbackAngle), dy: -Math.sin(fallbackAngle) };
       }
 
       function screenFlowDirectionForRecord(record, origin) {
@@ -2681,21 +2682,29 @@
         };
       }
 
+      function isValidLngLat(ll) {
+        return ll && isFinite(ll.lng) && isFinite(ll.lat);
+      }
+
       function viewBoundsMeters(origin) {
         if (!state.mapReady) {
           const half = RADIUS_METERS / Math.max(1, state.zoom);
           return { minX: -half, maxX: half, minY: -half, maxY: half };
         }
         const pad = 180;
-        const points = [
+        const corners = [
           [-pad, -pad],
           [state.width + pad, -pad],
           [state.width + pad, state.height + pad],
           [-pad, state.height + pad]
-        ].map(([x, y]) => {
-          const ll = state.map.unproject([x, y]);
-          return latLngToMeters({ lat: ll.lat, lng: ll.lng }, origin);
-        });
+        ].map(([x, y]) => state.map.unproject([x, y]));
+        if (!corners.every(isValidLngLat)) {
+          const c = state.map.getCenter();
+          const cm = latLngToMeters({ lat: c.lat, lng: c.lng }, origin);
+          const fallback = 2000;
+          return { minX: cm.dx - fallback, maxX: cm.dx + fallback, minY: cm.dy - fallback, maxY: cm.dy + fallback };
+        }
+        const points = corners.map(ll => latLngToMeters({ lat: ll.lat, lng: ll.lng }, origin));
         return {
           minX: Math.min(...points.map(p => p.dx)),
           maxX: Math.max(...points.map(p => p.dx)),
@@ -3031,10 +3040,10 @@
           getDotColor(params, color);
           const heightScale = state.mapReady ? 0.36 * Math.sin(state.map.getPitch() * Math.PI / 180) : 0.2;
           const microHeightFactor = clamp(1 + micro * microHeightAmp + soundGrain * soundGrainAmp * 0.56, 0.62, 1.38);
-          const heightOffset = cell.height * microHeightFactor * heightScale * depth;
+          const heightOffset = cell.height * microHeightFactor * heightScale * depth * (config.heightLineScale ?? 1.0);
           const hasHeightLine = cell.height > 22 && cell.strength > 0.16;
           const flowVisible = hasHeightLine ? smoothstep(0.12, 0.55, cell.flowAmount || 0) : 0;
-          const flowOffset = Math.min(heightOffset * 0.175, heightOffset * flowVisible * 0.13);
+          const flowOffset = heightOffset * clamp(flowVisible * 0.35, 0, 0.35);
           const x = surfaceX + (cell.flowX || 0) * flowOffset;
           const y = surfaceY - heightOffset + (cell.flowY || 0) * flowOffset;
           stats.strengthMin = Math.min(stats.strengthMin, cell.strength);
@@ -3048,11 +3057,15 @@
           stats.alphaSum += alpha;
           stats.radiusMax = Math.max(stats.radiusMax, radius);
           if (hasHeightLine) {
-            ctx.strokeStyle = `rgba(${color.r}, ${color.g}, ${color.b}, ${alpha * 0.18})`;
-            ctx.lineWidth = 0.55;
+            const ldx = surfaceX - x, ldy = surfaceY - y;
+            const llen = Math.sqrt(ldx * ldx + ldy * ldy);
+            const lineEndX = llen > radius ? x + ldx / llen * radius : surfaceX;
+            const lineEndY = llen > radius ? y + ldy / llen * radius : surfaceY;
+            ctx.strokeStyle = `rgba(${color.r}, ${color.g}, ${color.b}, ${alpha * 0.42})`;
+            ctx.lineWidth = 1.30;
             ctx.beginPath();
             ctx.moveTo(surfaceX, surfaceY);
-            ctx.lineTo(x, y);
+            ctx.lineTo(lineEndX, lineEndY);
             ctx.stroke();
           }
           ctx.fillStyle = `rgba(${color.r}, ${color.g}, ${color.b}, ${alpha})`;
@@ -3102,7 +3115,9 @@
       }
 
       function interpolateCells(fromCells, toCells, t) {
-        if (!fromCells?.length || fromCells.length !== toCells.length) return toCells;
+        if (!fromCells?.length || fromCells.length !== toCells.length) {
+          return toCells.map(c => ({ ...c, strength: c.strength * t, height: c.height * t }));
+        }
         return toCells.map((cell, index) => {
           const from = fromCells[index];
           return {
@@ -3143,8 +3158,16 @@
 
 
       function startFieldTransition() {
-        const from = state.cachedCells.length ? state.cachedCells : buildGeoGridField(activeRecords());
+        const from = (state.cachedCells && state.cachedCells.length)
+          ? state.cachedCells.slice()
+          : null;
         const to = buildGeoGridField(activeRecords());
+        if (!from || from.length !== to.length) {
+          state.cachedCells = to;
+          state.fieldDirty = false;
+          invalidateField(true);
+          return;
+        }
         state.fieldTransition = {
           from,
           to,
@@ -3325,7 +3348,8 @@
         const avgNoise = records.length ? records.reduce((acc, r) => acc + r.noise, 0) / records.length : 0;
         document.getElementById("recordCount").textContent = `世界 ${state.worldRecords.length} / 自分 ${records.length}`;
         document.getElementById("metricRecords").textContent = String(records.length);
-        document.getElementById("metricVoid").textContent = visibleVoidCount();
+        const voidCount = (state.view === "radius" && state.mapReady) ? visibleVoidCount() : 0;
+        document.getElementById("metricVoid").textContent = voidCount === 0 ? "--" : String(voidCount);
         document.getElementById("metricNoise").textContent = avgNoise.toFixed(2);
 
         const timeSlice = document.getElementById("timeSlice");

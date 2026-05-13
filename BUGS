@@ -1,10 +1,62 @@
 # BUGS
 
-更新时间：2026-05-12
+更新时间：2026-05-14
 
 用途：记录已发现 bug、修复方式和后续回归检查项，避免同类问题反复出现。
 
 ## 已修复
+
+### 011 - viewBoundsMeters 返回 NaN 导致黑屏【Fixed / 2026-05-14】
+
+现象：
+
+- 地图拖动、缩放、easeTo 动画期间，画面概率性变黑。
+- 可复现场景：快速缩放、视图切换触发 syncMapToActiveCenter、极端俯仰角。
+
+原因：
+
+- `map.unproject()` 在地图动画帧、首帧 tile 未加载或极端 pitch 时可能返回 `{lng: Infinity, lat: NaN}`。
+- NaN 传入 bounds 计算 → `startX/endX/startY/endY` 全为 NaN → `for` 循环不执行 → `buildGeoGridField` 返回空数组 → `drawGridTexture` 渲染黑屏。
+
+修复：
+
+- 新增 `isValidLngLat(ll)` 辅助函数：`ll && isFinite(ll.lng) && isFinite(ll.lat)`。
+- `viewBoundsMeters` 对四角坐标全部验证；任意一角无效时，回退使用地图中心 ± 2000m 的安全范围。
+
+回归检查：
+
+- 快速连续缩放时画面不应出现黑帧。
+- 极端 pitch（maxPitch 60）下拖动不应黑屏。
+- Debug View 中 `cells` 数量不应在操作时归零。
+
+---
+
+### 012 - startFieldTransition 双重 buildGeoGridField 冻结主线程【Fixed / 2026-05-14】
+
+现象：
+
+- 缩放松手（zoomend）或拖动时间轴时，页面概率性卡死 50–300ms。
+- 在数据密集区域或低端设备上更明显。
+
+原因：
+
+- `startFieldTransition` 每次调用都执行两次同步 `buildGeoGridField(activeRecords())`：一次生成 `from`（有时可跳过），一次生成 `to`（永远执行）。
+- 每次 `buildGeoGridField` 遍历 2500 条记录 × 空间哈希查询，在主线程耗时 50–150ms。
+- `zoomend` 和时间轴 `input` 事件会频繁触发，两次叠加直接冻结 UI。
+
+修复：
+
+- 改为只调用一次 `buildGeoGridField`（生成 `to`）。
+- `from` 直接复用 `state.cachedCells.slice()`，不再重建。
+- 当 `from` 为空或与 `to` 格数不同时，跳过插值动画直接应用新场。
+
+回归检查：
+
+- 缩放时 UI 不应明显卡顿。
+- 时间轴拖动应保持响应流畅。
+- field transition 插值动画仍应在同一 zoom 层内正常工作（cell 数相同时）。
+
+---
 
 ### 001 - 非 Sense 页面也会出现音波【Fixed】
 
@@ -55,23 +107,23 @@
 - `rg "getDotJitter|pseudoNoise|getPulse"` 不应出现运行路径。
 - 不应对每个点创建 radialGradient 或 shadowBlur。
 
-### 010 - 点阵与 3D 地图视角脱离【Open / 注意：当前 pitch 已改为 42，非 45】
+### 010 - 点阵与 3D 地图视角脱离【Open / 当前 pitch 已确认为 42】
 
 风险：
 
-- 如果点阵退回 screen-space 网格，会像漂在屏幕前，不再贴合 45 度 MapLibre 斜视地图。
+- 如果点阵退回 screen-space 网格，会像漂在屏幕前，不再贴合 MapLibre 斜视地图。
 
 当前处理：
 
 - 点阵先在地理米制坐标中生成，再使用 MapLibre `project([lng, lat])` 投影到屏幕。
-- 地图默认 `pitch: 45`、`bearing: -16`。
+- 地图默认 `pitch: 42`、`bearing: -16`。
 
 回归检查：
 
 - 旋转或 pitch 地图时，点阵应随地图表面透视变化。
 - 点阵不应像固定在屏幕上的洞洞板。
 
-### 007 - 点阵激活变化失控【Needs Verification / 注意：rust 已从渲染管线移除，当前约束为 alpha/radius/height；感知轴 v2 接入后需重新验证】
+### 007 - 点阵激活变化失控【Needs Verification / 感知轴 v2 接入后需重新验证】
 
 风险：
 
@@ -81,7 +133,7 @@
 
 - radius 限制在 `0.8-2.4px`。
 - height 限制在 `0-96`。
-- rust 混合限制在 `0.28` 以内。
+- rust 仍存在于 `GRID_VISUAL.colors` 和 `getDotColor` finalColor 锚点中，混合权重受 `clamp` 约束（不超过低饱和锈灰范围）。
 - void 区域不抖动、不发光，保持暗点和低高度。
 
 回归检查：
