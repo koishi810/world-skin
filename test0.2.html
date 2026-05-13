@@ -1235,6 +1235,72 @@
         "もう少しだけ、近いものを選ぶ"
       ];
 
+      // ── Sense Axis V2: visual channel ownership map ───────────────────────
+      // These constants define which visual channels each axis owns as primary
+      // driver and what bias limits apply. No rendering code reads them yet —
+      // they are the spec that v2-TODO 5–10 implementations must follow.
+
+      const SENSE_AXES_V2 = ["spaciousness", "gravity", "tension", "flow"];
+
+      // bias limits are additive offsets on normalized field values (axis ∈ [-1,+1]).
+      // forbidPrimary: channels this axis must not solely drive (may contribute secondarily).
+      const AXIS_VISUAL_MAP = {
+        spaciousness: {
+          primaryChannels: ["radiusBias", "spreadBias"],
+          forbidPrimary:   ["alphaBias"],
+          bias: {
+            radiusBias: { min: -0.28, max: +0.28 },
+            spreadBias: { min: -0.18, max: +0.18 },
+          },
+        },
+        gravity: {
+          primaryChannels: ["alphaBias", "heightBias"],
+          forbidPrimary:   ["warmthBias"],
+          bias: {
+            alphaBias:  { min: -0.10, max: +0.14 },
+            heightBias: { min: -0.16, max: +0.20 },
+          },
+        },
+        tension: {
+          primaryChannels: ["contrastBias", "boundaryBias", "edgeHardnessBias"],
+          forbidPrimary:   [],
+          bias: {
+            contrastBias:     { min: -0.14, max: +0.16 },
+            boundaryBias:     { min: -0.12, max: +0.14 },
+            edgeHardnessBias: { min: -0.14, max: +0.14 },
+          },
+        },
+        flow: {
+          primaryChannels: ["fluxBias", "directionalityBias", "anisotropyBias"],
+          forbidPrimary:   [],
+          bias: {
+            fluxBias:           { min: -0.12, max: +0.12 },
+            directionalityBias: { min: -0.18, max: +0.20 },
+            anisotropyBias:     { min: -0.14, max: +0.16 },
+          },
+        },
+      };
+
+      // soundVector has 5 components; weight is relative contribution strength
+      // when aggregating into field cells during buildGeoGridField.
+      const SOUND_VISUAL_MAP = {
+        loudness:   { channels: ["strength"],                  weight: 1.0 },
+        turbulence: { channels: ["fluxBias", "contrastBias"],  weight: 0.7 },
+        sharpness:  { channels: ["edgeHardnessBias"],          weight: 0.6 },
+        continuity: { channels: ["spreadBias"],                weight: 0.5 },
+        texture:    { channels: ["grain"],                     weight: 0.5 },
+      };
+
+      // textureModifier has 4 components (dry/wet/cold/hot).
+      // direction: -1 means the channel is driven in the negative direction.
+      const TEXTURE_VISUAL_MAP = {
+        warmth:    { channels: ["warmthBias"],                 weight: 0.8 },
+        roughness: { channels: ["grain", "edgeHardnessBias"],  weight: 0.6 },
+        clarity:   { channels: ["contrastBias"],               weight: 0.5 },
+        dryness:   { channels: ["warmthBias"], direction: -1,  weight: 0.6 },
+      };
+      // ── end Sense Axis V2 constants ────────────────────────────────────────
+
       const _now = new Date();
       const currentHour = _now.getHours() + _now.getMinutes() / 60;
       function normalizeHour(h) { return ((h % 24) + 24) % 24; }

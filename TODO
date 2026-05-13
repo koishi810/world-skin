@@ -31,16 +31,16 @@
 
 **目标**：在 test0.2.html 中以常量形式记录轴到视觉参数的分工，防止后续实现时各轴互相占用通道。
 
-- [ ] 新增 `SENSE_AXES_V2`：数组，列出 `["spaciousness","gravity","tension","flow"]`
-- [ ] 新增 `AXIS_VISUAL_MAP`：每条轴定义 primaryChannels、bias 上下限、禁止主控的通道
+- [x] 新增 `SENSE_AXES_V2`：数组，列出 `["spaciousness","gravity","tension","flow"]`
+- [x] 新增 `AXIS_VISUAL_MAP`：每条轴定义 primaryChannels、bias 上下限、禁止主控的通道
   - spaciousness → radius / spread（主控），alpha 禁止主控
   - gravity → alpha / height（主控），color 禁止主控
   - tension → contrast / boundary / edgeHardness（主控）
   - flow → flux / directionality / anisotropy（主控）
-- [ ] 新增 `SOUND_VISUAL_MAP`：loudness→strength、turbulence→flux/contrast、sharpness→edgeHardness、continuity→spreadBias、texture→grain
-- [ ] 新增 `TEXTURE_VISUAL_MAP`：warmth→warmth、roughness→grain/edgeHardness、clarity→contrast、dryness→warmth（负向）
-- [ ] 不改任何渲染函数（getDotAlpha / getDotColor / buildGeoGridField）
-- [ ] 验收：`node -e "new Function(...)"` 语法零错误；地图/Sense/时间轴功能不受影响
+- [x] 新增 `SOUND_VISUAL_MAP`：loudness→strength、turbulence→flux/contrast、sharpness→edgeHardness、continuity→spreadBias、texture→grain
+- [x] 新增 `TEXTURE_VISUAL_MAP`：warmth→warmth、roughness→grain/edgeHardness、clarity→contrast、dryness→warmth（负向）
+- [x] 不改任何渲染函数（getDotAlpha / getDotColor / buildGeoGridField）
+- [x] 验收：`node -e "new Function(...)"` 语法零错误；地图/Sense/时间轴功能不受影响
 
 ---
 
