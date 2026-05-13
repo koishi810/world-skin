@@ -1224,16 +1224,75 @@
         renderDebounceMs: 60,
         useOffscreenCache: true
       };
+      // Each entry: { word, sv:{spaciousness,gravity,tension,flow}, tex:{warmth,roughness,clarity,dryness} }
+      // sv axes: subjective spatial/structural feel. tex: surface/material quality.
+      // Values in [-1,+1]; texture-heavy words (ざらつく, 乾く, etc.) concentrate weight in tex.
       const SENSE_WORD_LIST = [
-        "ざらつく","なめらか","重い","軽い","浮く","沈む","乾く","湿る",
-        "冷える","熱を持つ","詰まる","ほどける","遠い","近い","騒ぐ","静まる",
-        "流れる","滞る","広がる","閉じる","尖る","丸まる","濁る","澄む",
-        "硬い","柔らかい","速い","遅い","薄い","厚い","こもる","抜ける"
+        { word:"ざらつく", sv:{spaciousness: 0.0,gravity: 0.0,tension: 0.6,flow: 0.0}, tex:{warmth:-0.2,roughness: 0.8,clarity:-0.3,dryness: 0.4} },
+        { word:"なめらか", sv:{spaciousness: 0.2,gravity:-0.1,tension:-0.6,flow: 0.1}, tex:{warmth: 0.0,roughness:-0.7,clarity: 0.5,dryness: 0.0} },
+        { word:"重い",     sv:{spaciousness:-0.2,gravity: 0.8,tension: 0.2,flow:-0.2}, tex:{warmth: 0.0,roughness: 0.2,clarity:-0.2,dryness: 0.0} },
+        { word:"軽い",     sv:{spaciousness: 0.2,gravity:-0.7,tension:-0.2,flow: 0.2}, tex:{warmth: 0.0,roughness:-0.2,clarity: 0.2,dryness: 0.0} },
+        { word:"浮く",     sv:{spaciousness: 0.4,gravity:-0.8,tension:-0.2,flow: 0.3}, tex:{warmth: 0.0,roughness:-0.3,clarity: 0.3,dryness: 0.0} },
+        { word:"沈む",     sv:{spaciousness:-0.2,gravity: 0.7,tension: 0.1,flow:-0.3}, tex:{warmth:-0.1,roughness: 0.2,clarity:-0.2,dryness: 0.0} },
+        { word:"乾く",     sv:{spaciousness: 0.1,gravity: 0.0,tension: 0.3,flow: 0.0}, tex:{warmth:-0.3,roughness: 0.4,clarity: 0.4,dryness: 0.8} },
+        { word:"湿る",     sv:{spaciousness:-0.1,gravity: 0.1,tension:-0.2,flow: 0.0}, tex:{warmth: 0.2,roughness: 0.3,clarity:-0.3,dryness:-0.7} },
+        { word:"冷える",   sv:{spaciousness: 0.1,gravity: 0.0,tension: 0.2,flow:-0.1}, tex:{warmth:-0.8,roughness: 0.1,clarity: 0.2,dryness: 0.2} },
+        { word:"熱を持つ", sv:{spaciousness:-0.1,gravity: 0.1,tension: 0.0,flow: 0.0}, tex:{warmth: 0.8,roughness: 0.0,clarity:-0.2,dryness:-0.3} },
+        { word:"詰まる",   sv:{spaciousness:-0.7,gravity: 0.3,tension: 0.5,flow:-0.5}, tex:{warmth: 0.0,roughness: 0.3,clarity:-0.3,dryness: 0.0} },
+        { word:"ほどける", sv:{spaciousness: 0.5,gravity:-0.3,tension:-0.7,flow: 0.3}, tex:{warmth: 0.1,roughness:-0.3,clarity: 0.3,dryness: 0.0} },
+        { word:"遠い",     sv:{spaciousness: 0.7,gravity:-0.1,tension:-0.1,flow: 0.1}, tex:{warmth:-0.1,roughness:-0.1,clarity: 0.4,dryness: 0.2} },
+        { word:"近い",     sv:{spaciousness:-0.6,gravity: 0.1,tension: 0.1,flow: 0.0}, tex:{warmth: 0.1,roughness: 0.1,clarity:-0.1,dryness: 0.0} },
+        { word:"騒ぐ",     sv:{spaciousness:-0.1,gravity: 0.0,tension: 0.5,flow: 0.7}, tex:{warmth: 0.1,roughness: 0.5,clarity:-0.5,dryness: 0.0} },
+        { word:"静まる",   sv:{spaciousness: 0.3,gravity:-0.1,tension:-0.6,flow:-0.6}, tex:{warmth: 0.0,roughness:-0.3,clarity: 0.5,dryness: 0.1} },
+        { word:"流れる",   sv:{spaciousness: 0.2,gravity:-0.1,tension:-0.3,flow: 0.8}, tex:{warmth: 0.0,roughness:-0.2,clarity: 0.2,dryness: 0.0} },
+        { word:"滞る",     sv:{spaciousness:-0.3,gravity: 0.3,tension: 0.3,flow:-0.7}, tex:{warmth: 0.1,roughness: 0.2,clarity:-0.3,dryness: 0.0} },
+        { word:"広がる",   sv:{spaciousness: 0.8,gravity:-0.2,tension:-0.3,flow: 0.2}, tex:{warmth: 0.0,roughness:-0.1,clarity: 0.3,dryness: 0.0} },
+        { word:"閉じる",   sv:{spaciousness:-0.7,gravity: 0.1,tension: 0.3,flow:-0.3}, tex:{warmth: 0.0,roughness: 0.1,clarity:-0.2,dryness: 0.0} },
+        { word:"尖る",     sv:{spaciousness: 0.0,gravity: 0.0,tension: 0.8,flow: 0.2}, tex:{warmth:-0.2,roughness: 0.5,clarity: 0.4,dryness: 0.3} },
+        { word:"丸まる",   sv:{spaciousness:-0.2,gravity: 0.2,tension:-0.7,flow:-0.2}, tex:{warmth: 0.2,roughness:-0.4,clarity: 0.1,dryness: 0.0} },
+        { word:"濁る",     sv:{spaciousness:-0.1,gravity: 0.2,tension: 0.2,flow:-0.2}, tex:{warmth: 0.2,roughness: 0.4,clarity:-0.7,dryness:-0.2} },
+        { word:"澄む",     sv:{spaciousness: 0.3,gravity:-0.2,tension:-0.2,flow: 0.2}, tex:{warmth:-0.2,roughness:-0.5,clarity: 0.8,dryness: 0.3} },
+        { word:"硬い",     sv:{spaciousness:-0.1,gravity: 0.2,tension: 0.7,flow:-0.1}, tex:{warmth:-0.3,roughness: 0.6,clarity: 0.2,dryness: 0.4} },
+        { word:"柔らかい", sv:{spaciousness: 0.2,gravity:-0.1,tension:-0.7,flow: 0.0}, tex:{warmth: 0.3,roughness:-0.6,clarity: 0.0,dryness:-0.2} },
+        { word:"速い",     sv:{spaciousness: 0.1,gravity:-0.2,tension: 0.2,flow: 0.7}, tex:{warmth: 0.0,roughness: 0.1,clarity: 0.2,dryness: 0.1} },
+        { word:"遅い",     sv:{spaciousness:-0.1,gravity: 0.2,tension:-0.1,flow:-0.6}, tex:{warmth: 0.1,roughness: 0.1,clarity:-0.1,dryness: 0.0} },
+        { word:"薄い",     sv:{spaciousness: 0.5,gravity:-0.6,tension:-0.2,flow: 0.1}, tex:{warmth:-0.1,roughness:-0.3,clarity: 0.4,dryness: 0.3} },
+        { word:"厚い",     sv:{spaciousness:-0.4,gravity: 0.6,tension: 0.2,flow:-0.1}, tex:{warmth: 0.2,roughness: 0.3,clarity:-0.3,dryness:-0.1} },
+        { word:"こもる",   sv:{spaciousness:-0.6,gravity: 0.3,tension: 0.4,flow:-0.4}, tex:{warmth: 0.4,roughness: 0.2,clarity:-0.5,dryness:-0.3} },
+        { word:"抜ける",   sv:{spaciousness: 0.6,gravity:-0.3,tension:-0.3,flow: 0.6}, tex:{warmth:-0.1,roughness:-0.2,clarity: 0.5,dryness: 0.2} },
       ];
       const ROUND_PROMPTS = [
         "いまの感覚に近い言葉を選ぶ",
         "もう少しだけ、近いものを選ぶ"
       ];
+
+      function aggregateSV(words) {
+        const zero = { spaciousness: 0, gravity: 0, tension: 0, flow: 0 };
+        if (!words.length) return zero;
+        const hits = words.map(w => SENSE_WORD_LIST.find(e => e.word === w)?.sv).filter(Boolean);
+        if (!hits.length) return zero;
+        const n = hits.length;
+        return {
+          spaciousness: hits.reduce((a, v) => a + v.spaciousness, 0) / n,
+          gravity:      hits.reduce((a, v) => a + v.gravity,      0) / n,
+          tension:      hits.reduce((a, v) => a + v.tension,      0) / n,
+          flow:         hits.reduce((a, v) => a + v.flow,         0) / n,
+        };
+      }
+
+      function aggregateTexMod(words) {
+        const zero = { warmth: 0, roughness: 0, clarity: 0, dryness: 0 };
+        if (!words.length) return zero;
+        const hits = words.map(w => SENSE_WORD_LIST.find(e => e.word === w)?.tex).filter(Boolean);
+        if (!hits.length) return zero;
+        const n = hits.length;
+        return {
+          warmth:    hits.reduce((a, v) => a + v.warmth,    0) / n,
+          roughness: hits.reduce((a, v) => a + v.roughness, 0) / n,
+          clarity:   hits.reduce((a, v) => a + v.clarity,   0) / n,
+          dryness:   hits.reduce((a, v) => a + v.dryness,   0) / n,
+        };
+      }
 
       // ── Sense Axis V2: visual channel ownership map ───────────────────────
       // These constants define which visual channels each axis owns as primary
@@ -1479,10 +1538,63 @@
         return "night";
       }
 
+      // ── v2 record field accessors (safe fallback for old records) ────────
+      function getSV(rec) {
+        if (rec.senseVector) return rec.senseVector;
+        return { spaciousness: 0, gravity: 0, tension: 0, flow: 0 };
+      }
+
+      function getTexMod(rec) {
+        if (rec.textureModifier) return rec.textureModifier;
+        return { warmth: 0, roughness: 0, clarity: 0, dryness: 0 };
+      }
+
+      function getSoundV(rec) {
+        if (rec.soundVector) return rec.soundVector;
+        const loudness   = clamp(Number(rec.noise ?? rec.noiseLevel ?? 0.18), 0, 1);
+        const turbulence = clamp(Number(rec.flux  ?? rec.turbulence  ?? 0.08), 0, 1);
+        return { loudness, turbulence, sharpness: 0.3, continuity: 0.8, texture: 0.3 };
+      }
+
+      // ── soundVector computation from mic samples ──────────────────────────
+      function _spectralSharpness(freq) {
+        if (!freq || !freq.length) return 0.3;
+        const n = freq.length, hiStart = Math.floor(n * 0.5);
+        let total = 0, hi = 0;
+        for (let i = 0; i < n; i++) { total += freq[i]; if (i >= hiStart) hi += freq[i]; }
+        return total > 0 ? hi / total : 0.3;
+      }
+
+      function _spectralSpread(freq) {
+        if (!freq || !freq.length) return 0.3;
+        const n = freq.length;
+        let sum = 0, sum2 = 0;
+        for (let i = 0; i < n; i++) { const v = freq[i] / 255; sum += v; sum2 += v * v; }
+        const mean = sum / n;
+        return clamp((sum2 / n - mean * mean) * 4, 0, 1);
+      }
+
+      function computeSoundVector(samples) {
+        if (!samples.length) return { loudness: 0.18, turbulence: 0.08, sharpness: 0.3, continuity: 0.8, texture: 0.3 };
+        const vols = samples.map(s => s.volume);
+        const loudness   = vols.reduce((a, b) => a + b, 0) / vols.length;
+        const turbulence = clamp(Math.max(...vols) - Math.min(...vols), 0, 1);
+        const sharpness  = samples.reduce((a, s) => a + (s.sharpness  ?? 0.3), 0) / samples.length;
+        const texture    = samples.reduce((a, s) => a + (s.texture    ?? 0.3), 0) / samples.length;
+        const continuity = samples.filter(s => s.volume > 0.05).length / samples.length;
+        return {
+          loudness:   clamp(loudness,   0, 1),
+          turbulence: clamp(turbulence, 0, 1),
+          sharpness:  clamp(sharpness,  0, 1),
+          continuity: clamp(continuity, 0, 1),
+          texture:    clamp(texture,    0, 1),
+        };
+      }
+
       function pickRoundWords(seenWords) {
-        const available = SENSE_WORD_LIST.filter(w => !seenWords.includes(w));
+        const available = SENSE_WORD_LIST.filter(e => !seenWords.includes(e.word));
         const shuffled = [...available].sort(() => Math.random() - 0.5);
-        return shuffled.slice(0, 3);
+        return shuffled.slice(0, 3).map(e => e.word);
       }
 
       function recordBaseVisual(record) {
@@ -2094,6 +2206,7 @@
           movement: movement.type,
           direction: movement.angle,
           distance: movement.distance,
+          soundVector: computeSoundVector(samples),
           word: null,
           slot: timeSlot(date),
           createdAt: date.toISOString()
@@ -2179,6 +2292,8 @@
         if (!state.pending) return;
         state.pending.word = state.selectedWords[0] || null;
         state.pending.selectedWords = [...state.selectedWords];
+        state.pending.senseVector    = aggregateSV(state.selectedWords);
+        state.pending.textureModifier = aggregateTexMod(state.selectedWords);
         state.personalRecords.push(state.pending);
         saveRecords();
         state.pending = null;
@@ -2795,7 +2910,7 @@
           senseState.textContent = phase === "in" ? "息を吸って、世界を近くに置く" : "息を吐いて、音をほどく";
           safeVibrate(phase === "in" ? 20 : [20, 60, 20]);
         }
-        state.samples.push({ volume: state.volume, peak: state.peak, at: Date.now() });
+        state.samples.push({ volume: state.volume, peak: state.peak, at: Date.now(), sharpness: _spectralSharpness(state.freq), texture: _spectralSpread(state.freq) });
         if (pct >= 1) completeRecording();
       }
 
@@ -2846,7 +2961,7 @@
           for (const w of ws) wordCounts.set(w, (wordCounts.get(w) || 0) + 1);
         }
         const usedWords = [...wordCounts.entries()].sort((a, b) => b[1] - a[1]);
-        const showWords = usedWords.length ? usedWords : SENSE_WORD_LIST.slice(0, 8).map(w => [w, 0]);
+        const showWords = usedWords.length ? usedWords : SENSE_WORD_LIST.slice(0, 8).map(e => [e.word, 0]);
         for (const [word, count] of showWords) {
           const cell = document.createElement("div");
           cell.className = "tag-cell" + (count ? " active" : "");
