@@ -1606,6 +1606,7 @@
         const peak = clamp(Number(record.peak ?? 0.18), 0, 1);
         const movement = recordMove(record);
         const slot = recordSlot(record);
+        const sv = getSV(record);
         const activeSlot = slot === "day" ? 0.08 : slot === "evening" ? 0.02 : slot === "night" ? -0.12 : -0.03;
         const movementFlux = movement === "passing" ? 0.08 : movement === "slow" ? 0.03 : -0.02;
         const movementSpread = movement === "passing" ? 0.08 : movement === "slow" ? 0.03 : -0.02;
@@ -1614,11 +1615,12 @@
           flux: clamp(flux + movementFlux, 0, VISUAL_LIMITS.flux),
           contrast: clamp(flux * 0.2 + peak * 0.14 + (noise > 0.65 ? 0.04 : 0), 0, VISUAL_LIMITS.contrast),
           warmth: clamp(activeSlot + (noise - 0.5) * 0.08, -0.35, 0.35),
-          spread: clamp(0.9 + noise * 0.16 + movementSpread, 0.65, 1.35),
+          spread: clamp(0.9 + noise * 0.16 + movementSpread + sv.spaciousness * 0.18, 0.65, 1.35),
           boundary: clamp(flux * 0.16 + (movement === "passing" ? 0.04 : 0), 0, VISUAL_LIMITS.boundaryAlpha),
           breathSpeed: clamp(1 - flux * 0.08 + (slot === "night" ? -0.06 : 0), 0.65, 1.2),
           radiusBias: clamp((noise - 0.45) * 0.18 + peak * 0.08, -0.16, 0.28),
-          heightBias: clamp((noise - 0.45) * 16 + peak * 8, -12, 18)
+          heightBias: clamp((noise - 0.45) * 16 + peak * 8, -12, 18),
+          senseSpacious: sv.spaciousness,
         };
       }
 
@@ -1652,12 +1654,15 @@
         const s = clamp(params.strength, 0, 1);
         const f = clamp(params.flux, 0, 1);
         const b = clamp(params.boundary, 0, 1);
+        // spacious(+1)→smaller dots; dense(-1)→larger dots
+        const spBias = clamp(-(params.senseSpacious ?? 0) * 0.20, -0.18, +0.22);
         return clamp(
           DOT_DENSITY_VISUAL.baseRadiusPx +
           Math.pow(s, 1.25) * 0.75 +
           Math.pow(f, 1.4) * 0.18 +
           b * 0.12 +
-          (params.radiusBias || 0),
+          (params.radiusBias || 0) +
+          spBias,
           DOT_DENSITY_VISUAL.minRadiusPx,
           DOT_DENSITY_VISUAL.maxRadiusPx
         );
@@ -2555,6 +2560,7 @@
             let breathSpeed = 0;
             let radiusBias = 0;
             let heightBias = 0;
+            let senseSpacious = 0;
             const bx = Math.floor(mx / cellSize);
             const by = Math.floor(my / cellSize);
             for (let oy = -2; oy <= 2; oy++) {
@@ -2579,6 +2585,7 @@
                   breathSpeed += w * rec.visual.breathSpeed;
                   radiusBias += w * rec.visual.radiusBias;
                   heightBias += w * rec.visual.heightBias;
+                  senseSpacious += w * rec.visual.senseSpacious;
                 }
               }
             }
@@ -2604,6 +2611,7 @@
               breathSpeed: sum ? clamp(breathSpeed / sum, 0.65, 1.2) : 1,
               radiusBias: sum ? clamp(radiusBias / sum, -0.24, 0.44) : 0,
               heightBias: normalizedHeightBias,
+              senseSpacious: sum ? clamp(senseSpacious / sum, -1, 1) : 0,
               height: getDotHeight({
                 strength: normalizedStrength,
                 contrast: normalizedContrast,
@@ -2691,7 +2699,8 @@
             boundary: cell.boundary,
             breathSpeed: cell.breathSpeed,
             radiusBias: cell.radiusBias,
-            heightBias: cell.heightBias
+            heightBias: cell.heightBias,
+            senseSpacious: cell.senseSpacious ?? 0,
           };
           const baseSkinAlpha = 0.010;
           const rawAlpha = cell.strength < GRID_VISUAL.strengthCutoff
@@ -2786,7 +2795,8 @@
             boundary: from.boundary + (cell.boundary - from.boundary) * t,
             radiusBias: from.radiusBias + (cell.radiusBias - from.radiusBias) * t,
             heightBias: from.heightBias + (cell.heightBias - from.heightBias) * t,
-            height: from.height + (cell.height - from.height) * t
+            height: from.height + (cell.height - from.height) * t,
+            senseSpacious: (from.senseSpacious || 0) + ((cell.senseSpacious || 0) - (from.senseSpacious || 0)) * t,
           };
         });
       }

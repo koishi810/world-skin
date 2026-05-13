@@ -67,7 +67,7 @@
     return recs;
   }
 
-  // ── v2-TODO 5 acceptance: spaciousness -1 → +1, all other axes neutral ──
+  // ── v2-TODO 5 acceptance: spaciousness -1 → +1, all other axes neutral ✓ ─
   const ROW_SPACIOUSNESS = row(0, v => ({ spaciousness: v }));
 
   // ── v2-TODO 6 acceptance: gravity -1 → +1 ────────────────────────────────
