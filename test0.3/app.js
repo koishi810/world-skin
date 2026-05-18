@@ -1,1092 +1,6 @@
-<!DOCTYPE html>
-<html lang="ja">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>World Skin Prototype 0.2</title>
-  <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css">
-  <style>
-    :root {
-      --bg: #020304;
-      --panel: rgba(6, 8, 9, 0.72);
-      --line: rgba(214, 224, 226, 0.16);
-      --line-strong: rgba(234, 241, 242, 0.34);
-      --text: #e6ecec;
-      --muted: rgba(230, 236, 236, 0.58);
-      --faint: rgba(230, 236, 236, 0.32);
-      --warm: #d8d0c3;
-      --cold: #a7bcc7;
-      --stress: #9b4a42;
-      --void: #071014;
-      --safe-bottom: env(safe-area-inset-bottom, 0px);
-      --map-overlay-darkness: 0.10;
-    }
-
-    * {
-      box-sizing: border-box;
-      -webkit-tap-highlight-color: transparent;
-    }
-
-    html,
-    body {
-      width: 100%;
-      height: 100%;
-      margin: 0;
-      overflow: hidden;
-      overscroll-behavior: none;
-      background: var(--bg);
-      color: var(--text);
-      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "PingFang SC", monospace;
-    }
-
-    body {
-      display: flex;
-      justify-content: center;
-    }
-
-    button {
-      color: inherit;
-      font: inherit;
-    }
-
-    #app {
-      position: relative;
-      width: 100%;
-      max-width: none;
-      height: 100vh;
-      height: 100dvh;
-      overflow: hidden;
-      background:
-        radial-gradient(circle at 48% 48%, rgba(52, 70, 74, 0.18), transparent 44%),
-        #020304;
-      isolation: isolate;
-    }
-
-    #app::after {
-      content: "";
-      position: absolute;
-      left: 80px;
-      right: 12px;
-      top: 12px;
-      bottom: 12px;
-      z-index: 3;
-      border: 1px solid rgba(226, 238, 239, 0.14);
-      border-radius: 8px;
-      pointer-events: none;
-      box-shadow: inset 0 0 0 1px rgba(2, 3, 4, 0.28), inset 0 0 46px rgba(2, 3, 4, 0.16);
-      opacity: 0;
-      transition: opacity 700ms ease;
-    }
-
-    #app[data-view="world"]::after,
-    #app[data-view="radius"]::after {
-      opacity: 1;
-    }
-
-    #realMap {
-      position: absolute;
-      inset: 0;
-      width: 100%;
-      height: 100%;
-      z-index: 0;
-      opacity: 0;
-      filter: brightness(0.42) contrast(1.55) saturate(0.22);
-      transition: opacity 760ms ease;
-      background: #090c11;
-      touch-action: pan-x pan-y;
-    }
-
-    #app.map-ready[data-view="world"] #realMap,
-    #app.map-ready[data-view="radius"] #realMap {
-      opacity: 1;
-    }
-
-    .maplibregl-map {
-      background: #090c11;
-      font: inherit;
-    }
-
-    .maplibregl-canvas {
-      outline: none;
-    }
-
-    .maplibregl-control-container {
-      display: none;
-    }
-
-    #mapDarkOverlay {
-      position: absolute;
-      inset: 0;
-      z-index: 1;
-      pointer-events: none;
-      background: rgba(0, 0, 0, var(--map-overlay-darkness));
-      transition: background 180ms linear;
-    }
-
-    #skinCanvas {
-      position: absolute;
-      inset: 0;
-      width: 100%;
-      height: 100%;
-      z-index: 2;
-      pointer-events: none;
-      touch-action: auto;
-      cursor: default;
-    }
-
-    #app:not(.map-ready) #skinCanvas {
-      pointer-events: auto;
-      touch-action: none;
-      cursor: grab;
-    }
-
-    #app.map-ready[data-view="world"] #skinCanvas,
-    #app.map-ready[data-view="radius"] #skinCanvas {
-      pointer-events: none;
-    }
-
-    #app[data-view="sense"] #skinCanvas {
-      cursor: default;
-    }
-
-    .shade {
-      position: absolute;
-      inset: 0;
-      z-index: 1;
-      pointer-events: none;
-      background:
-        radial-gradient(circle at 50% 50%, transparent 42%, rgba(2, 3, 4, 0.08) 100%),
-        linear-gradient(to bottom, rgba(2, 3, 4, 0.04), transparent 24%, transparent 78%, rgba(2, 3, 4, 0.10));
-      mix-blend-mode: normal;
-    }
-
-    .topbar {
-      position: absolute;
-      top: 0;
-      left: 0;
-      right: 0;
-      z-index: 5;
-      padding: calc(18px + env(safe-area-inset-top, 0px)) 18px 0;
-      display: flex;
-      align-items: flex-start;
-      justify-content: space-between;
-      gap: 16px;
-      pointer-events: none;
-      opacity: 1;
-      transition: opacity 700ms ease;
-    }
-
-    #app[data-view="world"] .topbar,
-    #app[data-view="radius"] .topbar {
-      opacity: 0;
-    }
-
-    .identity {
-      min-width: 0;
-    }
-
-    .kicker {
-      font-size: 10px;
-      letter-spacing: 0.18em;
-      color: var(--faint);
-      text-transform: uppercase;
-      white-space: nowrap;
-    }
-
-    .title {
-      margin-top: 8px;
-      font-size: 15px;
-      letter-spacing: 0.08em;
-      color: var(--text);
-      white-space: nowrap;
-    }
-
-    .telemetry {
-      min-width: 126px;
-      text-align: right;
-      color: var(--muted);
-      font-size: 10px;
-      line-height: 1.7;
-      letter-spacing: 0.08em;
-    }
-
-    .view {
-      position: absolute;
-      inset: 0;
-      z-index: 4;
-      display: block;
-      opacity: 0;
-      visibility: hidden;
-      transition: opacity 760ms ease;
-      pointer-events: none;
-    }
-
-    .view.active {
-      opacity: 1;
-      visibility: visible;
-    }
-
-    #view-sense {
-      display: grid;
-      grid-template-columns: minmax(0, 1fr) minmax(300px, 0.72fr);
-      place-items: stretch;
-      padding-left: 84px;
-      background:
-        linear-gradient(to right, rgba(2, 3, 4, 0.72), rgba(2, 3, 4, 0.2)),
-        radial-gradient(circle at 31% 50%, rgba(112, 151, 166, 0.14), transparent 38%);
-    }
-
-    .sense-wrap {
-      width: 100%;
-      min-height: 100%;
-      position: relative;
-      pointer-events: auto;
-      display: grid;
-      place-items: center;
-      user-select: none;
-      -webkit-user-select: none;
-    }
-
-    .press-target {
-      width: min(48vw, 460px);
-      max-width: 460px;
-      aspect-ratio: 1;
-      border: 0;
-      border-radius: 50%;
-      background: transparent;
-      cursor: pointer;
-      position: relative;
-      display: grid;
-      place-items: center;
-      touch-action: none;
-      --breath-scale: 1;
-    }
-
-    .breath-ring {
-      position: absolute;
-      left: 50%;
-      top: 50%;
-      border-radius: 50%;
-      border: 1px solid rgba(238, 246, 246, 0.22);
-      transform: translate(-50%, -50%) scale(var(--breath-scale));
-      transition: transform 900ms cubic-bezier(0.4, 0, 0.2, 1), opacity 900ms ease, border-color 900ms ease;
-      pointer-events: none;
-      box-shadow: 0 0 26px rgba(226, 238, 239, 0.08);
-    }
-
-    .breath-ring.r1 {
-      width: 35%;
-      height: 35%;
-      opacity: 0.72;
-      border-color: rgba(245, 249, 249, 0.58);
-    }
-
-    .breath-ring.r2 {
-      width: 55%;
-      height: 55%;
-      opacity: 0.5;
-      transform: translate(-50%, -50%) scale(calc(var(--breath-scale) * 0.96));
-    }
-
-    .breath-ring.r3 {
-      width: 76%;
-      height: 76%;
-      opacity: 0.32;
-      transform: translate(-50%, -50%) scale(calc(var(--breath-scale) * 0.91));
-    }
-
-    .breath-ring.r4 {
-      width: 95%;
-      height: 95%;
-      opacity: 0.18;
-      transform: translate(-50%, -50%) scale(calc(var(--breath-scale) * 0.86));
-    }
-    .breath-ring.r5 {
-      width: 115%;
-      height: 115%;
-      opacity: 0.11;
-      transform: translate(-50%, -50%) scale(calc(var(--breath-scale) * 0.80));
-    }
-    .breath-ring.r6 {
-      width: 136%;
-      height: 136%;
-      opacity: 0.07;
-      transform: translate(-50%, -50%) scale(calc(var(--breath-scale) * 0.74));
-    }
-    .breath-ring.r7 {
-      width: 158%;
-      height: 158%;
-      opacity: 0.04;
-      transform: translate(-50%, -50%) scale(calc(var(--breath-scale) * 0.68));
-    }
-
-    .press-target.recording .breath-ring {
-      border-color: rgba(250, 252, 252, 0.82);
-      box-shadow: 0 0 36px rgba(232, 242, 243, 0.16);
-    }
-    .press-target.recording .breath-ring.r4 { opacity: 0.30; }
-    .press-target.recording .breath-ring.r5 { opacity: 0.20; }
-    .press-target.recording .breath-ring.r6 { opacity: 0.13; }
-    .press-target.recording .breath-ring.r7 { opacity: 0.08; }
-
-    .sense-core {
-      position: relative;
-      width: 42%;
-      aspect-ratio: 1;
-      display: grid;
-      place-items: center;
-      border-radius: 50%;
-      border: 1px solid rgba(236, 244, 244, 0.32);
-      background: radial-gradient(circle, rgba(240, 247, 247, 0.12), rgba(240, 247, 247, 0.02) 54%, transparent 72%);
-      transition: opacity 700ms ease, transform 900ms cubic-bezier(0.4, 0, 0.2, 1);
-      transform: scale(calc(0.90 + (var(--breath-scale) - 1) * 0.48));
-      z-index: 1;
-    }
-
-    .sense-percent {
-      font-size: 18px;
-      letter-spacing: 0.06em;
-      display: none;
-    }
-
-    .sense-state {
-      position: absolute;
-      bottom: 15%;
-      width: 100%;
-      left: 0;
-      text-align: center;
-      color: rgba(232, 240, 241, 0.72);
-      font-size: 13px;
-      letter-spacing: 0.12em;
-      line-height: 1.75;
-      opacity: 1;
-      transition: opacity 700ms ease, color 700ms ease;
-      pointer-events: none;
-    }
-
-    .radius-panel {
-      position: absolute;
-      left: auto;
-      right: 18px;
-      top: 18px;
-      bottom: auto;
-      width: min(34vw, 320px);
-      z-index: 4;
-      display: flex;
-      flex-direction: column;
-      gap: 18px;
-      pointer-events: auto;
-      overflow: auto;
-      scrollbar-width: none;
-      max-height: calc(100dvh - 36px);
-      padding: 16px;
-      border: 1px solid var(--line);
-      background: linear-gradient(135deg, rgba(12, 17, 18, 0.9), rgba(3, 5, 6, 0.66));
-      backdrop-filter: blur(18px);
-      opacity: 0;
-      transform: translateX(calc(100% + 28px));
-      transition: opacity 620ms ease, transform 620ms cubic-bezier(0.4, 0, 0.2, 1);
-    }
-
-    .radius-panel::-webkit-scrollbar {
-      display: none;
-    }
-
-    #view-radius.active .radius-panel {
-      opacity: 0;
-      transform: translateX(calc(100% + 28px));
-    }
-
-    #view-radius.active .radius-panel.open {
-      opacity: 1;
-      transform: translateX(0);
-    }
-
-    .radius-toggle {
-      position: absolute;
-      right: 24px;
-      bottom: calc(110px + var(--safe-bottom));
-      z-index: 5;
-      transform: none;
-      min-width: 118px;
-      height: 36px;
-      border: 1px solid rgba(226, 238, 239, 0.22);
-      background: rgba(3, 5, 6, 0.58);
-      color: rgba(232, 240, 241, 0.68);
-      backdrop-filter: blur(14px);
-      font-size: 10px;
-      letter-spacing: 0.14em;
-      text-transform: uppercase;
-      opacity: 0;
-      pointer-events: none;
-      transition: opacity 500ms ease, transform 500ms ease;
-      cursor: pointer;
-    }
-
-    #view-radius.active .radius-toggle {
-      opacity: 1;
-      pointer-events: auto;
-    }
-
-    #view-radius.active .radius-panel.open + .radius-toggle {
-      transform: translateX(-330px);
-    }
-
-    .metric-row {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 1px;
-      border: 1px solid var(--line);
-      background: var(--line);
-    }
-
-    .metric {
-      min-height: 82px;
-      padding: 12px;
-      background: rgba(5, 7, 8, 0.76);
-    }
-
-    .metric-value {
-      font-size: 22px;
-      letter-spacing: 0.04em;
-    }
-
-    .metric-label {
-      margin-top: 8px;
-      color: var(--faint);
-      font-size: 10px;
-      letter-spacing: 0.1em;
-      line-height: 1.45;
-    }
-
-    .section-title {
-      color: var(--faint);
-      font-size: 10px;
-      letter-spacing: 0.18em;
-      text-transform: uppercase;
-    }
-
-    .time-slice {
-      display: grid;
-      gap: 10px;
-    }
-
-    .slice {
-      display: grid;
-      grid-template-columns: 68px 1fr 34px;
-      align-items: center;
-      gap: 12px;
-      font-size: 11px;
-      color: var(--muted);
-    }
-
-    .track {
-      height: 2px;
-      background: rgba(232, 242, 243, 0.12);
-      overflow: hidden;
-    }
-
-    .fill {
-      height: 100%;
-      width: 0;
-      background: rgba(232, 242, 243, 0.8);
-      box-shadow: 0 0 18px rgba(232, 242, 243, 0.28);
-      transition: width 360ms ease;
-    }
-
-    .tag-grid {
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: 1px;
-      border: 1px solid var(--line);
-      background: var(--line);
-    }
-
-    .tag-cell {
-      min-height: 52px;
-      display: grid;
-      place-items: center;
-      background: rgba(5, 7, 8, 0.78);
-      color: var(--muted);
-      font-size: 13px;
-      letter-spacing: 0.08em;
-    }
-
-    .tag-cell.active {
-      color: var(--text);
-      background: rgba(221, 231, 232, 0.1);
-    }
-
-    .footer-nav {
-      position: absolute;
-      left: 12px;
-      right: auto;
-      top: 12px;
-      bottom: 12px;
-      z-index: 8;
-      width: 68px;
-      height: auto;
-      border: 1px solid var(--line);
-      background: rgba(3, 5, 6, 0.64);
-      backdrop-filter: blur(18px);
-      display: grid;
-      grid-template-rows: repeat(3, minmax(82px, 1fr));
-      grid-template-columns: 1fr;
-      transition: opacity 700ms ease;
-    }
-
-    #app[data-view="world"] .footer-nav,
-    #app[data-view="radius"] .footer-nav {
-      opacity: 0.56;
-      border-color: transparent;
-      background: transparent;
-      backdrop-filter: none;
-    }
-
-    .nav-btn {
-      border: 0;
-      border-right: 0;
-      border-bottom: 1px solid var(--line);
-      background: transparent;
-      cursor: pointer;
-      color: var(--faint);
-      display: grid;
-      place-items: center;
-      gap: 4px;
-      padding: 8px 4px;
-      transition: color 500ms ease, background 500ms ease, opacity 500ms ease;
-    }
-
-    #app[data-view="world"] .nav-btn,
-    #app[data-view="radius"] .nav-btn {
-      border-bottom-color: rgba(226, 238, 239, 0.1);
-    }
-
-    .nav-btn:last-child {
-      border-bottom: 0;
-    }
-
-    .nav-btn.active {
-      color: #bcd8ff;
-      background: radial-gradient(circle, rgba(136, 173, 255, 0.18), transparent 62%);
-    }
-
-    .nav-mark {
-      width: 25px;
-      height: 25px;
-      position: relative;
-    }
-
-    .nav-mark.skin::before,
-    .nav-mark.sense::before,
-    .nav-mark.radius::before {
-      content: "";
-      position: absolute;
-      inset: 3px;
-      border: 1px solid currentColor;
-      opacity: 0.86;
-    }
-
-    .nav-mark.skin::before {
-      border-radius: 42% 58% 46% 54%;
-    }
-
-    .nav-mark.sense::before {
-      border-radius: 50%;
-      box-shadow: 0 0 0 5px rgba(230, 236, 236, 0.06);
-    }
-
-    .nav-mark.radius::before {
-      transform: rotate(45deg);
-      border-radius: 2px;
-    }
-
-    .nav-label {
-      font-size: 9px;
-      letter-spacing: 0.16em;
-      text-transform: uppercase;
-      display: block;
-    }
-
-    .modal {
-      position: absolute;
-      inset: 0;
-      z-index: 20;
-      display: grid;
-      place-items: center;
-      padding: 24px;
-      background: rgba(1, 2, 3, 0);
-      backdrop-filter: blur(14px);
-      opacity: 0;
-      pointer-events: none;
-      transition: opacity 800ms ease, background 800ms ease;
-    }
-
-    .modal.active {
-      opacity: 1;
-      pointer-events: auto;
-      background: rgba(1, 2, 3, 0.56);
-    }
-
-    .record-panel {
-      position: relative;
-      width: min(86vw, 360px);
-      aspect-ratio: 1;
-      border: 0;
-      background: transparent;
-      padding: 0;
-      display: grid;
-      place-items: center;
-    }
-
-    .panel-title {
-      font-size: 12px;
-      letter-spacing: 0.18em;
-      text-transform: uppercase;
-      color: var(--text);
-      padding-bottom: 12px;
-      border-bottom: 1px solid var(--line);
-      display: none;
-    }
-
-    .readout {
-      margin-top: 18px;
-      display: grid;
-      gap: 14px;
-      display: none;
-    }
-
-    .readout-row {
-      display: grid;
-      grid-template-columns: 96px 1fr 44px;
-      align-items: center;
-      gap: 10px;
-      color: var(--muted);
-      font-size: 10px;
-      letter-spacing: 0.08em;
-    }
-
-    .label-select {
-      position: absolute;
-      inset: 0;
-      margin-top: 0;
-      display: block;
-      border: 0;
-      background: transparent;
-    }
-
-    .label-btn {
-      position: absolute;
-      min-width: 72px;
-      min-height: 44px;
-      border: 0;
-      background: transparent;
-      color: rgba(232, 240, 241, 0.72);
-      cursor: pointer;
-      font-size: 20px;
-      letter-spacing: 0.08em;
-      opacity: 0;
-      transform: translate(-50%, -50%) scale(0.96);
-      animation: wordFloat 900ms ease forwards;
-      text-shadow: 0 0 18px rgba(232, 240, 241, 0.16);
-    }
-
-    .label-btn.selected {
-      background: transparent;
-      color: var(--text);
-    }
-
-    .label-btn.skip {
-      font-size: 12px;
-      color: rgba(232, 240, 241, 0.44);
-      letter-spacing: 0.18em;
-      text-transform: uppercase;
-    }
-
-    @keyframes wordFloat {
-      to { opacity: 1; transform: translate(-50%, -50%) scale(1); }
-    }
-
-    @keyframes promptFade {
-      from { opacity: 0; transform: translateX(-50%) translateY(4px); }
-      to   { opacity: 1; transform: translateX(-50%) translateY(0); }
-    }
-    .sense-round-prompt {
-      position: absolute;
-      top: 6%;
-      left: 50%;
-      transform: translateX(-50%);
-      color: rgba(232, 240, 241, 0.52);
-      font-size: 11px;
-      letter-spacing: 0.14em;
-      white-space: nowrap;
-      pointer-events: none;
-      opacity: 0;
-      animation: promptFade 700ms ease forwards;
-    }
-
-    .panel-actions {
-      margin-top: 18px;
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 1px;
-      border: 1px solid var(--line-strong);
-      background: var(--line-strong);
-      display: none;
-    }
-
-    .action-btn {
-      min-height: 48px;
-      border: 0;
-      background: rgba(5, 7, 8, 0.98);
-      cursor: pointer;
-      color: var(--text);
-      font-size: 11px;
-      letter-spacing: 0.14em;
-    }
-
-    .action-btn.dim {
-      color: var(--faint);
-    }
-
-    .utility {
-      position: absolute;
-      right: 18px;
-      top: 18px;
-      bottom: auto;
-      z-index: 7;
-      display: grid;
-      gap: 8px;
-      pointer-events: auto;
-      transition: opacity 700ms ease;
-    }
-
-    #app[data-view="world"] .utility {
-      opacity: 1;
-      pointer-events: auto;
-    }
-
-    .icon-btn {
-      width: 38px;
-      height: 38px;
-      border: 1px solid var(--line);
-      background: rgba(4, 6, 7, 0.66);
-      backdrop-filter: blur(12px);
-      display: grid;
-      place-items: center;
-      cursor: pointer;
-      color: var(--muted);
-    }
-
-    .icon-btn:hover {
-      color: var(--text);
-    }
-
-    .toast {
-      position: absolute;
-      left: 18px;
-      right: 18px;
-      top: calc(84px + env(safe-area-inset-top, 0px));
-      z-index: 30;
-      display: none;
-      padding: 12px 14px;
-      border: 1px solid var(--line);
-      background: rgba(3, 5, 6, 0.86);
-      color: var(--muted);
-      font-size: 11px;
-      line-height: 1.6;
-      letter-spacing: 0.06em;
-      backdrop-filter: blur(12px);
-    }
-
-    .toast.active {
-      display: block;
-    }
-
-    #app[data-view="world"] .toast,
-    #app[data-view="radius"] .toast {
-      display: none;
-    }
-
-    .debug-panel {
-      position: absolute;
-      left: 92px;
-      top: 18px;
-      z-index: 12;
-      display: none;
-      width: 248px;
-      padding: 12px 14px;
-      border: 1px solid rgba(226, 238, 239, 0.22);
-      background: rgba(2, 4, 5, 0.78);
-      color: rgba(232, 240, 241, 0.72);
-      font-size: 10px;
-      line-height: 1.65;
-      letter-spacing: 0.06em;
-      backdrop-filter: blur(12px);
-      pointer-events: none;
-      white-space: pre;
-    }
-
-    .debug-panel.active {
-      display: block;
-    }
-
-    .time-axis {
-      position: absolute;
-      left: 96px;
-      right: 96px;
-      bottom: calc(18px + var(--safe-bottom));
-      z-index: 6;
-      padding: 12px 16px 10px;
-      border: 1px solid rgba(226, 238, 239, 0.2);
-      background: rgba(3, 5, 6, 0.68);
-      backdrop-filter: blur(16px);
-      opacity: 0;
-      pointer-events: none;
-      transition: opacity 500ms ease;
-    }
-
-    #app[data-view="world"] .time-axis {
-      opacity: 1;
-      pointer-events: auto;
-    }
-
-    .time-axis-top {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      color: rgba(232, 240, 241, 0.72);
-      font-size: 11px;
-      letter-spacing: 0.12em;
-      margin-bottom: 8px;
-    }
-
-    .time-axis input[type="range"] {
-      width: 100%;
-      accent-color: #edf6f6;
-    }
-
-    .time-ticks {
-      display: flex;
-      justify-content: space-between;
-      color: rgba(232, 240, 241, 0.36);
-      font-size: 9px;
-      letter-spacing: 0.08em;
-      margin-top: 5px;
-    }
-
-    @media (min-width: 720px) {
-      #app {
-        margin: 0 auto;
-        box-shadow: none;
-      }
-    }
-
-    @media (max-width: 720px) {
-      #app {
-        max-width: none;
-      }
-
-      #view-sense {
-        grid-template-columns: 1fr;
-        padding-left: 0;
-      }
-
-      .press-target {
-        width: min(76vw, 340px);
-      }
-
-      .footer-nav {
-        left: 12px;
-        right: 12px;
-        top: auto;
-        bottom: calc(12px + var(--safe-bottom));
-        width: auto;
-        height: 64px;
-        grid-template-columns: repeat(3, 1fr);
-        grid-template-rows: 1fr;
-      }
-
-      #app::after {
-        left: 12px;
-        right: 12px;
-        top: 12px;
-        bottom: calc(88px + var(--safe-bottom));
-      }
-
-      .nav-btn {
-        border-bottom: 0;
-        border-right: 1px solid var(--line);
-      }
-
-      .nav-btn:last-child {
-        border-right: 0;
-      }
-
-      .time-axis {
-        left: 18px;
-        right: 18px;
-        bottom: calc(96px + var(--safe-bottom));
-      }
-
-      .radius-panel {
-        left: 18px;
-        right: 18px;
-        top: auto;
-        bottom: calc(88px + var(--safe-bottom));
-        width: auto;
-        transform: translateY(calc(100% + 28px));
-      }
-
-      #view-radius.active .radius-panel {
-        transform: translateY(calc(100% + 28px));
-      }
-
-      #view-radius.active .radius-panel.open {
-        transform: translateY(0);
-      }
-
-      #view-radius.active .radius-panel.open + .radius-toggle {
-        transform: translateX(-50%) translateY(-440px);
-      }
-
-      .radius-toggle {
-        left: 50%;
-        right: auto;
-        transform: translateX(-50%);
-      }
-    }
-  </style>
-</head>
-<body>
-  <main id="app">
-    <div id="realMap" aria-hidden="true"></div>
-    <div id="mapDarkOverlay" aria-hidden="true"></div>
-    <canvas id="skinCanvas" aria-label="World Skinの地図表面"></canvas>
-    <div class="shade"></div>
-
-    <header class="topbar">
-      <div class="identity">
-        <div class="kicker">WORLD SKIN / 0.2</div>
-        <div class="title" id="placeTitle">国分寺の皮膚</div>
-      </div>
-      <div class="telemetry">
-        <div id="recordCount">世界 0 / 自分 0</div>
-        <div id="locState">位置を確認中</div>
-        <div id="audioState">音は待機中</div>
-      </div>
-    </header>
-
-    <section class="view active" id="view-world" data-view="world"></section>
-
-    <section class="view" id="view-sense" data-view="sense">
-      <div class="sense-wrap">
-        <button class="press-target" id="pressTarget" type="button" aria-label="長押しして記録">
-          <span class="breath-ring r7"></span>
-          <span class="breath-ring r6"></span>
-          <span class="breath-ring r5"></span>
-          <span class="breath-ring r4"></span>
-          <span class="breath-ring r3"></span>
-          <span class="breath-ring r2"></span>
-          <span class="breath-ring r1"></span>
-          <span class="sense-core">
-            <span class="sense-percent" id="sensePercent">0</span>
-          </span>
-        </button>
-        <div class="sense-state" id="senseState">静かにして、まわりの世界を感じる</div>
-      </div>
-    </section>
-
-    <section class="view" id="view-radius" data-view="radius">
-      <div class="radius-panel" id="radiusPanel">
-        <div class="metric-row">
-          <div class="metric">
-            <div class="metric-value" id="metricRecords">0</div>
-            <div class="metric-label">記録数</div>
-          </div>
-          <div class="metric">
-            <div class="metric-value" id="metricVoid">--</div>
-            <div class="metric-label">空洞</div>
-          </div>
-          <div class="metric">
-            <div class="metric-value" id="metricNoise">0.00</div>
-            <div class="metric-label">平均の層</div>
-          </div>
-        </div>
-
-        <div>
-          <div class="section-title">時間の層</div>
-          <div class="time-slice" id="timeSlice"></div>
-        </div>
-
-        <div>
-          <div class="section-title">感覚の分布</div>
-          <div class="tag-grid" id="tagGrid"></div>
-        </div>
-      </div>
-      <button class="radius-toggle" id="radiusToggle" type="button">詳細 ↓</button>
-    </section>
-
-    <div class="utility">
-      <button class="icon-btn" id="centerBtn" type="button" title="現在地へ戻る" aria-label="現在地へ戻る">⌖</button>
-      <button class="icon-btn" id="clearBtn" type="button" title="自分の記録を消す" aria-label="自分の記録を消す">×</button>
-    </div>
-
-    <div class="time-axis" id="timeAxis">
-      <div class="time-axis-top">
-        <span>時間の皮膚</span>
-        <span id="timeAxisLabel">現在</span>
-      </div>
-      <input id="timeSlider" type="range" min="-12" max="0" step="1" value="0" aria-label="時間の移動">
-      <div class="time-ticks"><span>-12h</span><span>現在</span></div>
-    </div>
-
-    <nav class="footer-nav" aria-label="表示の切り替え">
-      <button class="nav-btn active" type="button" data-target="world">
-        <span class="nav-mark skin"></span>
-        <span class="nav-label">世1</span>
-      </button>
-      <button class="nav-btn" type="button" data-target="sense">
-        <span class="nav-mark sense"></span>
-        <span class="nav-label">記録</span>
-      </button>
-      <button class="nav-btn" type="button" data-target="radius">
-        <span class="nav-mark radius"></span>
-        <span class="nav-label">半径</span>
-      </button>
-    </nav>
-
-    <div class="modal" id="recordModal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
-      <div class="record-panel">
-        <div class="panel-title" id="modalTitle">記録の準備</div>
-        <div class="readout">
-          <div class="readout-row">
-            <span>動き</span>
-            <span id="modalMove">静止</span>
-            <span id="modalTime">--</span>
-          </div>
-        </div>
-        <div class="label-select" id="labelSelect"></div>
-        <div class="panel-actions">
-          <button class="action-btn dim" id="discardBtn" type="button">破棄</button>
-          <button class="action-btn" id="saveBtn" type="button">記録する</button>
-        </div>
-      </div>
-    </div>
-
-    <div class="toast" id="toast"></div>
-    <div class="debug-panel" id="debugPanel"></div>
-  </main>
-
-  <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
-  <script src="world_data.js"></script>
-  <script src="my_data.js"></script>
-  <script src="testdata.js"></script>
-  <script src="testdata2.js"></script>
-  <script>
-    (() => {
-      const STORAGE_KEY = "world-skin-v02-records";
-      const SEED_KEY = "world-skin-v02-seeded-r3";
+(() => {
+      const STORAGE_KEY = "world-skin-v03-records";
+      const SEED_KEY = "world-skin-v03-seeded-r1";
       const DURATION = 10000;
       const BREATH_VISUAL = {
         durationMs:  10000,
@@ -1442,6 +356,11 @@
       const labelSelect = document.getElementById("labelSelect");
       const radiusPanel = document.getElementById("radiusPanel");
       const radiusToggle = document.getElementById("radiusToggle");
+      const avatarBtn = document.getElementById("avatarBtn");
+      const profileSheet = document.getElementById("profileSheet");
+      const profileClose = document.getElementById("profileClose");
+      const openRecordsBtn = document.getElementById("openRecordsBtn");
+      const openSettingsBtn = document.getElementById("openSettingsBtn");
       const timeSlider = document.getElementById("timeSlider");
       const timeAxisLabel = document.getElementById("timeAxisLabel");
       const toast = document.getElementById("toast");
@@ -1469,6 +388,8 @@
         senseRound: 0,
         selectedWords: [],
         lastBreathPhase: "",
+        senseStage: "idle",
+        senseIntroTimers: [],
         t: 0,
         dpr: 1,
         width: 0,
@@ -1497,7 +418,9 @@
         fieldTransition: null
       };
 
+      state.origin = recordsCenter(state.personalRecords) || DEFAULT_ORIGIN;
       app.dataset.view = state.view;
+      app.dataset.senseStage = "idle";
 
       function maybeSeedPersonalRecords(records) {
         const alreadySeeded = !!localStorage.getItem(SEED_KEY);
@@ -1572,6 +495,20 @@
 
       function activeOrigin() {
         return state.view === "world" ? WORLD_ORIGIN : state.origin;
+      }
+
+      function recordsCenter(records = []) {
+        if (!records.length) return null;
+        const valid = records.filter(r => Number.isFinite(r.lat) && Number.isFinite(r.lng));
+        if (!valid.length) return null;
+        return {
+          lat: valid.reduce((sum, r) => sum + r.lat, 0) / valid.length,
+          lng: valid.reduce((sum, r) => sum + r.lng, 0) / valid.length
+        };
+      }
+
+      function personalCenter() {
+        return state.position || recordsCenter(state.personalRecords) || state.origin || DEFAULT_ORIGIN;
       }
 
       function recordNoise(record) {
@@ -1998,6 +935,15 @@
         invalidateField(true);
       }
 
+      function centerMapOnPersonalCenter(animate = true) {
+        if (!state.mapReady) return;
+        const center = personalCenter();
+        const options = { center: [center.lng, center.lat], zoom: 14.1, pitch: DEFAULT_VIEW.pitch, bearing: DEFAULT_VIEW.bearing };
+        if (animate) state.map.easeTo({ ...options, duration: 650 });
+        else state.map.jumpTo(options);
+        invalidateField(true);
+      }
+
       function resetMapView() {
         if (!state.mapReady) return;
         const options = state.view === "radius"
@@ -2382,6 +1328,7 @@
       function startRecording(event) {
         event.preventDefault();
         if (state.view !== "sense") return;
+        if (state.senseStage !== "ready") return;
         if (state.recording) return;
         initAudio();
         state.recording = true;
@@ -2389,6 +1336,7 @@
         state.samples = [];
         state.path = [{ ...(state.position || state.origin), at: Date.now() }];
         state.lastBreathPhase = "";
+        setSenseStage("recording");
         pressTarget.classList.add("recording");
         setSenseText("息を吸って、世界を近くに置く");
         safeVibrate(30);
@@ -2415,7 +1363,8 @@
         state.samples = [];
         pressTarget.classList.remove("recording");
         pressTarget.style.setProperty("--breath-scale", "1");
-        setSenseText("静かにして、まわりの世界を感じる");
+        setSenseStage("ready");
+        setSenseText("押しつづける\n10秒のあいだ");
         requestRender();
       }
 
@@ -2448,7 +1397,8 @@
         state.selectedWords = [];
         state.senseRound = 0;
         pressTarget.style.setProperty("--breath-scale", "1");
-        setSenseText("静かにして、まわりの世界を感じる");
+        setSenseStage("release");
+        setSenseText("");
         setTimeout(openRecordModal, 600);
         requestRender();
       }
@@ -2456,6 +1406,7 @@
       function openRecordModal() {
         updateRecordModalStats();
         renderLabelSelect();
+        setSenseStage("selecting");
         recordModal.classList.add("active");
       }
 
@@ -2478,9 +1429,9 @@
         labelSelect.appendChild(prompt);
         const words = pickRoundWords(state.selectedWords);
         const positions = [
-          { left: "50%", top: "24%" },
-          { left: "27%", top: "56%" },
-          { left: "73%", top: "56%" }
+          { left: "36%", top: "34%" },
+          { left: "77%", top: "43%" },
+          { left: "36%", top: "69%" }
         ];
         words.forEach((word, index) => {
           const btn = document.createElement("button");
@@ -2514,12 +1465,14 @@
 
       function finalizeSense() {
         labelSelect.innerHTML = "";
+        recordModal.classList.add("complete");
+        setSenseStage("complete");
         const done = document.createElement("div");
-        done.className = "sense-round-prompt";
+        done.className = "sense-round-prompt complete-prompt";
         done.textContent = "記録されました";
         labelSelect.appendChild(done);
         safeVibrate(40);
-        setTimeout(savePending, 900);
+        setTimeout(savePending, 1100);
       }
 
       function savePending() {
@@ -2532,7 +1485,7 @@
         state.pending = null;
         state.selectedWords = [];
         state.senseRound = 0;
-        recordModal.classList.remove("active");
+        recordModal.classList.remove("active", "complete");
         rebuildGrids();
         updateStats();
         switchView("radius");
@@ -2542,14 +1495,44 @@
         state.pending = null;
         state.selectedWords = [];
         state.senseRound = 0;
-        recordModal.classList.remove("active");
+        recordModal.classList.remove("active", "complete");
+      }
+
+      function clearSenseIntroTimers() {
+        state.senseIntroTimers.forEach(clearTimeout);
+        state.senseIntroTimers = [];
+      }
+
+      function setSenseStage(stage) {
+        state.senseStage = stage;
+        app.dataset.senseStage = stage;
+      }
+
+      function prepareSenseIntro() {
+        clearSenseIntroTimers();
+        pressTarget.classList.remove("recording");
+        pressTarget.style.setProperty("--breath-scale", "1");
+        setSenseStage("contact");
+        setSenseText("");
+        state.senseIntroTimers.push(setTimeout(() => setSenseStage("diffusion"), 900));
+        state.senseIntroTimers.push(setTimeout(() => {
+          setSenseStage("ready");
+          setSenseText("押しつづける\n10秒のあいだ");
+        }, 2100));
       }
 
       function switchView(view) {
         if (state.recording && view !== "sense") cancelRecording();
         state.view = view;
         app.dataset.view = view;
+        profileSheet.classList.remove("open");
+        profileSheet.setAttribute("aria-hidden", "true");
         if (view !== "radius") setRadiusDetails(false);
+        if (view === "sense") prepareSenseIntro();
+        else if (!state.recording && !recordModal.classList.contains("active")) {
+          clearSenseIntroTimers();
+          setSenseStage("idle");
+        }
         views.forEach(el => el.classList.toggle("active", el.dataset.view === view));
         navBtns.forEach(btn => btn.classList.toggle("active", btn.dataset.target === view));
         if (view === "world" || view === "radius") syncMapToActiveCenter();
@@ -3364,7 +2347,9 @@
         document.getElementById("metricNoise").textContent = avgNoise.toFixed(2);
 
         const timeSlice = document.getElementById("timeSlice");
+        const recordTime = document.getElementById("recordTime");
         timeSlice.innerHTML = "";
+        recordTime.innerHTML = "";
         const maxSlot = Math.max(1, ...TIME_SLOTS.map(slot => records.filter(r => r.slot === slot).length));
         TIME_SLOTS.forEach(slot => {
           const count = records.filter(r => r.slot === slot).length;
@@ -3373,6 +2358,7 @@
           const slotLabel = { morning: "朝", day: "昼", evening: "夕", night: "夜" }[slot] || slot;
           row.innerHTML = `<span>${slotLabel}</span><span class="track"><span class="fill" style="width:${(count / maxSlot) * 100}%"></span></span><span>${count}</span>`;
           timeSlice.appendChild(row);
+          recordTime.appendChild(row.cloneNode(true));
         });
 
         const tagGrid = document.getElementById("tagGrid");
@@ -3384,12 +2370,28 @@
         }
         const usedWords = [...wordCounts.entries()].sort((a, b) => b[1] - a[1]);
         const showWords = usedWords.length ? usedWords : SENSE_WORD_LIST.slice(0, 8).map(e => [e.word, 0]);
-        for (const [word, count] of showWords) {
+        const recordWords = document.getElementById("recordWords");
+        recordWords.innerHTML = "";
+        const wordPositions = [
+          [40, 34], [145, 14], [235, 42], [22, 78], [104, 72], [190, 88], [62, 124], [160, 132], [246, 118]
+        ];
+        showWords.forEach(([word, count], index) => {
           const cell = document.createElement("div");
           cell.className = "tag-cell" + (count ? " active" : "");
           cell.textContent = count ? `${word} ${count}` : word;
           tagGrid.appendChild(cell);
-        }
+          const label = document.createElement("span");
+          label.className = "record-word";
+          label.textContent = word;
+          const [left, top] = wordPositions[index % wordPositions.length];
+          label.style.left = `${left}px`;
+          label.style.top = `${top}px`;
+          label.style.opacity = String(count ? Math.min(0.95, 0.46 + count * 0.08) : 0.38);
+          recordWords.appendChild(label);
+        });
+        document.getElementById("recordsTotal").textContent = String(records.length);
+        document.getElementById("recordsVoid").textContent = visibleVoidCount();
+        document.getElementById("recordsNoise").textContent = avgNoise.toFixed(2);
 
       }
 
@@ -3430,6 +2432,18 @@
         document.getElementById("saveBtn").addEventListener("click", savePending);
         document.getElementById("discardBtn").addEventListener("click", discardPending);
         radiusToggle.addEventListener("click", () => setRadiusDetails(!state.radiusDetailsOpen));
+        avatarBtn.addEventListener("click", () => {
+          const open = !profileSheet.classList.contains("open");
+          profileSheet.classList.toggle("open", open);
+          profileSheet.setAttribute("aria-hidden", open ? "false" : "true");
+        });
+        profileClose.addEventListener("click", () => {
+          profileSheet.classList.remove("open");
+          profileSheet.setAttribute("aria-hidden", "true");
+        });
+        openRecordsBtn.addEventListener("click", () => switchView("records"));
+        openSettingsBtn.addEventListener("click", () => switchView("settings"));
+        document.querySelectorAll("[data-back]").forEach(btn => btn.addEventListener("click", () => switchView(btn.dataset.back)));
         timeSlider.addEventListener("input", () => {
           const offset = Number(timeSlider.value);
           state.selectedHour = getTimelineHour(offset);
@@ -3449,8 +2463,8 @@
         canvas.addEventListener("wheel", handleCanvasWheel, { passive: false });
         document.getElementById("centerBtn").addEventListener("click", () => {
           if (state.mapReady && canNavigateMap()) {
-            syncMapToActiveCenter();
-            showToast("地図の中心へ戻りました。");
+            centerMapOnPersonalCenter();
+            showToast("自分の中心へ戻りました。");
             return;
           }
           state.centerOffset = { x: 0, y: 0 };
@@ -3510,6 +2524,3 @@
 
       boot();
     })();
-  </script>
-</body>
-</html>

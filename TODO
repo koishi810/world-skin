@@ -1,374 +1,133 @@
 # TODO
 
-更新时间：2026-05-13
-依据：当前实现 `test0.2.html`、进度文件 `TODO`、变更记录 `MAP_LOG`，以及历史项目说明书《世界皮肤 / World Skin》v0.2。
+更新时间：2026-05-14
+
+感知轴系统：spaciousness / gravity / tension / flow（静止↔流动）+ soundVector
+入口文件：`test0.2.html`　　数据文件：`world_data.js`（2697 条）、`my_data.js`（48 条）
 
 ---
 
-## 感知轴重构 v2（spaciousness / gravity / tension / flow）
+## Current Focus
 
-旧感知轴系统（motion / density / material / pressure）已于 2026-05-13 回滚。
-`TASK.md` 不作为全局主计划；仅作为单次任务规格使用。当前长期计划以本 TODO 的 v2 感知轴为准。
-
-新系统结构：
-- **四条主观感知轴**：spaciousness（空旷↔密集）、gravity（轻盈↔沉重）、tension（松开↔绷紧）、flow（静止↔流动）
-- **一条环境声音轴**：soundVector（loudness / turbulence / sharpness / continuity / texture）
-- **一个颜色合成结果**：finalColor（由数据量、四条主观轴和 soundVector 共同生成）
-- 旧 `textureModifier` 仅保留 legacy fallback；冷热干湿不再作为独立材料主系统
-
-实现原则：单轴只做微调，多轴叠加才能达到明显视觉变化；最终点阵仍为统一 World Skin 皮肤。
+- 视觉系统收束：高度线、远近纵深、点阵对比度调参
+- 感知词系统重构：词语提示逻辑、词库扩充、新轴对齐
+- Sense 采样体验：呼吸系统重做
+- 作品集 demo 准备：入口稳定、权限 fallback、录屏
 
 ---
 
-### v2-TODO 0：冻结稳定基础版本
+## High Priority
 
-- [x] 2026-05-13 commit `aadfeac`：无感知轴的干净基础版已提交
-- [x] MAP_LOG 已记录回滚内容；SEED_KEY 已升至 r3
 
----
+### B：重构词语提示系统
 
-### v2-TODO 1：定义视觉主控映射表（仅建立 constants，不改渲染）
+重构采样完成后的感知词提示，使其适配四条主观轴结构。
 
-**目标**：在 test0.2.html 中以常量形式记录轴到视觉参数的分工，防止后续实现时各轴互相占用通道。
+- [ ] 整理每轮词语出现逻辑（2–3 轮，覆盖不同轴向）
+- [ ] skip 逻辑：所有轮 skip 后以无主观词写入
+- [ ] 词语覆盖不足时的补足规则
+- [ ] 用户可见文案保持日文，不显示轴名或参数
+- [ ] 参考文案方向：いまの感覚に近い言葉を選ぶ / もう少しだけ近いものを / スキップ / 記録されました
 
-- [x] 新增 `SENSE_AXES_V2`：数组，列出 `["spaciousness","gravity","tension","flow"]`
-- [x] 新增 `AXIS_VISUAL_MAP`：每条轴定义 primaryChannels、bias 上下限、禁止主控的通道
-  - spaciousness → radius / spread（主控），alpha 禁止主控
-  - gravity → alpha / height（主控），color 禁止主控
-  - tension → microAlphaVariance / microHeightVariance（主控），boundary / edgeHardness 禁止主控
-  - flow → heightLineEndpointOffset / flowCoherence / timePersistence（主控），不拉伸点阵、不主控颜色
-- [x] 新增 `SOUND_VISUAL_MAP`：loudness→strength、turbulence→flux/contrast、sharpness→edgeHardness、continuity→spreadBias、texture→grain
-- [x] 新增 `COLOR_SYNTHESIS_MAP`：finalColor 由 strength / spaciousness / gravity / tension / soundVector 综合生成；flow 不参与颜色以节省颜色阶段计算
-- [x] 不改任何渲染函数（getDotAlpha / getDotColor / buildGeoGridField）
-- [x] 验收：`node -e "new Function(...)"` 语法零错误；地图/Sense/时间轴功能不受影响
+### C：重做 Sense 呼吸系统
 
----
+10 秒采样视觉参考 Apple Watch Mindfulness，保持 World Skin 暗色身体性。
 
-### v2-TODO 2：重构记录写入结构，加入新轴字段（兼容旧数据）
-
-**目标**：新记录可以携带新轴数据，旧记录可以安全 fallback。
-
-- [x] `savePending()` 写入字段：`senseVector`（四轴对象）、`soundVector`（五分量对象）；不再写入新的 `textureModifier`
-- [x] 建立 fallback 辅助函数 `getSV(rec)` / `getSoundV(rec)` / `getTexMod(rec)`：字段缺失时返回中性零向量，不报错
-- [x] 旧记录格式（只有 word）通过 fallback 函数兼容，word 字段继续用于 tagGrid 统计
-- [x] 不改 tagGrid 现有统计逻辑
+- [ ] 检查呼吸圆环大小与幅度是否足够明显
+- [ ] 动画是否顺滑，长按衔接是否自然
+- [ ] 确认无声音波形 / 音量条 / 频谱残留
+- [ ] 震动按节奏触发（Vibration API 不支持时静默 fallback）
+- [ ] 完成后顺畅进入多轮词语选择
+- [ ] 不加倒计时数字作为主视觉
+- [ ] 麦克风采样在后台进行，视觉只表现停留与感知
 
 ---
 
-### v2-TODO 3：重构感知词库，映射到新轴
+## Medium Priority
 
-**目标**：词库使用新轴向量；冷热干湿类词不再形成独立 textureModifier 主系统。
+### D：扩充感知词库
 
-- [x] 将 `SENSE_WORD_LIST`（当前平铺数组）升级为带向量的词库，格式：`{ word, sv: {spaciousness, gravity, tension, flow}, tex: {...legacy only} }`
-- [x] 32个词重新标注：ざらつく / 重い / 乾く / 遠い 等词以四条主观轴为主；tex 字段仅保留 legacy 注释用途
-- [x] 更新 `pickRoundWords(seenWords)`：仍为随机选取，词库结构变更但 UI 行为不变
-- [x] 更新 `savePending()`：根据选中词聚合 senseVector 后写入记录；不再写入 textureModifier
-- [x] 词语 UI 不显示轴名、不显示数值
+- [ ] v1：保留当前约 32 词，完成新轴迁移与标注（每词可影响多个轴）
+- [ ] v2：扩展到 48–64 词，覆盖更广感知区间
+- [ ] 词语在 UI 中只作为可选感知词，不显示参数，不显示在地图上
 
----
+### E：改进 My Radius 与 World Map 的关联性
 
-### v2-TODO 4：声音采样升级为 soundVector（5分量）
+- [ ] My Radius 中显示个人记录如何叠加在世界皮肤之上
+- [ ] 可轻微提示"我的记录"在 World Map 中的位置
+- [ ] 个人感知与周围公共皮肤的对照关系（一致 / 偏离 / 空洞区域）
+- [ ] 不做社交系统、排行榜、贡献榜、点赞、公共上传、普通 marker
 
-**目标**：把当前单一 noiseLevel / turbulence 升级为包含 5 个分量的环境声音向量。
-
-- [x] 在 Sense 采样阶段，从麦克风频谱分析生成：
-  - `loudness`：平均音量（对应现有 noiseLevel）
-  - `turbulence`：音量起伏（对应现有 turbulence）
-  - `sharpness`：高频能量比例
-  - `continuity`：声音连续性（静音比例的反向）
-  - `texture`：频谱复杂度（近似熵值）
-- [x] 麦克风失败时，根据 noiseLevel/turbulence 生成合理 fallback soundVector
-- [x] 记录中存储 `soundVector` 对象
-- [x] Sense UI 不显示声音可视化、音量条、波形、频谱
-- [x] 旧记录没有 soundVector 时，`getSoundV(rec)` 返回基于 noise/turbulence 构造的近似值
-
----
-
-### v2-TODO 5：实现 spaciousness 轴视觉影响（第一条主轴）
-
-**前置**：v2-TODO 1、2 完成。
-
-**视觉目标**：空旷→spread 增大、radius 略小、alpha 更薄、void 感增强；密集→spread 缩小、radius 略大、局部凝聚。
-
-- [x] `buildGeoGridField` 内循环：累加 `spaciousness` 加权平均，存入 cell 字段 `senseSpacious`
-- [x] `getDotRadius()` 读取 `senseSpacious` 偏置（bias range: -0.18 ~ +0.22）
-- [x] `recordBaseVisual()` 中 spread 读取 `senseSpacious` 偏置
-- [x] alpha 不随 spaciousness 主控（由 gravity 主控）
-- [x] 手机端验收：点阵规则性不破坏，不变成热力图，void 区域仍可见
-- [x] 验收数据：按 T 切换测试数据，确认 Row 0 从西到东 radius/spread 平稳梯度变化，testdata.js 中 ROW_SPACIOUSNESS 标注 ✓
-
----
-
-### v2-TODO 6：实现 gravity 轴视觉影响
-
-**前置**：v2-TODO 5 完成。
-
-**视觉目标**：轻盈→alpha 更低、height 更低、存在感更薄；沉重→alpha 更高、height 更高、沉积感更厚。
-
-- [x] `buildGeoGridField` 内循环：累加 `gravity` 加权平均，存入 cell 字段 `senseGravity`
-- [x] `getDotAlpha()` 读取 `senseGravity` 偏置（bias range: -0.10 ~ +0.14）
-- [x] `getDotHeight()` 读取 `senseGravity` 偏置（bias range: -10 ~ +14，受现有 height 上限约束）
-- [x] 沉重不得变成黑色热力图；高度有绝对上限（不超过现有 heightMax）
-- [x] 手机端验收：轻盈不让记录消失，沉重不爆亮，height 无溢出
-- [x] 验收数据：按 T 切換测试数据，确认 A1 方阵从西到东 alpha/height 平稳梯度变化，testdata.js 中 SQ_GRAVITY 标注 ✓
-
----
-
-### v2-TODO 7：实现 tension 轴视觉影响
-
-**前置**：v2-TODO 6 完成。
-
-**视觉目标**：松开→点阵内部微差更大，单个小球之间的明暗和高低变化更明显；绷紧→点阵内部微差更小，整体更均质、更收束。tension 不再控制边缘软硬、boundary 或轮廓。
-
-- [x] `buildGeoGridField` 内循环：累加 `tension` 加权平均，存入 cell 字段 `senseTension`
-- [x] 回退旧逻辑：`getDotAlpha()` 不再读取 `senseTension` 控制边缘衰减
-- [x] `drawGridTexture()` 读取 `senseTension`：使用静态 deterministic micro value 调整每个点的 alpha / height 微差幅度
-- [x] 松开（-1）提高 micro variance；绷紧（+1）降低 micro variance
-- [x] 不画线、不画轮廓、不画裂缝
-- [x] 手机端验收：差异可感知但克制
-- [x] 验收数据：按 T 切换测试数据，确认 A2 方阵从西到东点阵内部明暗/高低微差平稳梯度变化，testdata.js 中 SQ_TENSION 标注 ✓
-
----
-
-### v2-TODO 8：实现 flow 轴视觉影响
-
-**前置**：v2-TODO 7 完成。
-
-**视觉目标**：静止→高度线接近垂直、终点偏移接近 0、时间残留较弱；流动→高度线终点轻微偏斜、邻近点方向有局部一致性、时间残留稍强。flow 不画方向、不拉伸点阵、不主控颜色。
-
-- [x] `recordBaseVisual()` 读取 `senseVector.flow`，计算轻量 `flowStrength / flowPersistence`，并只对 flux / boundary 做微弱辅助偏置
-- [x] `buildGeoGridField` 内循环：聚合 screen-space `flowDir` 和方向一致性的 `flowAmount`；不再为颜色额外聚合 `senseFlow`
-- [x] flow direction 优先使用 slow/passing 记录移动方向；still / 无方向记录只使用极弱稳定 fallback
-- [x] flow coherence：同向记录叠加、混乱方向抵消，`flowAmount` 低时不显示明显偏斜
-- [x] 对 flow field 做一次轻量邻域平滑，避免每个点各自乱歪
-- [x] 复用现有高度线：只偏移高度线终点和圆点绘制位置，不新增 flow 线
-- [x] flow 高记录轻微放宽时间权重窗口，形成时间残留
-- [x] 不使用 jitter，不画 corridor polyline，不画轨迹线，不画箭头，不恢复粒子动画
-- [x] 手机端验収：高度线轻微偏斜、有局部一致性、不出现风向图/轨迹图感
-- [x] 验收数据：按 T 切换测试数据，确认 B0 方阵从西到东高度线偏斜/时间连续感平稳梯度变化，testdata.js 中 SQ_FLOW 标注 ✓
-
----
-
-### v2-TODO 9：实现 soundVector 视觉影响
-
-**前置**：v2-TODO 4、5 完成（field 聚合基础已建立）。
-
-**视觉目标**：loudness→base strength；turbulence→flux / micro contrast；sharpness→edgeHardness；continuity→沉积连续性；texture→grain。
-
-- [x] `buildGeoGridField` 内循环：累加 soundVector 五分量加权平均，存入 cell 字段
-- [x] `getDotAlpha()` / strength 通道读取 loudness 偏置（只是微调，主控仍是 noise 数据）
-- [x] turbulence → flux bias（bias range: -0.08 ~ +0.10）与 micro contrast
-- [x] sharpness → edgeHardness（只与声音/质感层叠加；不再与 tension 叠加）
-- [x] continuity → 沉积连续性微调；texture → 静态 grain
-- [x] 安静区域仍有暗点（不消失）；Sense UI 不显示声音数据
-- [x] 手机端验收：安静/嘈杂对比可感知；不闪烁
-- [x] 验收数据：按 T 切换测试数据，确认 B1 方阵从西到东 loudness 对 strength 的影响平稳可见，testdata.js 中 SQ_SOUND 标注 ✓
-
----
-
-### v2-TODO 10：取消 textureModifier，建立多轴 finalColor 合成
-
-**前置**：v2-TODO 9 完成。
-
-**视觉目标**：颜色不再由独立材料层控制，而由数据量 / spaciousness / gravity / tension / soundVector 综合合成；flow 只保留结构方向作用，不参与颜色。
-
-- [x] `savePending()` 不再写入新的 `textureModifier`
-- [x] 旧 `textureModifier` 仅通过 `getTexMod()` 做轻量 legacy fallback，不作为新系统主控
-- [x] `getDotColor()` 重构为 finalColor 合成：读取 strength / spaciousness / gravity / tension / soundVector
-- [x] 数据量只控制显影强度和明度上限，不决定色相
-- [x] spaciousness / flow 只做轻微冷灰、银灰、暖灰副效果，不主控颜色
-- [x] gravity 轻盈偏冷银灰，沉重偏暗暖灰 / 锈灰，但不红
-- [x] tension 复用现有 stable micro noise 控制局部颜色微差幅度，不新增闪烁随机
-- [x] soundVector 控制颜色激活、颗粒色差与高光硬度；不变成警告色
-- [x] 颜色锚点限制在深灰 / 冷灰 / 银灰 / 中性灰 / 暖灰 / 锈灰 / 蓝黑
-- [x] 手机端验收：finalColor 可感知但克制，不明显降帧
-- [x] 验收数据：按 T 切换测试数据，确认 B2 方阵呈现多轴 finalColor 气质差异，testdata.js 中 SQ_COLOR 标注 ✓
-
----
-
-### v2-TODO 11：组合效果调参与整体验收
-
-**前置**：v2-TODO 5–10 全部完成。
-
-测试组合（通过注入testdata验证）：
-
-- [x] 密集 + 沉重：凝聚感 + 厚度，不爆亮
-- [x] 密集 + 轻盈：凝聚但薄，不消失
-- [x] 空旷 + 沉重：展开但有分量，不变成稀疏热力图
-- [x] 空旷 + 轻盈：最淡，void 感最强，不变成空白
-- [x] 绷紧 + 空旷：展开 + 边缘硬，不画线
-- [x] 松开 + 密集：凝聚 + 边缘软，不糊
-- [x] 流动 + 密集：场有方向性 + 凝聚，不出现线条
-- [x] 静止 + 密集：场圆稳 + 凝聚，最像沉积
-- [x] 嘈杂 + 空旷：声音激活 + 展开，不爆亮
-- [x] 安静 + 沉重：强度低 + 厚度，不消失
-- [x] 验收：所有组合可区分、不爆亮、不糊成热力图、视觉统一
-
----
-
-### v2-TODO 12：更新 demo personal data（my_data.js）
-
-**前置**：v2-TODO 11 通过。
+### F：更新 my_data.js demo 数据（v2-TODO 12）
 
 - [ ] 48 条 demo 记录加入 senseVector / soundVector
-- [ ] 覆盖典型组合：空旷轻盈（公园类）、密集沉重（车站类）、绷紧静止（深夜住宅）、松开流动（河边走廊）
-- [ ] 不污染 World Map 聚合数据（my_data.js 与 world_data.js 保持分离）
+- [ ] 覆盖典型组合：空旷轻盈（公园）、密集沉重（车站）、绷紧静止（深夜住宅）、松开流动（河边走廊）
+- [ ] my_data.js 与 world_data.js 保持分离
+
+### G：其他视觉与稳定性
+
+- [ ] 识别孤岛：大片空白中的孤立记录点可视化
+- [ ] 权限失败状态 UI：麦克风失败、定位失败、浏览器不支持
+- [ ] 检查手机浏览器长按、触摸取消、页面滚动和权限弹窗行为
+- [ ] 记录详情查看（避免做成评论或打卡详情页）
 
 ---
 
-### v2-TODO 13：更新文档
+## Low Priority
 
-- [x] MAP_SPEC：更新视觉系统节——四条主观感知轴、soundVector、finalColor、视觉主控分工表
-- [x] MAP_SPEC：更新渲染管线描述（records → field → dot render 三层）
-- [x] MAP_LOG：每个 TODO 完成后追加对应记录
-- [ ] TASK.md：保留为单次任务规格；如继续使用，需要在任务结束后同步回 TODO / MAP_SPEC / MAP_LOG
+- [ ] 决定作品集版本入口：正式 `index.html` 或保留 `test0.2.html`
+- [ ] 为作品集演示准备固定权限失败 fallback 流程
+- [ ] 若进入 PWA，新增 `manifest.json`、图标与 `service-worker.js`
+- [ ] 进一步拆分 CSS / 数据文件（建议在视觉系统收束后再做）
+- [ ] 作品集录屏与说明文案整理
 
 ---
 
-## P0
+## Deferred
 
-- [x] 明确当前入口文件为 `test0.2.html`；当前项目没有 `index.html`。
-- [x] 验证 `world_data.js` 可加载，`WORLD_SKIN_RECORDS` 为 2697 条有效聚合记录。
-- [x] 修复 World Map 渲染对 `noiseLevel / turbulence / mobility / timestamp` 字段的兼容，避免数据场出现 `NaN`。
-- [x] 将当前主要用户可见 UI 文案统一为日文。
-- [x] 为 `localStorage` 写入增加错误保护。
-- [x] 使用真实手机浏览器做一次触摸、长按、权限弹窗和时间轴手动检查。
+- 大规模 JS 模块化（建议在视觉系统稳定后进行）
+- WebGL / Three.js 真实 mesh 升级（远期目标）
+- 真实服务器数据同步
+- 社交功能、多人上传、贡献榜
+- 复杂 PWA 离线策略
+- 全球视图（仅概念展示，不进入当前开发）
+- 接入天气作为时间剖面
+- GPS 轨迹推断"我的半径"范围
 
-## P1
+---
 
-- [x] 基于真实设备截图微调地图底图亮度、点阵 alpha 与 height 强度。
-- [x] 检查 My Radius 空状态、记录后状态、详情抽屉在竖屏小屏上的视觉密度。
-- [x] 检查 Sense 10 秒采样结束后的词语浮现节奏是否足够清晰。
+## 设计约束检查（持续）
 
-## P2
+- [ ] 确保没有评分、推荐指数、排行榜、热门区域
+- [ ] 确保没有徽章、积分、等级、连续打卡
+- [ ] 确保没有主动生成社交分享模板
+- [ ] 确保多人数据不被实现为热度榜或贡献榜
+- [ ] 确保记录只能现场完成，不能远程写入或事后补记
 
-- [ ] 决定作品集版本是否需要正式 `index.html`，或继续保留 `test0.2.html` 作为原型入口。
-- [ ] 若进入 PWA 包装，新增 `manifest.json`、图标与 `service-worker.js`，并建立缓存版本更新规则。
-- [ ] 将当前单文件原型拆分为 HTML / CSS / JS，降低后续维护风险。
+---
 
-## P3
+## Done / Recently Completed
 
-- [ ] 明确是否实现 `?demo=1`；当前未发现 demo mode 分支。
-- [ ] 为作品集演示准备固定权限失败 fallback 流程。
-- [x] 预设一组个人记录 demo 数据，但必须与 World Map 聚合数据保持分离。（my_data.js 48 条，已分离）
+### 2026-05-14 — Bug Audit 全面修复
 
-## 当前优先
+- [x] viewBoundsMeters NaN 保护 → 消除间歇性黑屏根因
+- [x] startFieldTransition 改为单次 buildGeoGridField → 消除主线程卡死
+- [x] resizeCanvas 强制重新调度 → 消除 resize 黑帧
+- [x] interpolateCells 跨 zoom 淡入 → 过渡动画正常工作
+- [x] flowOffset 恢复正确 35% 上限
+- [x] directionToMeters 统一屏幕坐标系
+- [x] temporalWeight dayWeight 去除硬编码 epoch 偏差
+- [x] 移除冗余 applyMapVisualMode 双调用
+- [x] visibleVoidCount 限制到 radius 视图，避免每次 switchView 阻塞
+- [x] 文档全面同步：MAP_SPEC、BUGS、MAP_LOG、TASK.md
 
-- [x] 性能修复：关闭 micro jitter、逐点随机动画、逐点 pulse 和逐点 glow。
-- [x] 将渲染循环改为按需重绘，不再无条件每帧重算 `grid nodes × records`。
-- [x] 将点阵从 screen-space 网格改为地理米制网格，并通过 MapLibre `project` 贴合 pitch / bearing。
-- [x] 使用 spatial hash 查询附近 records，降低数据场计算量。
-- [x] 将默认地图改为 45 度 pitch、-16 bearing 的轻微 3D 斜视图。
-- [x] 用静态 height 场表现数据起伏，时间轴变化时做 field 插值。
-- [x] 加入显示阈值，限制视觉参数最大值。
-- [x] 删除主文件中嵌入的预设数据。
-- [x] 新增独立数据文件 `world_data.js`。
-- [x] 将预设数据升级为国分寺周边约 8km、200 用户、10 天模拟结果。
-- [x] 覆盖旧 `world_data.js`，改为基于真实地图结构的 seed zones / corridors / voids 生成。
-- [x] 按车站、通勤走廊、学校、公园、住宅、孤岛记录生成约 2600 条公共聚合模拟数据。
-- [x] 为预设数据保留空洞区域，避免 World Map 变成均匀热力图或随机星空。
-- [x] 加入 24 小时时间轴。
-- [x] 加入 hour/day/three-day/week/month 多窗口视觉叠加算法。
-- [x] 接入真实地图引擎 MapLibre GL，并让 Canvas 纹理层跟随地图投影。
-- [x] 将底图切换为正航拍图，避免地图引擎显示地名和 POI。
-- [x] 按总参考图重构主视觉：左侧竖向导航、地图外框、底部时间轴、右上控制。
-- [x] 为点阵加入数据驱动的冷暖色温和静态高度场。
-- [x] 重写覆盖层为地理米制规则点阵，网格点和记录都通过 MapLibre `project([lng, lat])` 贴合地图视角。
-- [x] 移除数据柔光云团/热力渐变，保留规则点阵并加入受限 alpha、色温、contrast、radius 和静态 height 映射。
-- [x] 提高点阵覆盖层动态范围，拉开空洞、生活底层、普通沉积和高密度沉积的明暗层级。
-- [x] 为数据场加入 influence cutoff 和更小的 zoom 动态 sigma，避免全屏平均灰雾。
-- [x] 加入 `D` 键 Debug View，用于检查 records、screen records、strength、contrast、alpha、sigma、spacing、zoom。
-- [x] 将点阵激活区域扩展为受限 radius / height / rust 色温变化，避免继续停留在静态灰网格。
-- [x] 加入 `M` 键地图亮度调试，在 dark / balanced / bright 三档之间切换。
-- [x] 收紧 `world_data.js` 中车站和通勤走廊采样，让亮区和带状轨迹更明显。
-- [x] 为 8 个主观感知词建立稳定 `wordBias` 映射，只影响 alpha、色温、contrast、flux 解释、边界感和沉积感。
-- [x] 按 `recordBaseVisual -> applyWordBias -> getDotAlpha/getDotColor` 的顺序整理词语视觉参数管线。
-- [x] 加入当前位置与方向标记。
-- [x] 按 area / mid / street 自动切换地图层级、点阵间距和底图强度。
-- [x] 提高底图可见度，地图页不再被 Canvas 暗层完全遮住。
-- [x] 关闭地图页中心椭圆膜和同心椭圆。
-- [x] 修复非 Sense 页面点击也出现音波的 bug。
-- [x] 新增 `BUGS` 文档，用于记录 bug 和回归检查。
-- [x] 加入 Google Maps 风格地图操作：拖拽、滚轮缩放、双指缩放、旋转/转向。
-- [x] 设置 area / mid / street 三个地图显示层级。
-- [x] 降低粒子/网格运动频率。
-- [x] 将点阵纹理回退到水平二维覆盖层。
-- [x] 使用真实地图瓦片边缘替代手绘边界，保证边缘与地图一致。
-- [x] 隐藏地图地名文字，只保留边界结构。
-- [x] 回退点阵放大、缩小、发光和快速抖动，只保留固定点阵。
-- [x] 将边界改为中心最强、周边递减的透明度显示。
-- [x] 加强纹理堆叠：环境变化和主观词选择更明显地影响视觉。
-- [x] 加入 World Map / My Radius 的拖拽平移和缩放。
-- [x] 暂停 pseudo-3D 高低起伏表面，回到水平点阵以方便下一步修改。
-- [x] 将 My Radius 默认入口改为地图，详情信息放入下拉抽屉。
-- [x] 重做 Sense 按钮呼吸效果为白色同心圆。
-- [x] 增加日语采样引导文字。
-- [x] 将 My Radius 和 World Map 拆成两个功能。
-- [x] 旧版武藏野美术大学 1km 预设数据已从主文件移除。
-- [x] 将纹理从淡膜改为整层网格分布的点状世界表面。
-- [x] 加入淡地图边界，地图文字默认不显示。
-- [x] 移除旧版独立记录点和记录标签。
-- [x] 将记录渲染改为网格节点状态变化。
-- [x] 将 10 秒采样改为呼吸式视觉引导。
-- [x] 将采样后选择界面改为算法推荐词语浮现与 skip 流程。
-- [x] 将原型默认测试区域调整为国分寺周边约 8km。
-- [x] 将主观标签从「沉 / 躁 / 空 / 绷」调整为当前日语感知词体系：浮く、重い、乾く、ざらつく、眠い、遠い、詰まる、ほどける。
-- [x] 为采样记录增加本地持久化，刷新后仍能恢复地图痕迹和个人档案。
-- [x] 实现“我的半径”的第一版：显示已记录区域与空白区域。
-- [x] 至少实现一种探索提示：优先从空洞、边界带、时间剖面中选择一个。
+### 2026-05-13 — v2 感知轴系统全部实装
 
-## 功能开发
-
-- [x] 记录移动状态：停留、缓慢移动、快速穿过。
-- [x] 根据移动状态生成不同痕迹：沉积纹理、方向性拉伸、穿行痕迹。
-- [x] 记录同一地点不同时间段的数据，支持时间剖面第一版统计。
-- [x] 识别空洞：周围已有记录但内部空白的区域。
-- [ ] 识别孤岛：大片空白中的孤立记录点。
-- [x] 识别边界带：相邻区域感知状态差异较大时显示探索提示。
-- [ ] 增加记录详情查看，但避免做成评论或打卡详情页。
-- [x] 增加删除或清空本地记录的能力。
-
-## 视觉系统
-
-- [ ] 将当前 Canvas pseudo-3D 网格场升级为 WebGL / Three.js 真实 mesh。（远期目标，不属于当前感知轴重构阶段）
-- [x] 建立主观词对局部对比、透明度和色温的视觉偏置。
-- [x] 建立相邻环境变化对网格脊线和高低差的视觉放大。
-- [x] 建立网格节点亮度、固定点阵透明度与声音强度的稳定映射。
-- [x] 建立波纹扩散与记录时间/强度的映射。
-- [x] 设计裂缝或边界带的视觉规则。
-- [x] 设计空洞的视觉表现，避免被误解为单纯未加载。
-- [x] 检查界面是否仍保持“慢、少、现场性、痕迹感”的原则。
-
-## 技术整理
-
-- [ ] 将 `test0.2.html` 从单文件原型拆分为 HTML、CSS、JS。（建议在感知轴 v2 重构稳定后再做，避免中途增加合并复杂度）
-- [ ] 将采样算法、地图渲染、记录存储、档案统计分成清晰模块。
-- [ ] 为权限失败状态补充 UI：麦克风失败、定位失败、浏览器不支持。
-- [ ] 检查手机浏览器下长按、触摸取消、页面滚动和权限弹窗行为。
-- [ ] 明确本地数据结构版本，方便后续迁移。
-- [x] 决定第一版真实地图引擎：迁移到 MapLibre GL，后续可评估矢量瓦片或 WebGL custom layer。
-
-## 设计约束检查
-
-- [ ] 确保没有评分、推荐指数、排行榜、热门区域。
-- [ ] 确保没有徽章、积分、等级、连续打卡。
-- [ ] 确保没有主动生成社交分享模板。
-- [ ] 确保多人数据未来不会被实现为热度榜或贡献榜。
-- [ ] 确保记录只能现场完成，不能远程写入或事后补记。
-
-## 待确认
-
-- [x] 原型测试区域是否确定为国分寺周边。
-- [ ] 是否需要接入天气作为时间剖面的一部分。
-- [ ] “我的半径”是以 GPS 轨迹推断，还是仅由记录点推断。
-- [x] 多人数据是否进入当前原型范围，还是留作后续方向。
-- [ ] 全球视图是否只作为概念展示，不进入当前开发。
-
-## 已完成
-
-- [x] 新建 `test0.2.html`，不沿用 `test0.1.html` 的结构。
-- [x] 读取并确认 `guide book` 已包含正式 v0.2 项目说明。
-- [x] 根据 `guide book` 重写 `MAP_SPEC`。
-- [x] 根据 `guide book` 重写 `TODO`。
-- [x] 更新 `MAP_LOG`，记录从代码原型假设切换到 guide book 依据。
-- [x] 梳理当前 `test0.1.html` 已有功能和与 guide book 的主要差距。
+- [x] v2-TODO 0–11：spaciousness / gravity / tension / flow / soundVector / finalColor 全部实现并验收
+- [x] 背景地图高缩放消失修复（CSS 像素压黑根因）
+- [x] 新增第五缩放层级 detail（zoom ≥ 16）
+- [x] zoomend 平滑场过渡（startFieldTransition 420ms）
+- [x] 点阵亮度与颜色增强（alphaMul、activeAlphaMul、combo color curve）
+- [x] height 线加粗，线终点缩进至圆边缘（无透明度叠加）
+- [x] street / detail 层 heightLineScale（2.2× / 3.8×）
+- [x] 密集圆点半径上限扩大（maxRadiusPx 6→9，spBias dense 1.8→2.8）

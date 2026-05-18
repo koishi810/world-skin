@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>World Skin Prototype 0.3</title>
+  <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <main id="app">
+    <div class="system-status" aria-hidden="true">
+      <span class="status-time">9:41</span>
+      <span class="dynamic-island"></span>
+      <span class="status-icons">◢　⌁　▮</span>
+    </div>
+    <div id="realMap" aria-hidden="true"></div>
+    <div id="mapDarkOverlay" aria-hidden="true"></div>
+    <canvas id="skinCanvas" aria-label="World Skinの地図表面"></canvas>
+    <div class="shade"></div>
+
+    <header class="topbar">
+      <div class="identity">
+        <div class="kicker">WORLD SKIN / 0.3</div>
+        <div class="title" id="placeTitle">国分寺の皮膚</div>
+      </div>
+      <div class="telemetry">
+        <div id="recordCount">世界 0 / 自分 0</div>
+        <div id="locState">位置を確認中</div>
+        <div id="audioState">音は待機中</div>
+      </div>
+    </header>
+
+    <button class="avatar-btn" id="avatarBtn" type="button" aria-label="個人メニューを開く">
+      <span></span>
+    </button>
+
+    <section class="view active" id="view-world" data-view="world"></section>
+
+    <section class="view" id="view-sense" data-view="sense">
+      <div class="sense-wrap">
+        <div class="sense-fog" aria-hidden="true">
+          <span class="fog-base"></span>
+          <span class="fog-contact"></span>
+          <span class="fog-diffusion"></span>
+          <span class="fog-condense"></span>
+          <span class="fog-grain"></span>
+        </div>
+        <button class="press-target" id="pressTarget" type="button" aria-label="長押しして記録">
+          <span class="breath-ring r7"></span>
+          <span class="breath-ring r6"></span>
+          <span class="breath-ring r5"></span>
+          <span class="breath-ring r4"></span>
+          <span class="breath-ring r3"></span>
+          <span class="breath-ring r2"></span>
+          <span class="breath-ring r1"></span>
+          <span class="sense-core">
+            <span class="sense-percent" id="sensePercent">0</span>
+          </span>
+        </button>
+        <div class="sense-state" id="senseState">静かにして、まわりの世界を感じる</div>
+      </div>
+    </section>
+
+    <section class="view" id="view-radius" data-view="radius">
+      <div class="radius-panel" id="radiusPanel">
+        <div class="metric-row">
+          <div class="metric">
+            <div class="metric-value" id="metricRecords">0</div>
+            <div class="metric-label">記録数</div>
+          </div>
+          <div class="metric">
+            <div class="metric-value" id="metricVoid">--</div>
+            <div class="metric-label">空洞</div>
+          </div>
+          <div class="metric">
+            <div class="metric-value" id="metricNoise">0.00</div>
+            <div class="metric-label">平均の層</div>
+          </div>
+        </div>
+
+        <div>
+          <div class="section-title">時間の層</div>
+          <div class="time-slice" id="timeSlice"></div>
+        </div>
+
+        <div>
+          <div class="section-title">感覚の分布</div>
+          <div class="tag-grid" id="tagGrid"></div>
+        </div>
+      </div>
+      <button class="radius-toggle" id="radiusToggle" type="button">詳細 ↓</button>
+    </section>
+
+    <section class="view page-view" id="view-records" data-view="records">
+      <button class="page-back" type="button" data-back="radius">‹ 個人</button>
+      <div class="page-content records-page">
+        <header class="page-header">
+          <h1>記録</h1>
+          <p>国分寺・個人の記録</p>
+        </header>
+        <section class="record-summary">
+          <div><strong id="recordsTotal">0</strong><span>記録数</span></div>
+          <div><strong id="recordsVoid">--</strong><span>空洞</span></div>
+          <div><strong id="recordsNoise">0.00</strong><span>平均の層</span></div>
+        </section>
+        <section class="record-section">
+          <h2>時間</h2>
+          <div class="record-time" id="recordTime"></div>
+        </section>
+        <section class="record-section">
+          <h2>感覚の分布</h2>
+          <div class="record-words" id="recordWords"></div>
+        </section>
+      </div>
+    </section>
+
+    <section class="view page-view" id="view-settings" data-view="settings">
+      <button class="page-back" type="button" data-back="radius">‹ 設定</button>
+      <div class="page-content settings-page">
+        <header class="settings-hero">
+          <div class="settings-avatar"></div>
+          <div>
+            <h1>獺</h1>
+            <p>この端末の設定</p>
+          </div>
+        </header>
+        <section class="settings-group">
+          <h2>表示</h2>
+          <div class="settings-row"><strong>地図の明るさ</strong><span>周囲の光に合わせて調整</span></div>
+          <div class="settings-row"><strong>ラベルの表示</strong><span>必要な情報だけを残す</span></div>
+          <div class="settings-row"><strong>動きの強さ</strong><span>静かめ</span></div>
+        </section>
+        <section class="settings-group">
+          <h2>記録</h2>
+          <div class="settings-row"><strong>公開範囲</strong><span>非公開</span></div>
+          <div class="settings-row"><strong>データ管理</strong><span>書き出し・削除</span></div>
+        </section>
+        <section class="settings-group">
+          <h2>通知</h2>
+          <div class="settings-row"><strong>記録の通知</strong><span>必要なときだけ知らせる</span></div>
+          <div class="settings-row"><strong>位置情報</strong><span>記録時のみ使用</span></div>
+        </section>
+      </div>
+    </section>
+
+    <div class="utility">
+      <button class="icon-btn" id="centerBtn" type="button" title="現在地へ戻る" aria-label="現在地へ戻る">⌖</button>
+      <button class="icon-btn" id="clearBtn" type="button" title="自分の記録を消す" aria-label="自分の記録を消す">×</button>
+    </div>
+
+    <div class="time-axis" id="timeAxis">
+      <div class="time-axis-top">
+        <span>時間の皮膚</span>
+        <span id="timeAxisLabel">現在</span>
+      </div>
+      <input id="timeSlider" type="range" min="-12" max="0" step="1" value="0" aria-label="時間の移動">
+      <div class="time-ticks"><span>-12h</span><span>現在</span></div>
+    </div>
+
+    <nav class="footer-nav" aria-label="表示の切り替え">
+      <button class="nav-btn active" type="button" data-target="world" aria-label="地図">
+        <span class="nav-mark skin"></span>
+      </button>
+      <button class="nav-btn nav-record" type="button" data-target="sense" aria-label="記録">
+        <span class="nav-mark sense"></span>
+      </button>
+      <button class="nav-btn" type="button" data-target="radius" aria-label="個人">
+        <span class="nav-mark radius"></span>
+      </button>
+    </nav>
+
+    <aside class="profile-sheet" id="profileSheet" aria-hidden="true">
+      <button class="sheet-close" id="profileClose" type="button" aria-label="閉じる">×</button>
+      <div class="profile-hero">
+        <div class="profile-avatar"></div>
+        <div>
+          <h2>獺</h2>
+          <p>この端末の半径</p>
+        </div>
+      </div>
+      <div class="profile-grid">
+        <button type="button" id="openRecordsBtn">記録を見る</button>
+        <button type="button" id="openSettingsBtn">設定</button>
+      </div>
+    </aside>
+
+    <div class="modal" id="recordModal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+      <div class="record-panel">
+        <div class="panel-title" id="modalTitle">記録の準備</div>
+        <div class="readout">
+          <div class="readout-row">
+            <span>動き</span>
+            <span id="modalMove">静止</span>
+            <span id="modalTime">--</span>
+          </div>
+        </div>
+        <div class="label-select" id="labelSelect"></div>
+        <div class="panel-actions">
+          <button class="action-btn dim" id="discardBtn" type="button">破棄</button>
+          <button class="action-btn" id="saveBtn" type="button">記録する</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+    <div class="debug-panel" id="debugPanel"></div>
+  </main>
+
+  <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+  <script src="data/world_data.js"></script>
+  <script src="data/my_data.js"></script>
+  <script src="data/testdata.js"></script>
+  <script src="data/testdata2.js"></script>
+    <script src="app.js"></script>
+
+</body>
+</html>

@@ -1,5 +1,35 @@
 # MAP_LOG
 
+## TODO Roadmap Update / 2026-05-14
+
+### Problems
+
+* 下一阶段任务方向分散，需要整理优先级
+* 旧 TODO 以 v2-TODO 编号线性排列，完成项过多，难以快速定位当前任务
+* 需要将 depth 视觉、词库扩充、呼吸系统、个人/世界关联纳入计划
+
+### Changes
+
+* 重写 TODO，改为 Current Focus / High / Medium / Low / Deferred / Done 分层结构
+* 新增 TODO A：depth-based 远近视觉变化
+* 新增 TODO B：词语提示系统重构
+* 新增 TODO C：Sense 呼吸系统重做
+* 新增 TODO D：感知词库扩充（48–64 词）
+* 新增 TODO E：My Radius / World Map 关联性
+* 保留 v2-TODO 12（my_data.js 更新）为 TODO F
+* 已完成的 v2-TODO 0–11 和 bug 修复移入 Done 区
+
+### Files Modified
+
+* `TODO`
+* `MAP_LOG`
+
+### Known Limitations
+
+* 本轮只更新计划，不实现功能
+
+---
+
 ## Bug Audit and Critical Fixes / 2026-05-14
 
 ### Problems
