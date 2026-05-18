@@ -106,20 +106,19 @@
       display: none;
     }
 
-    /* ── Launch Screen ─────────────────────────────── */
+    /* ── Launch Screen (Figma: Intro / 01 进入, 343:83) ── */
     #launchScreen {
       position: absolute;
       inset: 0;
       z-index: 100;
-      display: flex;
-      align-items: center;
-      justify-content: center;
+      overflow: hidden;
       background: rgba(0, 0, 0, 0.9);
       backdrop-filter: blur(20px);
       -webkit-backdrop-filter: blur(20px);
       transition: background 600ms ease, opacity 500ms ease;
     }
 
+    /* map-ready → lighten to Figma state (343:86: rgba 0,0,0,0.5) */
     #app.map-ready #launchScreen {
       background: rgba(0, 0, 0, 0.5);
     }
@@ -133,38 +132,34 @@
       display: none;
     }
 
-    .launch-logo {
+    /* Logo: x=154, y=332, w=84, h=136 in 393×852 frame */
+    .launch-logo-img {
+      position: absolute;
+      left: calc(154 / 393 * 100%);
+      top: calc(332 / 852 * 100%);
+      width: calc(84 / 393 * 100%);
+      height: calc(136 / 852 * 100%);
+      object-fit: contain;
+    }
+
+    /* Title: "Feeling Map", x=97, y=480, w=198, h=50, centered at x=196 */
+    .launch-title {
+      position: absolute;
+      left: calc(97 / 393 * 100%);
+      top: calc(480 / 852 * 100%);
+      width: calc(198 / 393 * 100%);
+      height: calc(50 / 852 * 100%);
       display: flex;
-      flex-direction: column;
       align-items: center;
-      gap: 16px;
-      opacity: 0;
-      transform: translateY(4px);
-      transition: opacity 400ms ease 200ms, transform 400ms ease 200ms;
+      justify-content: center;
+      font-size: clamp(24px, calc(36 / 852 * 100vh), 36px);
+      font-weight: 100;
+      color: #d9d9d9;
+      white-space: nowrap;
+      font-family: 'PingFang SC', 'Helvetica Neue', sans-serif;
+      letter-spacing: 0.02em;
     }
-
-    #app.map-ready .launch-logo {
-      opacity: 1;
-      transform: translateY(0);
-    }
-
-    .launch-logo-mark {
-      width: 40px;
-      height: 40px;
-      border-radius: 50%;
-      background: radial-gradient(circle at 38% 36%, rgba(255,255,255,0.18) 0%, rgba(255,255,255,0.04) 60%, transparent 100%);
-      border: 1px solid rgba(255, 255, 255, 0.18);
-      box-shadow: 0 0 28px rgba(255,255,255,0.06);
-    }
-
-    .launch-logo-text {
-      font-size: 11px;
-      letter-spacing: 0.22em;
-      color: rgba(255, 255, 255, 0.45);
-      font-weight: 300;
-      text-transform: uppercase;
-    }
-    /* ────────────────────────────────────────────────── */
+    /* ─────────────────────────────────────────────────── */
 
     #mapDarkOverlay {
       position: absolute;
