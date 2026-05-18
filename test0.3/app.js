@@ -909,6 +909,13 @@
           applyMapVisualMode();
           applyMapLevel();
           invalidateField(true);
+          const launch = document.getElementById("launchScreen");
+          if (launch) {
+            setTimeout(() => {
+              launch.classList.add("fade-out");
+              launch.addEventListener("transitionend", () => launch.classList.add("hidden"), { once: true });
+            }, 800);
+          }
         });
         const handleMapFrameChange = () => {
           applyMapLevel();
