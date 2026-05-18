@@ -2448,8 +2448,10 @@
           profileSheet.classList.remove("open");
           profileSheet.setAttribute("aria-hidden", "true");
         });
-        openRecordsBtn.addEventListener("click", () => switchView("records"));
-        openSettingsBtn.addEventListener("click", () => switchView("settings"));
+        openRecordsBtn.addEventListener("click", () => { profileSheet.classList.remove("open"); profileSheet.setAttribute("aria-hidden","true"); switchView("records"); });
+        openSettingsBtn.addEventListener("click", () => { profileSheet.classList.remove("open"); profileSheet.setAttribute("aria-hidden","true"); switchView("settings"); });
+        const personalRecordsBtn = document.getElementById("personalRecordsBtn");
+        if (personalRecordsBtn) personalRecordsBtn.addEventListener("click", () => switchView("records"));
         document.querySelectorAll("[data-back]").forEach(btn => btn.addEventListener("click", () => switchView(btn.dataset.back)));
         timeSlider.addEventListener("input", () => {
           const offset = Number(timeSlider.value);
@@ -2520,6 +2522,18 @@
         });
       }
 
+      function startLaunchAnimation() {
+        const logoWrap = document.getElementById("launchLogoWrap");
+        const titleEl = document.getElementById("launchTitle");
+        // Intro/01: logo fades in at small/arch size
+        setTimeout(() => { if (logoWrap) logoWrap.classList.add("visible"); }, 120);
+        // Intro/02: logo grows to full size, title appears
+        setTimeout(() => {
+          if (logoWrap) logoWrap.classList.add("expanded");
+          if (titleEl) titleEl.classList.add("visible");
+        }, 720);
+      }
+
       function boot() {
         initRealMap();
         resizeCanvas();
@@ -2527,6 +2541,7 @@
         initLocation();
         updateStats();
         invalidateField(true);
+        startLaunchAnimation();
       }
 
       boot();

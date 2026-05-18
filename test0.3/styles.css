@@ -93,6 +93,11 @@
       opacity: 1;
     }
 
+    #app.map-ready[data-view="sense"] #realMap {
+      opacity: 1;
+      filter: brightness(0.36) contrast(1.62) saturate(0.16);
+    }
+
     .maplibregl-map {
       background: #090c11;
       font: inherit;
@@ -106,7 +111,7 @@
       display: none;
     }
 
-    /* ── Launch Screen (Figma: Intro / 01 进入, 343:83) ── */
+    /* ── Launch Screen (Figma: Intro/01 603:977 → Intro/02 343:83) ── */
     #launchScreen {
       position: absolute;
       inset: 0;
@@ -118,7 +123,7 @@
       transition: background 600ms ease, opacity 500ms ease;
     }
 
-    /* map-ready → lighten to Figma state (343:86: rgba 0,0,0,0.5) */
+    /* map-ready → lighten overlay (Intro/02 map-visible state) */
     #app.map-ready #launchScreen {
       background: rgba(0, 0, 0, 0.5);
     }
@@ -132,17 +137,38 @@
       display: none;
     }
 
-    /* Logo: x=154, y=332, w=84, h=136 in 393×852 frame */
-    .launch-logo-img {
+    /* Intro/01: clip wrapper starts at h=94 (arch only), positioned at y=374 */
+    .launch-logo-wrap {
       position: absolute;
       left: calc(154 / 393 * 100%);
-      top: calc(332 / 852 * 100%);
+      top: calc(374 / 852 * 100%);
       width: calc(84 / 393 * 100%);
-      height: calc(136 / 852 * 100%);
-      object-fit: contain;
+      height: calc(94 / 852 * 100%);
+      overflow: hidden;
+      opacity: 0;
+      transition:
+        top 900ms cubic-bezier(0.4, 0, 0.2, 1),
+        height 900ms cubic-bezier(0.4, 0, 0.2, 1),
+        opacity 480ms ease;
     }
 
-    /* Title: "Feeling Map", x=97, y=480, w=198, h=50, centered at x=196 */
+    /* Logo fades in at Intro/01 size */
+    .launch-logo-wrap.visible { opacity: 1; }
+
+    /* Expands to Intro/02: full logo at y=332, h=136 */
+    .launch-logo-wrap.expanded {
+      top: calc(332 / 852 * 100%);
+      height: calc(136 / 852 * 100%);
+    }
+
+    /* SVG fills full logo width, height auto so aspect ratio preserved → clips from bottom */
+    .launch-logo-img {
+      display: block;
+      width: 100%;
+      height: auto;
+    }
+
+    /* Title: Figma x=97, y=480, w=198, h=50 */
     .launch-title {
       position: absolute;
       left: calc(97 / 393 * 100%);
@@ -152,14 +178,18 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: clamp(24px, calc(36 / 852 * 100vh), 36px);
+      font-size: clamp(22px, calc(34 / 852 * 100vh), 34px);
       font-weight: 100;
       color: #d9d9d9;
       white-space: nowrap;
       font-family: 'PingFang SC', 'Helvetica Neue', sans-serif;
-      letter-spacing: 0.02em;
+      letter-spacing: 0.08em;
+      opacity: 0;
+      transition: opacity 700ms ease;
     }
-    /* ─────────────────────────────────────────────────── */
+
+    .launch-title.visible { opacity: 1; }
+    /* ────────────────────────────────────────────────── */
 
     #mapDarkOverlay {
       position: absolute;
@@ -1128,84 +1158,192 @@ body { align-items:center; }
 .utility { opacity:0; pointer-events:none; }
 #app[data-view="world"] .utility { opacity:1; pointer-events:auto; }
 
+/* ── Personal view: temporary records button ── */
+.personal-records-btn {
+  position:absolute;
+  left:50%;
+  transform:translateX(-50%);
+  bottom:calc(80px + var(--safe-bottom));
+  z-index:5;
+  border:0;
+  background:rgba(220,226,230,.10);
+  color:rgba(220,226,230,.78);
+  font-size:11px;
+  letter-spacing:.20em;
+  text-transform:uppercase;
+  padding:10px 22px;
+  cursor:pointer;
+  opacity:0;
+  pointer-events:none;
+  transition:opacity 500ms ease;
+  backdrop-filter:blur(8px);
+  -webkit-backdrop-filter:blur(8px);
+}
+#view-radius.active .personal-records-btn {
+  opacity:1;
+  pointer-events:auto;
+}
+
+/* ── Profile sheet: Feature/05 icon actions ── */
+.profile-info {
+  margin-top:20px;
+  padding-top:16px;
+  border-top:1px solid var(--ui-line);
+}
+.profile-trend-label {
+  margin:0;
+  color:rgba(236,241,243,.44);
+  font-size:11px;
+  letter-spacing:.08em;
+}
+.profile-trend-value {
+  margin:6px 0 0;
+  font-size:15px;
+  color:rgba(236,241,243,.84);
+  letter-spacing:.04em;
+}
+.profile-actions {
+  display:flex;
+  gap:0;
+  margin-top:24px;
+  padding-top:16px;
+  border-top:1px solid var(--ui-line);
+  justify-content:space-between;
+  padding:16px 60px 0;
+}
+.profile-icon-btn {
+  border:0;
+  background:transparent;
+  color:rgba(236,241,243,.72);
+  font-size:20px;
+  cursor:pointer;
+  padding:8px 12px;
+  transition:color 200ms ease;
+}
+.profile-icon-btn:hover { color:rgba(236,241,243,.96); }
+
 /* --- test0.3 Sense flow: pre-touch reveal -> sampling -> word choice -> completion --- */
 #view-sense {
   overflow:hidden;
-  background:
-    radial-gradient(circle at 52% 48%, rgba(112,126,137,.08), transparent 46%),
-    linear-gradient(to bottom, rgba(7,9,12,.14), rgba(7,9,12,.3));
+  /* Semi-transparent overlay matching Figma rgba(0,0,0,0.6) + blur(3.5px) */
+  background: rgba(6, 8, 11, 0.56);
+  backdrop-filter: blur(3.5px);
+  -webkit-backdrop-filter: blur(3.5px);
 }
 .sense-wrap { isolation:isolate; }
 .sense-fog { position:absolute; inset:0; pointer-events:none; }
-.sense-fog span { position:absolute; display:block; border-radius:50%; transition:opacity 1200ms ease, transform 1500ms cubic-bezier(.45,0,.2,1), filter 1500ms ease; }
+.sense-fog span {
+  position:absolute; display:block; border-radius:50%;
+  transition:opacity 1400ms ease, transform 1800ms cubic-bezier(.38,0,.18,1), filter 1800ms ease;
+}
+
+/* Large ambient base glow — always present */
 .fog-base {
-  inset:-12%; opacity:.34;
-  background:radial-gradient(circle at 48% 46%, rgba(166,177,187,.16), rgba(105,115,124,.08) 28%, transparent 62%);
-  filter:blur(62px);
+  inset:-18%; opacity:.28;
+  background:radial-gradient(circle at 48% 44%, rgba(172,184,196,.18), rgba(96,108,118,.09) 32%, transparent 66%);
+  filter:blur(72px);
 }
+
+/* Contact glow — center core area (Figma Sense/02: ~208px centered) */
 .fog-contact {
-  left:98px; top:306px; width:196px; height:216px; opacity:0;
-  background:radial-gradient(ellipse at 48% 52%, rgba(191,201,209,.24), rgba(115,126,137,.12) 42%, transparent 74%);
-  filter:blur(34px); transform:scale(.72) translate(8px, 10px);
+  left:93px; top:310px; width:208px; height:208px; opacity:0;
+  background:radial-gradient(ellipse at 50% 50%, rgba(198,208,218,.28), rgba(120,132,144,.14) 44%, transparent 76%);
+  filter:blur(36px); transform:scale(.66) translate(4px, 6px);
 }
+
+/* Diffusion cloud — spreads around center */
 .fog-diffusion {
-  left:46px; top:244px; width:314px; height:340px; opacity:0;
-  background:radial-gradient(ellipse at 54% 48%, rgba(184,194,203,.19), rgba(128,138,149,.11) 34%, transparent 72%);
-  filter:blur(52px); transform:scale(.68) rotate(-8deg);
+  left:38px; top:238px; width:320px; height:348px; opacity:0;
+  background:radial-gradient(ellipse at 52% 46%, rgba(180,192,204,.20), rgba(122,134,146,.10) 38%, transparent 74%);
+  filter:blur(56px); transform:scale(.62) rotate(-10deg);
 }
+
+/* Condensed core highlight */
 .fog-condense {
-  left:116px; top:335px; width:160px; height:178px; opacity:0;
-  background:radial-gradient(ellipse at 48% 50%, rgba(202,210,216,.2), rgba(139,149,158,.13) 42%, transparent 76%);
-  filter:blur(20px); transform:scale(.72);
+  left:120px; top:332px; width:156px; height:168px; opacity:0;
+  background:radial-gradient(ellipse at 50% 50%, rgba(210,218,226,.22), rgba(144,154,164,.12) 44%, transparent 78%);
+  filter:blur(22px); transform:scale(.68);
 }
+
+/* Grain texture */
 .fog-grain {
-  left:78px; top:278px; width:238px; height:290px; opacity:0;
+  left:62px; top:264px; width:272px; height:308px; opacity:0;
   background:
-    radial-gradient(circle at 28% 36%, rgba(217,225,232,.24) 0 1px, transparent 2px),
-    radial-gradient(circle at 68% 48%, rgba(217,225,232,.18) 0 1px, transparent 2px),
-    radial-gradient(circle at 43% 70%, rgba(217,225,232,.16) 0 1.5px, transparent 2.5px),
-    radial-gradient(circle at 75% 74%, rgba(217,225,232,.12) 0 1px, transparent 2px);
-  filter:blur(7px); transform:scale(.84);
+    radial-gradient(circle at 28% 36%, rgba(218,226,234,.26) 0 1.5px, transparent 2.5px),
+    radial-gradient(circle at 68% 48%, rgba(218,226,234,.20) 0 1.5px, transparent 2.5px),
+    radial-gradient(circle at 43% 70%, rgba(218,226,234,.17) 0 2px, transparent 3px),
+    radial-gradient(circle at 75% 74%, rgba(218,226,234,.13) 0 1px, transparent 2px);
+  filter:blur(8px); transform:scale(.82);
 }
-#app[data-sense-stage="contact"] .fog-contact { opacity:.42; transform:scale(.86) translate(2px, 4px); }
+
+/* ── Stage states ── */
+#app[data-sense-stage="contact"] .fog-contact { opacity:.38; transform:scale(.82) translate(2px, 3px); }
+
 #app[data-sense-stage="diffusion"] .fog-contact,
-#app[data-sense-stage="ready"] .fog-contact { opacity:.54; transform:scale(1); }
-#app[data-sense-stage="diffusion"] .fog-diffusion { opacity:.48; transform:scale(.92) rotate(-4deg); }
-#app[data-sense-stage="ready"] .fog-diffusion { opacity:.56; transform:scale(1) rotate(0); }
-#app[data-sense-stage="ready"] .fog-condense { opacity:.64; transform:scale(1); }
+#app[data-sense-stage="ready"] .fog-contact { opacity:.50; transform:scale(1); }
+#app[data-sense-stage="diffusion"] .fog-diffusion { opacity:.44; transform:scale(.90) rotate(-5deg); }
+#app[data-sense-stage="ready"] .fog-diffusion { opacity:.52; transform:scale(1) rotate(0); }
+#app[data-sense-stage="ready"] .fog-condense { opacity:.58; transform:scale(1); }
 #app[data-sense-stage="diffusion"] .fog-grain,
-#app[data-sense-stage="ready"] .fog-grain { opacity:.42; transform:scale(1); }
-#app[data-sense-stage="recording"] .fog-contact { opacity:.46; transform:scale(1.08); }
-#app[data-sense-stage="recording"] .fog-diffusion { opacity:.42; transform:scale(1.05); }
-#app[data-sense-stage="recording"] .fog-condense { opacity:.5; transform:scale(1.12); }
-#app[data-sense-stage="recording"] .fog-grain { opacity:.34; }
+#app[data-sense-stage="ready"] .fog-grain { opacity:.38; transform:scale(1); }
+
+/* Recording: Figma Sense/05 — fog expands to fill screen (Effect/呼气雾 570×570px) */
+#app[data-sense-stage="recording"] .fog-contact {
+  opacity:.62; transform:scale(2.6) translate(-2px, -8px);
+  filter:blur(44px);
+}
+#app[data-sense-stage="recording"] .fog-diffusion {
+  opacity:.54; transform:scale(1.88) rotate(-3deg);
+  filter:blur(64px);
+}
+#app[data-sense-stage="recording"] .fog-condense {
+  opacity:.68; transform:scale(3.4);
+  filter:blur(28px);
+}
+#app[data-sense-stage="recording"] .fog-grain { opacity:.28; transform:scale(1.2); }
+#app[data-sense-stage="recording"] .fog-base { opacity:.44; }
+
+/* Release / Selecting: fog disperses gently */
 #app[data-sense-stage="release"] .fog-contact,
 #app[data-sense-stage="selecting"] .fog-contact,
-#app[data-sense-stage="complete"] .fog-contact { opacity:.28; transform:scale(1.1); }
+#app[data-sense-stage="complete"] .fog-contact { opacity:.24; transform:scale(1.14); }
 #app[data-sense-stage="release"] .fog-diffusion,
 #app[data-sense-stage="selecting"] .fog-diffusion,
-#app[data-sense-stage="complete"] .fog-diffusion { opacity:.34; transform:scale(1.12); }
+#app[data-sense-stage="complete"] .fog-diffusion { opacity:.30; transform:scale(1.16); }
 #app[data-sense-stage="release"] .fog-condense,
-#app[data-sense-stage="selecting"] .fog-condense { opacity:.16; transform:scale(1.18); }
-#app[data-sense-stage="complete"] .fog-condense { opacity:.4; transform:scale(.76); }
+#app[data-sense-stage="selecting"] .fog-condense { opacity:.14; transform:scale(1.22); }
+#app[data-sense-stage="complete"] .fog-condense { opacity:.36; transform:scale(.74); }
+
+/* Press target — invisible until ready, then appears as soft glow (no sharp rings in Figma) */
 .press-target { opacity:0; transition:opacity 900ms ease; }
 #app[data-sense-stage="ready"] .press-target,
 #app[data-sense-stage="recording"] .press-target { opacity:1; }
+
+/* Ready state: rings are extremely faint — visual interest from fog only */
 #app[data-sense-stage="ready"] .breath-ring {
-  border-color:rgba(228,235,239,.15);
-  box-shadow:none;
+  border-color: rgba(228,236,240,.07);
+  box-shadow: none;
 }
-#app[data-sense-stage="ready"] .breath-ring.r1 { opacity:.34; }
-#app[data-sense-stage="ready"] .breath-ring.r2 { opacity:.18; }
-#app[data-sense-stage="ready"] .breath-ring.r3 { opacity:.1; }
+#app[data-sense-stage="ready"] .breath-ring.r1 { opacity:.18; }
+#app[data-sense-stage="ready"] .breath-ring.r2 { opacity:.09; }
+#app[data-sense-stage="ready"] .breath-ring.r3,
 #app[data-sense-stage="ready"] .breath-ring.r4,
 #app[data-sense-stage="ready"] .breath-ring.r5,
 #app[data-sense-stage="ready"] .breath-ring.r6,
 #app[data-sense-stage="ready"] .breath-ring.r7 { opacity:0; }
+
+/* Sense core — soft radial glow, no hard border */
 #app[data-sense-stage="ready"] .sense-core {
-  border-color:rgba(228,235,239,.12);
-  background:radial-gradient(circle, rgba(212,220,226,.1), rgba(190,199,206,.03) 56%, transparent 74%);
+  border-color: rgba(228,236,240,.08);
+  background: radial-gradient(circle, rgba(216,224,232,.14), rgba(188,198,208,.04) 52%, transparent 72%);
+  box-shadow: 0 0 48px rgba(200,212,224,.12), 0 0 12px rgba(200,212,224,.08);
 }
+#app[data-sense-stage="recording"] .sense-core {
+  border-color: rgba(230,240,244,.12);
+  background: radial-gradient(circle, rgba(224,234,242,.20), rgba(196,208,220,.06) 48%, transparent 70%);
+  box-shadow: 0 0 72px rgba(200,216,228,.22), 0 0 24px rgba(200,216,228,.14);
+}
+
 .sense-state { white-space:pre-line; }
 .label-select::before,
 .label-select::after {

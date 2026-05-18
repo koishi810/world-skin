@@ -10,8 +10,10 @@
 <body>
   <main id="app">
     <div id="launchScreen" aria-hidden="true">
-      <img class="launch-logo-img" src="assets/launch-logo.svg" alt="">
-      <p class="launch-title">Feeling Map</p>
+      <div class="launch-logo-wrap" id="launchLogoWrap">
+        <img class="launch-logo-img" src="assets/launch-logo.svg" alt="">
+      </div>
+      <p class="launch-title" id="launchTitle">Feeling Map</p>
     </div>
     <div class="system-status" aria-hidden="true">
       <span class="status-time">9:41</span>
@@ -94,6 +96,7 @@
         </div>
       </div>
       <button class="radius-toggle" id="radiusToggle" type="button">詳細 ↓</button>
+      <button class="personal-records-btn" id="personalRecordsBtn" type="button" aria-label="記録を見る">記録</button>
     </section>
 
     <section class="view page-view" id="view-records" data-view="records">
@@ -183,9 +186,13 @@
           <p>この端末の半径</p>
         </div>
       </div>
-      <div class="profile-grid">
-        <button type="button" id="openRecordsBtn">記録を見る</button>
-        <button type="button" id="openSettingsBtn">設定</button>
+      <div class="profile-info">
+        <p class="profile-trend-label">今の傾向</p>
+        <p class="profile-trend-value" id="profileTrend">—</p>
+      </div>
+      <div class="profile-actions">
+        <button class="profile-icon-btn" type="button" id="openSettingsBtn" aria-label="設定">⚙</button>
+        <button class="profile-icon-btn profile-records-link" type="button" id="openRecordsBtn" aria-label="記録を見る">◑</button>
       </div>
     </aside>
 
