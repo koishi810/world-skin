@@ -1,58 +1,68 @@
 # 组件与图标
 
+记录已验证的控件实装方式。
+
+---
+
 ## 返回按钮
 
-如果顶部左上角文字承担返回功能：
+- 实装为「图标 + 文字」在同一个 `<button>` 里
+- 整体都可点击，不只是图标区域
+- 位置：`left:18px; top:51px`（profile 视图），使用 Figma 实际值
+- 图标用 Material Icons `chevron_left`，18px
 
-- 应使用“返回图标 + 文本”的组合。
-- 这组内容应单独整理为：
-  - `Header / 返回按钮`
-- 不要把它混进普通页面标题组里。
+```html
+<button class="pv-back" id="profileBack" type="button">
+  <span class="material-icons">chevron_left</span>
+  <span class="pv-title">プロフィール</span>
+</button>
+```
 
-例：
+**注意**：不要把按钮放在绝对定位的包裹 div 里再对子元素做绝对定位——子元素的 top/left 会相对包裹 div 计算，不是相对 frame，位置会错。
 
-- `Settings / Back Icon`
-- `Settings / Eyebrow`
+---
 
-或：
+## 底部导航（nav-btn）
 
-- `Profile / Back Icon`
-- `Profile / Title`
+- 三个圆圈按钮，使用 SVG 图标
+- 默认 `opacity:0.28`（淡显，可见但不突出）
+- nav-open 时 `opacity:0.68`，active 时 `opacity:1`
+- 使用 `pointer-events:none` 默认，nav-open 时开启
+- 位置从 Figma 值换算（frame 高 852px 换算 bottom）
+
+## nav-overlay（底部遮罩）
+
+- world 和 radius 复用同一位置：`left:-102px; bottom:-95px; opacity:0.50`
+- **不给 radius 设单独位置**——两个视图分别设不同 bottom 值，nav-open 时 transition 只覆盖 transform，切换时会跳位
+- nav-open 时统一 `transform:translateY(-40px)`
+
+## 头像按钮（avatar-btn）
+
+- 默认：`background:rgba(217,217,217,.20)`（半透明圆圈）
+- nav-open 时：`background:rgba(217,217,217,.90)`（高亮）
+- transition 同时包含 background 和 opacity
+- nav-closed 时点击 → 开启 nav-open
+- nav-open 时点击 → 进入 profile 视图
+
+## utility 按钮
+
+- 默认隐藏（`opacity:0; pointer-events:none`）
+- world / radius 视图下显示
+- nav-open 时强制隐藏（`!important`）
+
+## 时间轴（time-axis）
+
+- `z-index:9`——必须高于 footer-nav（z-index:8），否则被 nav-overlay 拦截无法拖动
+- nav-open 时隐藏（`opacity:0; pointer-events:none`）
+
+## 大头像（profile 视图）
+
+- 234×234px，`border-radius:9999px; overflow:hidden`
+- 内部 `<img>` 填满：`width:100%; height:100%; object-fit:cover`
+- 素材从 `assets/figma/profile-avatar-large.png`
 
 ## 图标使用
 
-- 图标优先承担功能识别作用。
-- 如果文字本身已经很强，图标要克制，避免把页面带向过度 Material 化。
-- 底部动作如果语义足够明确，可以直接用 icon 替代短文字。
-
-## 主地图中的交互控件
-
-主地图页优先让位于地图皮肤本身：
-
-- 不默认使用边缘清晰、卡片化或按钮化的主交互控件。
-- 如果需要记录入口，可保留底部导航中的轻量 icon，但真正的主要交互应在地图状态中显影，而不是额外弹出一个标准按钮。
-- `Contact / 接触层` 中的长按区域不应被画成普通 CTA；它更接近可感知的接触场，而不是组件库里的按钮。
-
-## 底部操作
-
-如果多个底部动作属于同一组：
-
-- 应整理为：
-  - `Actions / 底部操作`
-
-内部可以包含：
-
-- 设置
-- 分享
-- 其它轻量动作
-
-## 组件层面的后续补充
-
-后续如果出现稳定复用的控件，可继续在这里记录：
-
-- 滚动条
-- 时间轴
-- 底部导航
-- 图标按钮
-- 头像卡片
-- 列表行
+- 优先 Material Icons（已引入 CDN）
+- 图标服务功能识别，不抢页面主导权
+- 地图主界面不用边缘清晰的卡片化按钮

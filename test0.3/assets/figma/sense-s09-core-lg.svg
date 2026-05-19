@@ -1,0 +1,30 @@
+<svg preserveAspectRatio="none" width="100%" height="100%" overflow="visible" style="display: block;" viewBox="0 0 252.196 252.196" fill="none" xmlns="http://www.w3.org/2000/svg">
+<g id="Core / &#233;&#149;&#191;&#230;&#140;&#137;&#229;&#140;&#186;&#229;&#159;&#159;3">
+<g id="Core / &#229;&#142;&#139;&#231;&#151;&#149;&#230;&#137;&#169;&#230;&#149;&#163;" opacity="0.05" filter="url(#filter0_f_0_4)">
+<circle cx="126.098" cy="126.098" r="86.0978" fill="var(--fill-0, #C7CCD1)"/>
+</g>
+<g id="Core / &#229;&#142;&#139;&#231;&#151;&#149;&#229;&#134;&#133;&#229;&#177;&#130;" opacity="0.15" filter="url(#filter1_f_0_4)">
+<circle cx="126.098" cy="126.097" r="60.6815" fill="var(--fill-0, #292B30)"/>
+</g>
+<g id="Core / &#230;&#140;&#137;&#229;&#142;&#139;&#228;&#184;&#173;&#229;&#191;&#131;" opacity="0" filter="url(#filter2_f_0_4)">
+<circle cx="126.098" cy="126.098" r="34.6298" fill="var(--fill-0, #212429)"/>
+</g>
+</g>
+<defs>
+<filter id="filter0_f_0_4" x="0" y="1.27156e-06" width="252.196" height="252.196" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+<feFlood flood-opacity="0" result="BackgroundImageFix"/>
+<feBlend mode="normal" in="SourceGraphic" in2="BackgroundImageFix" result="shape"/>
+<feGaussianBlur stdDeviation="20" result="effect1_foregroundBlur_0_4"/>
+</filter>
+<filter id="filter1_f_0_4" x="41.4163" y="41.4154" width="169.363" height="169.363" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+<feFlood flood-opacity="0" result="BackgroundImageFix"/>
+<feBlend mode="normal" in="SourceGraphic" in2="BackgroundImageFix" result="shape"/>
+<feGaussianBlur stdDeviation="12" result="effect1_foregroundBlur_0_4"/>
+</filter>
+<filter id="filter2_f_0_4" x="inf" y="inf" width="-inf" height="-inf" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+<feFlood flood-opacity="0" result="BackgroundImageFix"/>
+<feBlend mode="normal" in="SourceGraphic" in2="BackgroundImageFix" result="shape"/>
+<feGaussianBlur stdDeviation="9" result="effect1_foregroundBlur_0_4"/>
+</filter>
+</defs>
+</svg>

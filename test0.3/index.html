@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>World Skin Prototype 0.3</title>
   <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -37,65 +38,27 @@
       </div>
     </header>
 
-    <button class="avatar-btn" id="avatarBtn" type="button" aria-label="個人メニューを開く">
-      <span></span>
-    </button>
+    <button class="avatar-btn" id="avatarBtn" type="button" aria-label="個人メニューを開く"></button>
 
     <section class="view active" id="view-world" data-view="world"></section>
 
     <section class="view" id="view-sense" data-view="sense">
       <div class="sense-wrap">
-        <div class="sense-fog" aria-hidden="true">
-          <span class="fog-base"></span>
-          <span class="fog-contact"></span>
-          <span class="fog-diffusion"></span>
-          <span class="fog-condense"></span>
-          <span class="fog-grain"></span>
+        <div class="sense-figma-bg" aria-hidden="true"></div>
+        <div class="sense-figma-bottom-mask" aria-hidden="true"></div>
+        <div class="sense-figma-mask" aria-hidden="true"></div>
+        <div class="sense-figma-mapcore" aria-hidden="true"></div>
+        <div class="sense-figma-effect" aria-hidden="true"></div>
+        <div class="sense-figma-core" aria-hidden="true"></div>
+        <div class="sense-hint" aria-hidden="true">
+          <p class="sense-hint-main">押しつづける</p>
+          <p class="sense-hint-sub">10秒のあいだ</p>
         </div>
-        <button class="press-target" id="pressTarget" type="button" aria-label="長押しして記録">
-          <span class="breath-ring r7"></span>
-          <span class="breath-ring r6"></span>
-          <span class="breath-ring r5"></span>
-          <span class="breath-ring r4"></span>
-          <span class="breath-ring r3"></span>
-          <span class="breath-ring r2"></span>
-          <span class="breath-ring r1"></span>
-          <span class="sense-core">
-            <span class="sense-percent" id="sensePercent">0</span>
-          </span>
-        </button>
-        <div class="sense-state" id="senseState">静かにして、まわりの世界を感じる</div>
+        <button class="press-target" id="pressTarget" type="button" aria-label="長押しして記録"></button>
       </div>
     </section>
 
     <section class="view" id="view-radius" data-view="radius">
-      <div class="radius-panel" id="radiusPanel">
-        <div class="metric-row">
-          <div class="metric">
-            <div class="metric-value" id="metricRecords">0</div>
-            <div class="metric-label">記録数</div>
-          </div>
-          <div class="metric">
-            <div class="metric-value" id="metricVoid">--</div>
-            <div class="metric-label">空洞</div>
-          </div>
-          <div class="metric">
-            <div class="metric-value" id="metricNoise">0.00</div>
-            <div class="metric-label">平均の層</div>
-          </div>
-        </div>
-
-        <div>
-          <div class="section-title">時間の層</div>
-          <div class="time-slice" id="timeSlice"></div>
-        </div>
-
-        <div>
-          <div class="section-title">感覚の分布</div>
-          <div class="tag-grid" id="tagGrid"></div>
-        </div>
-      </div>
-      <button class="radius-toggle" id="radiusToggle" type="button">詳細 ↓</button>
       <button class="personal-records-btn" id="personalRecordsBtn" type="button" aria-label="記録を見る">記録</button>
     </section>
 
@@ -152,8 +115,12 @@
     </section>
 
     <div class="utility">
-      <button class="icon-btn" id="centerBtn" type="button" title="現在地へ戻る" aria-label="現在地へ戻る">⌖</button>
-      <button class="icon-btn" id="clearBtn" type="button" title="自分の記録を消す" aria-label="自分の記録を消す">×</button>
+      <button class="icon-btn" id="centerBtn" type="button" aria-label="現在地へ戻る">
+        <span class="material-icons">explore</span>
+      </button>
+      <button class="icon-btn" id="clearBtn" type="button" aria-label="自分の記録を消す">
+        <span class="material-icons">my_location</span>
+      </button>
     </div>
 
     <div class="time-axis" id="timeAxis">
@@ -166,39 +133,56 @@
     </div>
 
     <nav class="footer-nav" aria-label="表示の切り替え">
+      <div class="nav-overlay" aria-hidden="true"></div>
       <button class="nav-btn active" type="button" data-target="world" aria-label="地図">
-        <span class="nav-mark skin"></span>
+        <img class="nav-icon" src="assets/figma/home-btn-world.svg" alt="">
       </button>
       <button class="nav-btn nav-record" type="button" data-target="sense" aria-label="記録">
-        <span class="nav-mark sense"></span>
+        <img class="nav-icon" src="assets/figma/home-btn-record.svg" alt="">
       </button>
       <button class="nav-btn" type="button" data-target="radius" aria-label="個人">
-        <span class="nav-mark radius"></span>
+        <img class="nav-icon" src="assets/figma/home-btn-personal.svg" alt="">
       </button>
     </nav>
 
-    <aside class="profile-sheet" id="profileSheet" aria-hidden="true">
-      <button class="sheet-close" id="profileClose" type="button" aria-label="閉じる">×</button>
-      <div class="profile-hero">
-        <div class="profile-avatar"></div>
-        <div>
-          <h2>獺</h2>
-          <p>この端末の半径</p>
-        </div>
+    <section class="view" id="view-profile" data-view="profile">
+      <div class="pv-bg-oval" aria-hidden="true"></div>
+      <div class="pv-bg-bottom-glow" aria-hidden="true"></div>
+      <div class="pv-bg-right-gradient" aria-hidden="true"></div>
+
+      <button class="pv-back" id="profileBack" type="button" aria-label="戻る">
+        <span class="material-icons">chevron_left</span>
+        <span class="pv-title">プロフィール</span>
+      </button>
+
+      <div class="pv-avatar" id="pvAvatar">
+        <img src="assets/figma/profile-avatar-large.png" alt="" draggable="false">
       </div>
-      <div class="profile-info">
-        <p class="profile-trend-label">今の傾向</p>
-        <p class="profile-trend-value" id="profileTrend">—</p>
-      </div>
-      <div class="profile-actions">
-        <button class="profile-icon-btn" type="button" id="openSettingsBtn" aria-label="設定">⚙</button>
-        <button class="profile-icon-btn profile-records-link" type="button" id="openRecordsBtn" aria-label="記録を見る">◑</button>
-      </div>
-    </aside>
+
+      <div class="pv-name" id="pvName">獭</div>
+      <div class="pv-subtitle" id="pvSubtitle">国分寺 · <span id="pvCount">0</span>件</div>
+
+      <div class="pv-divider" style="top:428px"></div>
+      <div class="pv-section-label" style="top:448px">今の傾向</div>
+      <div class="pv-section-value" style="top:472px" id="pvTrend">—</div>
+      <div class="pv-section-note" style="top:500px" id="pvTrendTime">—</div>
+
+      <div class="pv-divider" style="top:542px"></div>
+      <div class="pv-section-label" style="top:562px">最近の記録</div>
+      <div class="pv-recent" style="top:586px" id="pvRecent">—</div>
+
+      <div class="pv-divider" style="top:630px"></div>
+      <button class="pv-action-btn" id="profileOpenSettings" style="left:104px;top:654px" type="button" aria-label="設定">
+        <span class="material-icons">settings</span>
+      </button>
+      <button class="pv-action-btn" style="left:269px;top:654px" type="button" aria-label="共有">
+        <span class="material-icons">share</span>
+      </button>
+    </section>
 
     <div class="modal" id="recordModal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
       <div class="record-panel">
-        <div class="panel-title" id="modalTitle">記録の準備</div>
+        <div class="panel-title" id="modalTitle" hidden>記録の準備</div>
         <div class="readout">
           <div class="readout-row">
             <span>動き</span>
@@ -207,7 +191,7 @@
           </div>
         </div>
         <div class="label-select" id="labelSelect"></div>
-        <div class="panel-actions">
+        <div class="panel-actions" hidden>
           <button class="action-btn dim" id="discardBtn" type="button">破棄</button>
           <button class="action-btn" id="saveBtn" type="button">記録する</button>
         </div>

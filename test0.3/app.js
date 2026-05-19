@@ -4,10 +4,11 @@
       const DURATION = 10000;
       const BREATH_VISUAL = {
         durationMs:  10000,
-        inhaleMs:    5000,
-        exhaleMs:    5000,
-        minScale:    0.60,
-        maxScale:    1.48,
+        growMs:       4000,
+        floatMs:      2000,
+        shrinkMs:     4000,
+        minScale:     0.28,
+        maxScale:     1.00,
         ringCount:   7,
         baseRadius:  68,
         radiusStep:  14,
@@ -239,9 +240,21 @@
         { word:"こもる",   sv:{spaciousness:-0.6,gravity: 0.3,tension: 0.4,flow:-0.4}, tex:{warmth: 0.4,roughness: 0.2,clarity:-0.5,dryness:-0.3} },
         { word:"抜ける",   sv:{spaciousness: 0.6,gravity:-0.3,tension:-0.3,flow: 0.6}, tex:{warmth:-0.1,roughness:-0.2,clarity: 0.5,dryness: 0.2} },
       ];
-      const ROUND_PROMPTS = [
-        "いまの感覚に近い言葉を選ぶ",
-        "もう少しだけ、近いものを選ぶ"
+      const SENSE_ROUNDS = 2;
+      const SENSE_PROTOTYPE_ROUNDS = [
+        {
+          prompt: "いまの感覚に近い言葉を選ぶ",
+          words: ["浮く", "詰まる", "流れる"]
+        },
+        {
+          prompt: "もう少しだけ近いものを選ぶ",
+          words: ["重い", "乾く", "ほどける"]
+        }
+      ];
+      const SENSE_LABEL_BASE_LAYOUT = [
+        { left: 142.5, top: 584.5, minLeft: 104, maxLeft: 180, minTop: 548, maxTop: 624, scaleMin: 0.88, scaleMax: 1.12 },
+        { left: 304.5, top: 368.5, minLeft: 252, maxLeft: 333, minTop: 326, maxTop: 410, scaleMin: 0.88, scaleMax: 1.12 },
+        { left: 146.0, top: 286.0, minLeft: 96, maxLeft: 188, minTop: 236, maxTop: 326, scaleMin: 0.90, scaleMax: 1.14 }
       ];
 
       function aggregateSV(words) {
@@ -331,15 +344,16 @@
         return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
       }
 
-      function safeVibrate(pattern) {
-        if ("vibrate" in navigator) { try { navigator.vibrate(pattern); } catch (e) {} }
+      function easeInCubic(t) {
+        return t * t * t;
       }
 
-      function setSenseText(text) {
-        const el = document.getElementById("senseState");
-        if (!el) return;
-        el.style.opacity = "0";
-        setTimeout(() => { el.textContent = text; el.style.opacity = "1"; }, 320);
+      function randomRange(min, max) {
+        return min + Math.random() * (max - min);
+      }
+
+      function safeVibrate(pattern) {
+        if ("vibrate" in navigator) { try { navigator.vibrate(pattern); } catch (e) {} }
       }
 
       const app = document.getElementById("app");
@@ -351,16 +365,15 @@
       const navBtns = document.querySelectorAll(".nav-btn");
       const pressTarget = document.getElementById("pressTarget");
       const sensePercent = document.getElementById("sensePercent");
-      const senseState = document.getElementById("senseState");
       const recordModal = document.getElementById("recordModal");
       const labelSelect = document.getElementById("labelSelect");
-      const radiusPanel = document.getElementById("radiusPanel");
-      const radiusToggle = document.getElementById("radiusToggle");
       const avatarBtn = document.getElementById("avatarBtn");
-      const profileSheet = document.getElementById("profileSheet");
-      const profileClose = document.getElementById("profileClose");
-      const openRecordsBtn = document.getElementById("openRecordsBtn");
-      const openSettingsBtn = document.getElementById("openSettingsBtn");
+      const profileBack = document.getElementById("profileBack");
+      const profileOpenSettings = document.getElementById("profileOpenSettings");
+      const pvCount = document.getElementById("pvCount");
+      const pvTrend = document.getElementById("pvTrend");
+      const pvTrendTime = document.getElementById("pvTrendTime");
+      const pvRecent = document.getElementById("pvRecent");
       const timeSlider = document.getElementById("timeSlider");
       const timeAxisLabel = document.getElementById("timeAxisLabel");
       const toast = document.getElementById("toast");
@@ -368,6 +381,7 @@
 
       const state = {
         view: "world",
+        prevView: "world",
         personalRecords: loadRecords(),
         worldRecords: WORLD_RECORDS,
         testMode: false,
@@ -406,7 +420,6 @@
         dragStart: null,
         pinchStart: null,
         grid: { world: [], radius: [] },
-        radiusDetailsOpen: false,
         debug: false,
         debugStats: null,
         renderDirty: true,
@@ -595,6 +608,14 @@
         const available = SENSE_WORD_LIST.filter(e => !seenWords.includes(e.word));
         const shuffled = [...available].sort(() => Math.random() - 0.5);
         return shuffled.slice(0, 3).map(e => e.word);
+      }
+
+      function createSenseLabelLayout() {
+        return SENSE_LABEL_BASE_LAYOUT.map(base => ({
+          left: randomRange(base.minLeft, base.maxLeft),
+          top: randomRange(base.minTop, base.maxTop),
+          scale: randomRange(base.scaleMin, base.scaleMax)
+        }));
       }
 
       function recordBaseVisual(record) {
@@ -1343,9 +1364,10 @@
         state.samples = [];
         state.path = [{ ...(state.position || state.origin), at: Date.now() }];
         state.lastBreathPhase = "";
+        app.style.setProperty("--sense-breath-scale", "0.28");
+        app.style.setProperty("--sense-breath-opacity", "0.92");
         setSenseStage("recording");
         pressTarget.classList.add("recording");
-        setSenseText("息を吸って、世界を近くに置く");
         safeVibrate(30);
         requestRender();
       }
@@ -1370,8 +1392,9 @@
         state.samples = [];
         pressTarget.classList.remove("recording");
         pressTarget.style.setProperty("--breath-scale", "1");
+        app.style.removeProperty("--sense-breath-scale");
+        app.style.removeProperty("--sense-breath-opacity");
         setSenseStage("ready");
-        setSenseText("押しつづける\n10秒のあいだ");
         requestRender();
       }
 
@@ -1404,8 +1427,9 @@
         state.selectedWords = [];
         state.senseRound = 0;
         pressTarget.style.setProperty("--breath-scale", "1");
+        app.style.setProperty("--sense-breath-scale", "0.04");
+        app.style.setProperty("--sense-breath-opacity", "0");
         setSenseStage("release");
-        setSenseText("");
         setTimeout(openRecordModal, 600);
         requestRender();
       }
@@ -1429,43 +1453,43 @@
 
       function renderLabelSelect() {
         labelSelect.innerHTML = "";
+        recordModal.dataset.senseRound = state.senseRound === 0 ? "first" : "second";
+        recordModal.classList.add("word-enter");
+        requestAnimationFrame(() => recordModal.classList.remove("word-enter"));
         const round = state.senseRound;
+        const roundSpec = SENSE_PROTOTYPE_ROUNDS[round] || SENSE_PROTOTYPE_ROUNDS[0];
         const prompt = document.createElement("div");
         prompt.className = "sense-round-prompt";
-        prompt.textContent = ROUND_PROMPTS[Math.min(round, ROUND_PROMPTS.length - 1)];
+        prompt.textContent = roundSpec.prompt;
         labelSelect.appendChild(prompt);
+        const center = document.createElement("div");
+        center.className = "sense-choice-center";
+        center.setAttribute("aria-hidden", "true");
+        labelSelect.appendChild(center);
         const words = pickRoundWords(state.selectedWords);
-        const positions = [
-          { left: "36%", top: "34%" },
-          { left: "77%", top: "43%" },
-          { left: "36%", top: "69%" }
-        ];
+        const positions = createSenseLabelLayout();
         words.forEach((word, index) => {
           const btn = document.createElement("button");
           btn.type = "button";
-          btn.className = "label-btn";
-          btn.textContent = word;
-          btn.style.left = positions[index].left;
-          btn.style.top = positions[index].top;
+          btn.className = `label-btn label-btn-${index + 1}`;
+          const text = document.createElement("span");
+          text.className = "label-text";
+          text.textContent = word;
+          btn.appendChild(text);
+          btn.setAttribute("aria-label", word);
+          btn.style.left = `${positions[index].left.toFixed(1)}px`;
+          btn.style.top = `${positions[index].top.toFixed(1)}px`;
+          btn.style.setProperty("--label-scale", positions[index].scale.toFixed(3));
           btn.style.animationDelay = `${index * 140}ms`;
           btn.addEventListener("click", () => onWordSelected(word));
           labelSelect.appendChild(btn);
         });
-        const skip = document.createElement("button");
-        skip.type = "button";
-        skip.className = "label-btn skip";
-        skip.textContent = "スキップ";
-        skip.style.left = "50%";
-        skip.style.top = "83%";
-        skip.style.animationDelay = `${words.length * 140}ms`;
-        skip.addEventListener("click", () => onWordSelected(null));
-        labelSelect.appendChild(skip);
       }
 
       function onWordSelected(word) {
         if (word !== null) state.selectedWords.push(word);
         const next = state.senseRound + 1;
-        if (next >= ROUND_PROMPTS.length) { finalizeSense(); return; }
+        if (next >= SENSE_ROUNDS) { finalizeSense(); return; }
         state.senseRound = next;
         renderLabelSelect();
       }
@@ -1473,6 +1497,7 @@
       function finalizeSense() {
         labelSelect.innerHTML = "";
         recordModal.classList.add("complete");
+        delete recordModal.dataset.senseRound;
         setSenseStage("complete");
         const done = document.createElement("div");
         done.className = "sense-round-prompt complete-prompt";
@@ -1493,6 +1518,7 @@
         state.selectedWords = [];
         state.senseRound = 0;
         recordModal.classList.remove("active", "complete");
+        delete recordModal.dataset.senseRound;
         rebuildGrids();
         updateStats();
         switchView("radius");
@@ -1503,6 +1529,7 @@
         state.selectedWords = [];
         state.senseRound = 0;
         recordModal.classList.remove("active", "complete");
+        delete recordModal.dataset.senseRound;
       }
 
       function clearSenseIntroTimers() {
@@ -1517,24 +1544,25 @@
 
       function prepareSenseIntro() {
         clearSenseIntroTimers();
+        labelSelect.innerHTML = "";
+        recordModal.classList.remove("active", "complete", "word-enter");
+        delete recordModal.dataset.senseRound;
         pressTarget.classList.remove("recording");
         pressTarget.style.setProperty("--breath-scale", "1");
+        app.style.removeProperty("--sense-breath-scale");
+        app.style.removeProperty("--sense-breath-opacity");
         setSenseStage("contact");
-        setSenseText("");
         state.senseIntroTimers.push(setTimeout(() => setSenseStage("diffusion"), 900));
-        state.senseIntroTimers.push(setTimeout(() => {
-          setSenseStage("ready");
-          setSenseText("押しつづける\n10秒のあいだ");
-        }, 2100));
+        state.senseIntroTimers.push(setTimeout(() => setSenseStage("ready"), 2100));
       }
 
-      function switchView(view) {
+      function switchView(view, keepNavOpen = false) {
+        if (!keepNavOpen || view === "sense" || view === "records" || view === "settings") {
+          app.classList.remove("nav-open");
+        }
         if (state.recording && view !== "sense") cancelRecording();
         state.view = view;
         app.dataset.view = view;
-        profileSheet.classList.remove("open");
-        profileSheet.setAttribute("aria-hidden", "true");
-        if (view !== "radius") setRadiusDetails(false);
         if (view === "sense") prepareSenseIntro();
         else if (!state.recording && !recordModal.classList.contains("active")) {
           clearSenseIntroTimers();
@@ -1543,15 +1571,12 @@
         views.forEach(el => el.classList.toggle("active", el.dataset.view === view));
         navBtns.forEach(btn => btn.classList.toggle("active", btn.dataset.target === view));
         if (view === "world" || view === "radius") syncMapToActiveCenter();
+        if (view === "profile") updateProfileView();
         updateStats();
         requestRender();
       }
 
-      function setRadiusDetails(open) {
-        state.radiusDetailsOpen = open;
-        radiusPanel.classList.toggle("open", open);
-        radiusToggle.textContent = open ? "地図 ↑" : "詳細 ↓";
-      }
+
 
       function canNavigateMap() {
         return state.view === "world" || state.view === "radius";
@@ -2275,51 +2300,37 @@
       }
 
       function drawContactLayer() {
-        if (!state.recording || state.view !== "sense") return;
-        const elapsed = performance.now() - state.recordStart;
-        const cycle = elapsed % (BREATH_VISUAL.inhaleMs + BREATH_VISUAL.exhaleMs);
-        const isInhale = cycle < BREATH_VISUAL.inhaleMs;
-        const phasePct = isInhale ? cycle / BREATH_VISUAL.inhaleMs : (cycle - BREATH_VISUAL.inhaleMs) / BREATH_VISUAL.exhaleMs;
-        const eased = easeInOutCubic(phasePct);
-        const scale = isInhale
-          ? lerp(BREATH_VISUAL.minScale, BREATH_VISUAL.maxScale, eased)
-          : lerp(BREATH_VISUAL.maxScale, BREATH_VISUAL.minScale, eased);
-        ctx.save();
-        ctx.translate(state.width / 2, state.height / 2);
-        ctx.globalCompositeOperation = "screen";
-        for (let i = 0; i < BREATH_VISUAL.ringCount; i++) {
-          const r = (BREATH_VISUAL.baseRadius + i * BREATH_VISUAL.radiusStep) * scale;
-          const fadeOut = 1 - i / BREATH_VISUAL.ringCount;
-          const alpha = BREATH_VISUAL.strokeAlpha * fadeOut * (i < 3 ? 1 : 0.65);
-          ctx.beginPath();
-          ctx.arc(0, 0, r, 0, Math.PI * 2);
-          ctx.strokeStyle = i < 3
-            ? `rgba(230, 236, 242, ${alpha})`
-            : `rgba(180, 195, 210, ${alpha})`;
-          ctx.lineWidth = BREATH_VISUAL.strokeWidth;
-          ctx.stroke();
-        }
-        ctx.restore();
-        ctx.globalCompositeOperation = "source-over";
+        return;
       }
 
       function updateRecordingProgress() {
         if (!state.recording) return;
         const elapsed = performance.now() - state.recordStart;
         const pct = clamp(elapsed / DURATION, 0, 1);
-        const cycle = elapsed % (BREATH_VISUAL.inhaleMs + BREATH_VISUAL.exhaleMs);
-        const isInhale = cycle < BREATH_VISUAL.inhaleMs;
-        const phasePct = isInhale ? cycle / BREATH_VISUAL.inhaleMs : (cycle - BREATH_VISUAL.inhaleMs) / BREATH_VISUAL.exhaleMs;
-        const eased = easeInOutCubic(phasePct);
-        const scale = isInhale
-          ? lerp(BREATH_VISUAL.minScale, BREATH_VISUAL.maxScale, eased)
-          : lerp(BREATH_VISUAL.maxScale, BREATH_VISUAL.minScale, eased);
+        let scale = 1;
+        let opacity = 1;
+        let phase = "expand";
+        if (elapsed < BREATH_VISUAL.growMs) {
+          const p = clamp(elapsed / BREATH_VISUAL.growMs, 0, 1);
+          scale = lerp(BREATH_VISUAL.minScale, BREATH_VISUAL.maxScale, easeInOutCubic(p));
+          opacity = lerp(0.72, 0.98, easeInOutCubic(p));
+        } else if (elapsed < BREATH_VISUAL.growMs + BREATH_VISUAL.floatMs) {
+          const p = clamp((elapsed - BREATH_VISUAL.growMs) / BREATH_VISUAL.floatMs, 0, 1);
+          scale = 1 + Math.sin(p * Math.PI * 2) * 0.025;
+          opacity = 0.95 + Math.sin(p * Math.PI * 2 + Math.PI * 0.35) * 0.025;
+          phase = "float";
+        } else {
+          const p = clamp((elapsed - BREATH_VISUAL.growMs - BREATH_VISUAL.floatMs) / BREATH_VISUAL.shrinkMs, 0, 1);
+          scale = lerp(1, 0.035, easeInOutCubic(p));
+          opacity = Math.pow(1 - p, 1.35);
+          phase = "collapse";
+        }
+        app.style.setProperty("--sense-breath-scale", scale.toFixed(3));
+        app.style.setProperty("--sense-breath-opacity", clamp(opacity, 0, 1).toFixed(3));
         pressTarget.style.setProperty("--breath-scale", scale.toFixed(3));
-        const phase = isInhale ? "in" : "out";
         if (phase !== state.lastBreathPhase) {
           state.lastBreathPhase = phase;
-          setSenseText(phase === "in" ? "息を吸って、世界を近くに置く" : "息を吐いて、音をほどく");
-          safeVibrate(phase === "in" ? 20 : [20, 60, 20]);
+          safeVibrate(phase === "expand" ? 20 : [20, 60, 20]);
         }
         state.samples.push({ volume: state.volume, peak: state.peak, at: Date.now(), sharpness: _spectralSharpness(state.freq), texture: _spectralSpread(state.freq) });
         if (pct >= 1) completeRecording();
@@ -2344,18 +2355,33 @@
         return String(voids);
       }
 
+      function updateProfileView() {
+        const records = state.personalRecords;
+        pvCount.textContent = String(records.length);
+        const wordCounts = new Map();
+        for (const r of records) {
+          const ws = Array.isArray(r.selectedWords) && r.selectedWords.length ? r.selectedWords : (r.word ? [r.word] : []);
+          for (const w of ws) wordCounts.set(w, (wordCounts.get(w) || 0) + 1);
+        }
+        const topWords = [...wordCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 3).map(([w]) => w);
+        pvTrend.textContent = topWords.length ? topWords.join(" · ") : "—";
+        pvTrendTime.textContent = "—";
+        if (records.length) {
+          const last = records[records.length - 1];
+          const d = new Date(last.timestamp);
+          const hhmm = `${d.getHours()}:${String(d.getMinutes()).padStart(2,"0")}`;
+          pvRecent.textContent = `${last.area || "—"} · ${hhmm}`;
+        } else {
+          pvRecent.textContent = "—";
+        }
+      }
+
       function updateStats() {
         const records = state.personalRecords;
         const avgNoise = records.length ? records.reduce((acc, r) => acc + r.noise, 0) / records.length : 0;
         document.getElementById("recordCount").textContent = `世界 ${state.worldRecords.length} / 自分 ${records.length}`;
-        document.getElementById("metricRecords").textContent = String(records.length);
-        const voidCount = (state.view === "radius" && state.mapReady) ? visibleVoidCount() : 0;
-        document.getElementById("metricVoid").textContent = voidCount === 0 ? "--" : String(voidCount);
-        document.getElementById("metricNoise").textContent = avgNoise.toFixed(2);
 
-        const timeSlice = document.getElementById("timeSlice");
         const recordTime = document.getElementById("recordTime");
-        timeSlice.innerHTML = "";
         recordTime.innerHTML = "";
         const maxSlot = Math.max(1, ...TIME_SLOTS.map(slot => records.filter(r => r.slot === slot).length));
         TIME_SLOTS.forEach(slot => {
@@ -2364,12 +2390,9 @@
           row.className = "slice";
           const slotLabel = { morning: "朝", day: "昼", evening: "夕", night: "夜" }[slot] || slot;
           row.innerHTML = `<span>${slotLabel}</span><span class="track"><span class="fill" style="width:${(count / maxSlot) * 100}%"></span></span><span>${count}</span>`;
-          timeSlice.appendChild(row);
-          recordTime.appendChild(row.cloneNode(true));
+          recordTime.appendChild(row);
         });
 
-        const tagGrid = document.getElementById("tagGrid");
-        tagGrid.innerHTML = "";
         const wordCounts = new Map();
         for (const r of records) {
           const ws = Array.isArray(r.selectedWords) && r.selectedWords.length ? r.selectedWords : (r.word ? [r.word] : []);
@@ -2383,10 +2406,6 @@
           [40, 34], [145, 14], [235, 42], [22, 78], [104, 72], [190, 88], [62, 124], [160, 132], [246, 118]
         ];
         showWords.forEach(([word, count], index) => {
-          const cell = document.createElement("div");
-          cell.className = "tag-cell" + (count ? " active" : "");
-          cell.textContent = count ? `${word} ${count}` : word;
-          tagGrid.appendChild(cell);
           const label = document.createElement("span");
           label.className = "record-word";
           label.textContent = word;
@@ -2399,7 +2418,6 @@
         document.getElementById("recordsTotal").textContent = String(records.length);
         document.getElementById("recordsVoid").textContent = visibleVoidCount();
         document.getElementById("recordsNoise").textContent = avgNoise.toFixed(2);
-
       }
 
       function render() {
@@ -2431,25 +2449,23 @@
 
       function bindEvents() {
         window.addEventListener("resize", resizeCanvas);
-        navBtns.forEach(btn => btn.addEventListener("click", () => switchView(btn.dataset.target)));
+        navBtns.forEach(btn => btn.addEventListener("click", () => switchView(btn.dataset.target, true)));
         pressTarget.addEventListener("pointerdown", startRecording);
         pressTarget.addEventListener("pointerup", stopRecording);
         pressTarget.addEventListener("pointercancel", stopRecording);
         pressTarget.addEventListener("pointerleave", stopRecording);
         document.getElementById("saveBtn").addEventListener("click", savePending);
         document.getElementById("discardBtn").addEventListener("click", discardPending);
-        radiusToggle.addEventListener("click", () => setRadiusDetails(!state.radiusDetailsOpen));
         avatarBtn.addEventListener("click", () => {
-          const open = !profileSheet.classList.contains("open");
-          profileSheet.classList.toggle("open", open);
-          profileSheet.setAttribute("aria-hidden", open ? "false" : "true");
+          if (app.classList.contains("nav-open")) {
+            state.prevView = state.view;
+            switchView("profile");
+          } else {
+            app.classList.add("nav-open");
+          }
         });
-        profileClose.addEventListener("click", () => {
-          profileSheet.classList.remove("open");
-          profileSheet.setAttribute("aria-hidden", "true");
-        });
-        openRecordsBtn.addEventListener("click", () => { profileSheet.classList.remove("open"); profileSheet.setAttribute("aria-hidden","true"); switchView("records"); });
-        openSettingsBtn.addEventListener("click", () => { profileSheet.classList.remove("open"); profileSheet.setAttribute("aria-hidden","true"); switchView("settings"); });
+        profileBack.addEventListener("click", () => switchView(state.prevView || "world"));
+        profileOpenSettings.addEventListener("click", () => switchView("settings"));
         const personalRecordsBtn = document.getElementById("personalRecordsBtn");
         if (personalRecordsBtn) personalRecordsBtn.addEventListener("click", () => switchView("records"));
         document.querySelectorAll("[data-back]").forEach(btn => btn.addEventListener("click", () => switchView(btn.dataset.back)));
@@ -2488,6 +2504,17 @@
           rebuildGrids();
           updateStats();
           showToast("自分の記録を消しました。");
+        });
+        // 遮罩点击 → 展开/收起导航
+        document.querySelector(".nav-overlay").addEventListener("click", () => {
+          app.classList.toggle("nav-open");
+        });
+        // footer-nav 点击空白区域（展开态）→ 收起
+        document.querySelector(".footer-nav").addEventListener("click", (e) => {
+          if (!app.classList.contains("nav-open")) return;
+          if (!e.target.closest(".nav-btn") && !e.target.closest(".nav-overlay")) {
+            app.classList.remove("nav-open");
+          }
         });
         window.addEventListener("contextmenu", event => event.preventDefault());
         window.addEventListener("keydown", event => {
