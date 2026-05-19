@@ -1,5 +1,51 @@
 # MAP_LOG
 
+## Profile View + Nav State Machine + UI_skill Restructure / 2026-05-19
+
+### Problems
+
+* Profile 页面用 `<aside class="profile-sheet">` overlay 实现，不在状态机内，pointer-events 控制混乱，返回按钮失效。
+* nav-open 状态在 world↔radius 切换时被 switchView 清除，导致展开状态丢失。
+* radius 视图有独立 bottom: -12px 的 nav-overlay，与 world（bottom: -95px）不一致，nav-open 动画跳位。
+* 头像按钮展开/收起时缺少视觉反馈，nav-open 时点击未跳转 profile。
+* radius 视图残留 metrics panel、radius-toggle、personal 视觉层（大黑圈），用户要求删除。
+* 时间轴被 footer-nav 的 nav-overlay（pointer-events:auto, z-index:8）拦截无法拖动。
+* UI_skill 所有文件以「正式规范」口吻编写，与「测试版学习」定位不符。
+
+### Changes
+
+* `index.html`：移除 `<aside class="profile-sheet">`，新增 `<section class="view" id="view-profile" data-view="profile">` 作为完整状态机视图，包含 pv-bg-oval、pv-bg-bottom-glow、pv-bg-right-gradient、pv-back 按钮（chevron + 标题整体可点）、pv-avatar（234×234 圆形 + img 标签）、pv-name、pv-subtitle、3× pv-divider、section 标签/值、底部设置/分享按钮。
+* `index.html`：移除 `#view-radius` 内所有 radius-panel、radius-toggle、personal 视觉层，只保留 `.personal-records-btn`。
+* `styles.css`：`.nav-btn { opacity:0.28 }`（默认淡显）；`.time-axis { z-index:9 }`（高于 footer-nav）；移除 radius 专属 nav-overlay 位置，两视图统一用 `left:-102px; bottom:-95px`；`#app.nav-open .nav-overlay { transform:translateY(-40px) }`；avatar-btn 过渡含 background；`#app.nav-open .avatar-btn { background:rgba(217,217,217,.90) }`；profile/records/settings `.active { pointer-events:auto }` 显式设置；添加完整 profile view CSS（pv-* 类）。
+* `app.js`：`switchView(view, keepNavOpen=false)`，nav 按钮传 `keepNavOpen:true` 保留展开态；`canNavigateMap()` 包含 profile；`avatarBtn` 点击：nav-closed → 展开，nav-open → 进入 profile；新增 `updateProfileView()` 动态填充 pvCount / pvTrend / pvRecent；`profileBack` 返回 `state.prevView`；移除 setRadiusDetails / radiusPanel / radiusToggle / profileSheet 引用。
+* `UI_skill/` 全部文件重构为「测试版经验」口吻，区分「已验证」与「仍在探索」，加入 AI 操作原则。新增 `state_machine.md`（视图转换表、可操作范围）和 `figma-to-code.md`（流程 + 常见错误表）。
+* Memory 新增：缺素材先查项目文件夹、经验必须同时写入 UI_skill。
+
+### Files Modified
+
+* `test0.3/index.html`
+* `test0.3/styles.css`
+* `test0.3/app.js`
+* `UI_skill/README.md`、`design_language.md`、`screen_patterns.md`、`layout_and_layers.md`、`components_and_icons.md`、`naming.md`、`states_and_annotations.md`
+* `UI_skill/state_machine.md`（新建）
+* `UI_skill/figma-to-code.md`（新建）
+* `test0.3/assets/figma/profile-avatar-large.png`（新增素材）
+
+### Verification
+
+* profile 视图地图 canvas 继续渲染（canNavigateMap 包含 profile）
+* 返回按钮整体可点（pointer-events:auto 显式设置）
+* world↔radius 切换保持 nav-open 态
+* nav-overlay 动画无跳位（统一 base 位置）
+
+### Next Task
+
+* Sense 文字位置调整（4 个 Figma 帧：Sense/03、05、08、09）
+* 词选中间小圆位置修正
+* 提词系统：圆和词按规律随机出现
+
+---
+
 ## Sense Prototype Background 1to1 Fix / 2026-05-19
 
 ### Problems
