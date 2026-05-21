@@ -7,34 +7,29 @@
   <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css">
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    html, body, #map { width: 100%; height: 100%; }
-    body { background: #020304; }
+    html, body { width: 100%; height: 100%; overflow: hidden; }
+    #app {
+      position: relative; width: 100%; height: 100%;
+      background: #020304;
+    }
+    #realMap { position: absolute; inset: 0; }
+    #mapDarkOverlay {
+      position: absolute; inset: 0; pointer-events: none;
+      background: rgba(0, 0, 0, var(--map-overlay-darkness, 0.38));
+    }
+    #skinCanvas {
+      position: absolute; inset: 0; pointer-events: none;
+    }
   </style>
 </head>
 <body>
-  <div id="map"></div>
+  <div id="app">
+    <div id="realMap"></div>
+    <div id="mapDarkOverlay"></div>
+    <canvas id="skinCanvas"></canvas>
+  </div>
   <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
-  <script>
-    const map = new maplibregl.Map({
-      container: "map",
-      style: "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json",
-      center: [139.4928, 35.7101],
-      zoom: 14.1,
-      pitch: 40,
-      bearing: -16,
-      attributionControl: false
-    });
-
-    map.on("load", () => {
-      if (navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition(pos => {
-          map.jumpTo({
-            center: [pos.coords.longitude, pos.coords.latitude],
-            zoom: 14.1
-          });
-        });
-      }
-    });
-  </script>
+  <script src="../test0.3/data/world_data.js"></script>
+  <script src="app.js"></script>
 </body>
 </html>
