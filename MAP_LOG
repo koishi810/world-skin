@@ -1,5 +1,41 @@
 # MAP_LOG
 
+## Player Marker + Mobile UX Fixes / 2026-05-21
+
+### Problems
+
+* 主角图标由「环 + 独立三角」构成，视觉上严重割裂，且在 Figma 风格参考下显得突兀。
+* 记录页所有子元素均为 `position:absolute`，父容器 scrollHeight=0，`overflow-y:auto` 无效，内容无法滚动；水平手势穿透至地图触发旋转。
+* 记录页返回按钮被 SVG 遮罩层覆盖，z-index 未设，实际不可见。
+* 感觉页没有返回按钮。
+* 底部导航 / 时间轴 / 工具按钮 `bottom` 值均为固定像素，iPhone home indicator 区域被截断。
+* 初始定位：`state.map.on("load")` 无论如何都 `jumpTo(DEFAULT_VIEW)`，GPS 已就位时不生效。
+* 浏览器对 CSS/JS 强缓存，修改后刷新无法看到变化。
+
+### Changes
+
+* `app.js` — `drawCurrentMarker`：重写为几何精确水滴形（tip → 切线 → arc 一条路径），`tipDist` 随 `map.getPitch()` 缩短，低俯角拉长、高俯角收圆；整体上移 6px；移除旧有「环 + 点 + 独立三角」结构。
+* `app.js` — `state.map.on("load")`：检查 `state.position`，GPS 已就位时直接 `jumpTo` 用户位置，否则回退 `DEFAULT_VIEW`。
+* `app.js` — `initLocation` `getCurrentPosition` 回调：`state.view === "world"` 时也调用 `syncMapToActiveCenter`。
+* `app.js` — 新增 `senseBack` 按钮事件监听，返回 `state.prevView || "world"`。
+* `index.html` — records view：`pv-back` 保留箭头去掉文字，包裹在 `rec-scroll` 容器外；内容区 `rec-scroll + rec-content` 替换原 `rec-content`。
+* `index.html` — sense view：新增 `pv-back#senseBack` 按钮（仅箭头）。
+* `styles.css` — `.rec-scroll`：`position:absolute; inset:0; overflow-y:auto; overflow-x:hidden; touch-action:pan-y; padding:186px 24px`，解决滚动与横滑穿透。
+* `styles.css` — `.rec-content`：改为 `position:relative; height:720px`，建立真实 scrollHeight。
+* `styles.css` — `.pv-back { z-index:10 }`；`.sense-back { pointer-events:auto }`（`.view` 默认 `pointer-events:none`）。
+* `styles.css` — `.nav-btn / .time-axis / .utility`：`bottom` 全部改为 `calc(Npx + var(--safe-bottom))`。
+* `index.html` — `styles.css?v=5`、`app.js?v=5` 加 cache-busting query。
+* 新增 `map-base/index.html`：干净 MapLibre 地图，无任何 UI 接口，自动定位，供独立开发使用。
+
+### Files Modified
+
+* `test0.3/app.js`
+* `test0.3/index.html`
+* `test0.3/styles.css`
+* `map-base/index.html`（新建）
+
+---
+
 ## Profile View + Nav State Machine + UI_skill Restructure / 2026-05-19
 
 ### Problems

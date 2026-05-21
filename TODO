@@ -1,9 +1,9 @@
 # TODO
 
-更新时间：2026-05-14
+更新时间：2026-05-21
 
 感知轴系统：spaciousness / gravity / tension / flow（静止↔流动）+ soundVector
-入口文件：`test0.2.html`　　数据文件：`world_data.js`（2697 条）、`my_data.js`（48 条）
+入口文件：`test0.3/index.html`　　データファイル：`test0.3/data/world_data.js`（2697 条）、`test0.3/data/my_data.js`（48 条）
 
 ---
 
@@ -85,7 +85,7 @@
 
 ## Low Priority
 
-- [ ] 决定作品集版本入口：正式 `index.html` 或保留 `test0.2.html`
+- [x] 决定作品集版本入口：`test0.3/index.html`（已确认）
 - [ ] 为作品集演示准备固定权限失败 fallback 流程
 - [ ] 若进入 PWA，新增 `manifest.json`、图标与 `service-worker.js`
 - [ ] 进一步拆分 CSS / 数据文件（建议在视觉系统收束后再做）
@@ -117,6 +117,17 @@
 ---
 
 ## Done / Recently Completed
+
+### 2026-05-21 — 移动端 UX + 主角图标
+
+- [x] 主角图标重做：水滴形统一路径（pitch 联动假 3D），风格对齐图标集
+- [x] 记录页滚动修复：rec-scroll 容器 + touch-action:pan-y 防横滑穿透
+- [x] 记录页返回按钮：箭头可见（z-index:10）、仅箭头无文字
+- [x] 感觉页返回按钮：新增，返回 prevView
+- [x] 底部 safe area：nav-btn / time-axis / utility 全部跟随
+- [x] 初始定位：地图 load 时检查 GPS 是否已就位
+- [x] 新增 map-base/：干净 MapLibre 地图文件（无 UI）
+- [x] cache-busting：styles.css?v=5 / app.js?v=5
 
 ### 2026-05-14 — Bug Audit 全面修复
 
