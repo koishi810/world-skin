@@ -926,7 +926,10 @@
         state.map.on("load", () => {
           state.mapReady = true;
           app.classList.add("map-ready");
-          state.map.jumpTo(DEFAULT_VIEW);
+          const initPos = state.position;
+          state.map.jumpTo(initPos
+            ? { center: [initPos.lng, initPos.lat], zoom: 14.1, pitch: DEFAULT_VIEW.pitch, bearing: DEFAULT_VIEW.bearing }
+            : DEFAULT_VIEW);
           applyMapVisualMode();
           applyMapLevel();
           invalidateField(true);

@@ -911,12 +911,16 @@ body { align-items:center; }
 /* ── Records view — Figma 1:1 ── */
 #view-records,
 #view-profile { background:rgba(6,8,11,0.72); backdrop-filter:none; }
-#view-records { overflow-y:auto; -webkit-overflow-scrolling:touch; }
-.rec-back { z-index:20; }
+.pv-back { z-index:10; }
+.rec-scroll {
+  position:absolute; inset:0;
+  overflow-y:auto; overflow-x:hidden;
+  -webkit-overflow-scrolling:touch;
+  touch-action:pan-y;
+  padding:186px 24px calc(48px + var(--safe-bottom));
+}
 .rec-content {
-  position:absolute; left:24px; top:186px; width:345px;
-  height:700px;
-  padding-bottom:calc(32px + var(--safe-bottom));
+  position:relative; width:345px; height:720px;
 }
 .rec-title {
   position:absolute; left:0; top:0; margin:0;
