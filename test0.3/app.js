@@ -2518,6 +2518,7 @@
           }
         });
         profileBack.addEventListener("click", () => switchView(state.prevView || "world"));
+        document.getElementById("senseBack").addEventListener("click", () => switchView(state.prevView || "world"));
         profileOpenSettings.addEventListener("click", () => switchView("settings"));
         const personalRecordsBtn = document.getElementById("personalRecordsBtn");
         if (personalRecordsBtn) personalRecordsBtn.addEventListener("click", () => switchView("records"));

@@ -3,10 +3,10 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>World Skin Prototype 0.3</title>
+  <title>World Skin 0.3 · v5</title>
   <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css">
   <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
-  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="styles.css?v=5">
 </head>
 <body>
   <main id="app">
@@ -43,6 +43,9 @@
     <section class="view active" id="view-world" data-view="world"></section>
 
     <section class="view" id="view-sense" data-view="sense">
+      <button class="pv-back sense-back" id="senseBack" type="button" aria-label="戻る">
+        <span class="material-icons">chevron_left</span>
+      </button>
       <div class="sense-wrap">
         <div class="sense-figma-bg" aria-hidden="true"></div>
         <div class="sense-figma-bottom-mask" aria-hidden="true"></div>
@@ -234,7 +237,7 @@
   <script src="data/my_data.js"></script>
   <script src="data/testdata.js"></script>
   <script src="data/testdata2.js"></script>
-    <script src="app.js"></script>
+    <script src="app.js?v=5"></script>
 
 </body>
 </html>

@@ -814,7 +814,7 @@ body { align-items:center; }
 #app.nav-open .avatar-btn { background:rgba(217,217,217,.90); }
 #app::after { left:0; right:0; top:0; bottom:0; border:0; box-shadow:none; }
 /* ── Controls (explore + my_location) — Figma left:329 top:620/672 → bottom:140 ── */
-.utility { left:329px; right:auto; top:auto; bottom:140px; display:grid; gap:12px; }
+.utility { left:329px; right:auto; top:auto; bottom:calc(140px + var(--safe-bottom)); display:grid; gap:12px; }
 .icon-btn {
   width:40px; height:40px; border:0; border-radius:0;
   background:transparent; backdrop-filter:none; -webkit-backdrop-filter:none;
@@ -825,7 +825,7 @@ body { align-items:center; }
 
 /* ── Timeline — Figma horizontal x:43→350 y:749 → bottom:90 ── */
 .time-axis {
-  left:43px; top:auto; right:auto; bottom:90px;
+  left:43px; top:auto; right:auto; bottom:calc(90px + var(--safe-bottom));
   width:307px; height:13px; padding:0;
   border:0; background:transparent; backdrop-filter:none;
   z-index:9;
@@ -869,7 +869,7 @@ body { align-items:center; }
 #app[data-view="world"] .nav-overlay,
 #app[data-view="radius"] .nav-overlay { pointer-events:auto; }
 .nav-btn {
-  position:absolute; top:auto; bottom:31px; width:35px; height:35px;
+  position:absolute; top:auto; bottom:calc(31px + var(--safe-bottom)); width:35px; height:35px;
   border:0; background:transparent; padding:0;
   opacity:0.28; cursor:pointer; pointer-events:none;
   transition:opacity 400ms ease;
