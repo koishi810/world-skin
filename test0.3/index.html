@@ -62,26 +62,41 @@
       <button class="personal-records-btn" id="personalRecordsBtn" type="button" aria-label="記録を見る">記録</button>
     </section>
 
-    <section class="view page-view" id="view-records" data-view="records">
-      <button class="page-back" type="button" data-back="radius">‹ 個人</button>
-      <div class="page-content records-page">
-        <header class="page-header">
-          <h1>記録</h1>
-          <p>国分寺・個人の記録</p>
-        </header>
-        <section class="record-summary">
-          <div><strong id="recordsTotal">0</strong><span>記録数</span></div>
-          <div><strong id="recordsVoid">--</strong><span>空洞</span></div>
-          <div><strong id="recordsNoise">0.00</strong><span>平均の層</span></div>
-        </section>
-        <section class="record-section">
-          <h2>時間</h2>
-          <div class="record-time" id="recordTime"></div>
-        </section>
-        <section class="record-section">
-          <h2>感覚の分布</h2>
-          <div class="record-words" id="recordWords"></div>
-        </section>
+    <section class="view" id="view-records" data-view="records">
+      <div class="pv-trans-outer" aria-hidden="true">
+        <div class="pv-trans-rotate">
+          <div class="pv-trans-frame">
+            <div class="pv-trans-inset">
+              <img class="pv-trans-img" src="assets/figma/records-overlay.svg" alt="">
+            </div>
+          </div>
+        </div>
+      </div>
+      <button class="pv-back" type="button" data-back="radius" aria-label="個人へ戻る">
+        <span class="material-icons">chevron_left</span>
+        <span class="pv-title">個人</span>
+      </button>
+
+      <div class="rec-content">
+        <p class="rec-title">記録</p>
+        <p class="rec-subtitle">国分寺 · 個人の記録</p>
+        <div class="rec-divider" style="top:72px"></div>
+
+        <p class="rec-section-label" style="top:92px">概要</p>
+        <p class="rec-stat-num" id="recordsTotal" style="left:0;top:126px">0</p>
+        <p class="rec-stat-label" style="left:0;top:153px">記録数</p>
+        <p class="rec-stat-num" id="recordsVoid" style="left:120px;top:126px">--</p>
+        <p class="rec-stat-label" style="left:120px;top:153px">空洞</p>
+        <p class="rec-stat-num" id="recordsNoise" style="left:226px;top:126px">0.00</p>
+        <p class="rec-stat-label" style="left:226px;top:153px">平均の層</p>
+        <div class="rec-divider" style="top:195px"></div>
+
+        <p class="rec-section-label" style="top:215px">時間</p>
+        <div id="recordTime" class="rec-time-rows"></div>
+        <div class="rec-divider" style="top:375px"></div>
+
+        <p class="rec-section-label" style="top:395px">感覚の分布</p>
+        <div id="recordWords" class="rec-words-cloud"></div>
       </div>
     </section>
 
@@ -89,7 +104,7 @@
       <button class="page-back" type="button" data-back="radius">‹ 設定</button>
       <div class="page-content settings-page">
         <header class="settings-hero">
-          <div class="settings-avatar"></div>
+          <div class="settings-avatar"><img src="assets/figma/profile-avatar-large.png" alt="" draggable="false"></div>
           <div>
             <h1>獺</h1>
             <p>この端末の設定</p>
@@ -97,19 +112,21 @@
         </header>
         <section class="settings-group">
           <h2>表示</h2>
-          <div class="settings-row"><strong>地図の明るさ</strong><span>周囲の光に合わせて調整</span></div>
-          <div class="settings-row"><strong>ラベルの表示</strong><span>必要な情報だけを残す</span></div>
-          <div class="settings-row"><strong>動きの強さ</strong><span>静かめ</span></div>
+          <div class="settings-row"><span class="material-icons">brightness_6</span><div><strong>地図の明るさ</strong><span>周囲の光に合わせて調整</span></div></div>
+          <div class="settings-row"><span class="material-icons">label</span><div><strong>ラベルの表示</strong><span>必要な情報だけを残す</span></div></div>
+          <div class="settings-row"><span class="material-icons">motion_photos_on</span><div><strong>動きの強さ</strong><span>静かめ</span></div></div>
         </section>
         <section class="settings-group">
           <h2>記録</h2>
-          <div class="settings-row"><strong>公開範囲</strong><span>非公開</span></div>
-          <div class="settings-row"><strong>データ管理</strong><span>書き出し・削除</span></div>
+          <div class="settings-row"><span class="material-icons">lock</span><div><strong>公開範囲</strong><span>非公開</span></div></div>
+          <div class="settings-row"><span class="material-icons">storage</span><div><strong>データ管理</strong><span>書き出し・削除</span></div></div>
         </section>
         <section class="settings-group">
           <h2>通知</h2>
-          <div class="settings-row"><strong>記録の通知</strong><span>必要なときだけ知らせる</span></div>
-          <div class="settings-row"><strong>位置情報</strong><span>記録時のみ使用</span></div>
+          <div class="settings-row"><span class="material-icons">notifications</span><div><strong>記録の通知</strong><span>必要なときだけ知らせる</span></div></div>
+          <div class="settings-row"><span class="material-icons">location_on</span><div><strong>位置情報</strong><span>記録時のみ使用</span></div></div>
+          <div class="settings-row"><span class="material-icons">accessibility_new</span><div><strong>アクセシビリティ</strong><span>文字サイズ・動き</span></div></div>
+          <div class="settings-row"><span class="material-icons">info</span><div><strong>このアプリについて</strong><span>バージョン・利用案内</span></div></div>
         </section>
       </div>
     </section>
@@ -146,9 +163,20 @@
     </nav>
 
     <section class="view" id="view-profile" data-view="profile">
-      <div class="pv-bg-oval" aria-hidden="true"></div>
-      <div class="pv-bg-bottom-glow" aria-hidden="true"></div>
-      <div class="pv-bg-right-gradient" aria-hidden="true"></div>
+      <div class="pv-pulldown" aria-hidden="true">
+        <div class="pv-pulldown-inner">
+          <img src="assets/figma/profile-pulldown-overlay.svg" alt="">
+        </div>
+      </div>
+      <div class="pv-trans-outer" aria-hidden="true">
+        <div class="pv-trans-rotate">
+          <div class="pv-trans-frame">
+            <div class="pv-trans-inset">
+              <img class="pv-trans-img" src="assets/figma/profile-transition-overlay.svg" alt="">
+            </div>
+          </div>
+        </div>
+      </div>
 
       <button class="pv-back" id="profileBack" type="button" aria-label="戻る">
         <span class="material-icons">chevron_left</span>

@@ -89,7 +89,9 @@
     }
 
     #app.map-ready[data-view="world"] #realMap,
-    #app.map-ready[data-view="radius"] #realMap {
+    #app.map-ready[data-view="radius"] #realMap,
+    #app.map-ready[data-view="profile"] #realMap,
+    #app.map-ready[data-view="records"] #realMap {
       opacity: 1;
     }
 
@@ -900,27 +902,97 @@ body { align-items:center; }
   backdrop-filter:blur(18px);
 }
 .page-back {
-  position:absolute; left:20px; top:78px; z-index:2; border:0; background:transparent;
+  position:absolute; left:18px; top:51px; z-index:2; border:0; background:transparent;
   color:rgba(236,241,243,.82); font-size:13px; letter-spacing:.06em;
 }
-.page-content { position:absolute; inset:0; padding:150px 20px 28px; overflow:auto; }
-.page-header h1, .settings-hero h1 { margin:0; font-size:21px; font-weight:600; letter-spacing:.08em; }
-.page-header p, .settings-hero p { margin:8px 0 0; color:rgba(236,241,243,.46); font-size:11px; }
-.record-summary { display:grid; grid-template-columns:repeat(3,1fr); gap:18px; margin-top:24px; padding:20px 0; border-top:1px solid var(--ui-line); border-bottom:1px solid var(--ui-line); }
-.record-summary div { display:grid; gap:8px; }
-.record-summary strong { font-size:18px; font-weight:600; }
-.record-summary span, .record-section h2, .settings-group h2 { color:rgba(236,241,243,.46); font-size:11px; font-weight:400; letter-spacing:.08em; }
-.record-section { margin-top:20px; padding-bottom:18px; border-bottom:1px solid var(--ui-line); }
-.record-time { display:grid; gap:10px; margin-top:16px; }
-.record-time .slice { grid-template-columns:36px 1fr 24px; }
-.record-words { position:relative; min-height:168px; margin-top:12px; }
-.record-word { position:absolute; color:rgba(236,241,243,.7); font-size:13px; letter-spacing:.08em; }
-.settings-hero { display:flex; align-items:center; gap:14px; }
-.settings-avatar, .profile-avatar { width:42px; height:42px; border-radius:50%; background:radial-gradient(circle at 35% 30%, #efe7dc, #c8b8a9 58%, rgba(0,0,0,.16)); }
-.settings-group { margin-top:28px; }
-.settings-row { display:grid; gap:6px; padding:14px 0; border-bottom:1px solid var(--ui-line); }
-.settings-row strong { font-size:14px; font-weight:600; letter-spacing:.04em; }
-.settings-row span { color:rgba(236,241,243,.44); font-size:11px; }
+.page-content { position:absolute; inset:0; padding:126px 24px 28px; overflow:auto; }
+.page-header h1 { margin:0; font-size:21px; font-weight:600; letter-spacing:.08em; }
+.page-header p { margin:8px 0 0; color:rgba(236,241,243,.46); font-size:11px; }
+/* ── Records view — Figma 1:1 ── */
+#view-records,
+#view-profile { background:rgba(6,8,11,0.72); backdrop-filter:none; }
+.rec-content {
+  position:absolute; left:24px; top:186px; width:345px;
+}
+.rec-title {
+  position:absolute; left:0; top:0; margin:0;
+  font-size:22px; font-weight:700;
+  color:rgba(217,217,217,0.96); white-space:nowrap;
+}
+.rec-subtitle {
+  position:absolute; left:0; top:33px; margin:0;
+  font-size:13px; color:rgba(217,217,217,0.62); white-space:nowrap;
+}
+.rec-divider {
+  position:absolute; left:0; width:345px; height:1px;
+  background:rgba(217,217,217,0.18);
+}
+.rec-section-label {
+  position:absolute; left:0; margin:0;
+  font-size:12px; font-weight:700;
+  color:rgba(217,217,217,0.54); white-space:nowrap;
+}
+.rec-stat-num {
+  position:absolute; margin:0;
+  font-size:16px; font-weight:700;
+  color:rgba(217,217,217,0.92); white-space:nowrap;
+}
+.rec-stat-label {
+  position:absolute; margin:0;
+  font-size:13px; color:rgba(217,217,217,0.56); white-space:nowrap;
+}
+.rec-time-rows {
+  position:absolute; left:0; top:249px; width:345px;
+}
+.rec-time-row {
+  position:relative; height:28px;
+  display:flex; align-items:center;
+}
+.rec-time-lbl {
+  position:absolute; left:0;
+  font-size:13px; color:rgba(217,217,217,0.62);
+}
+.rec-time-dots {
+  position:absolute; left:59px;
+  display:flex; align-items:center; gap:2px;
+}
+.rec-dot { width:5px; height:5px; border-radius:50%; flex-shrink:0; }
+.rec-dot-on  { background:rgba(217,217,217,0.72); }
+.rec-dot-off { background:rgba(217,217,217,0.12); }
+.rec-time-cnt {
+  position:absolute; right:0;
+  font-size:13px; color:rgba(217,217,217,0.62);
+}
+.rec-words-cloud {
+  position:absolute; left:0; top:0; width:345px; height:666px;
+  pointer-events:none;
+}
+.rec-word-dot {
+  position:absolute; border-radius:50%; pointer-events:none;
+}
+.rec-word-text {
+  position:absolute; pointer-events:none; white-space:nowrap; margin:0;
+}
+.profile-avatar { width:42px; height:42px; border-radius:50%; background:radial-gradient(circle at 35% 30%, #efe7dc, #c8b8a9 58%, rgba(0,0,0,.16)); }
+/* ── Settings view ── */
+.settings-page {
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0, black 80px);
+  mask-image: linear-gradient(to bottom, transparent 0, black 80px);
+}
+.settings-hero { display:flex; align-items:flex-start; gap:15px; }
+.settings-avatar { width:50px; height:50px; border-radius:50%; overflow:hidden; flex-shrink:0; }
+.settings-avatar img { width:100%; height:100%; object-fit:cover; display:block; }
+.settings-hero h1 { margin:0; font-size:22px; font-weight:700; letter-spacing:0; color:rgba(244,244,244,.96); line-height:1.2; }
+.settings-hero p { margin:8px 0 0; font-size:13px; color:rgba(244,244,244,.62); }
+.settings-hero + .settings-group { margin-top:51px; }
+.settings-group { margin-top:20px; }
+.settings-group h2 { margin:0 0 20px; color:rgba(244,244,244,.54); font-size:12px; font-weight:700; letter-spacing:0; }
+.settings-row { display:flex; align-items:flex-start; gap:16px; padding-bottom:11px; border-bottom:1px solid var(--ui-line); }
+.settings-row + .settings-row { margin-top:25px; }
+.settings-row .material-icons { font-size:18px; line-height:1; color:rgba(244,244,244,.72); flex-shrink:0; margin-top:2px; }
+.settings-row > div { flex:1; }
+.settings-row strong { display:block; font-size:16px; font-weight:700; letter-spacing:0; color:rgba(244,244,244,.92); line-height:1.2; }
+.settings-row > div > span { display:block; font-size:13px; color:rgba(244,244,244,.56); margin-top:8px; line-height:1.2; }
 @media (min-width: 720px) {
   #app { border-radius:38px; overflow:hidden; }
 }
@@ -950,7 +1022,7 @@ body { align-items:center; }
   position:absolute;
   left:50%;
   transform:translateX(-50%);
-  bottom:calc(80px + var(--safe-bottom));
+  bottom:calc(148px + var(--safe-bottom));
   z-index:5;
   border:0;
   background:rgba(220,226,230,.10);
@@ -1207,6 +1279,8 @@ body { align-items:center; }
   line-height:normal;
   white-space:nowrap;
 }
+#app[data-sense-stage="contact"] .sense-hint,
+#app[data-sense-stage="diffusion"] .sense-hint,
 #app[data-sense-stage="ready"] .sense-hint {
   opacity:1;
 }
@@ -1266,8 +1340,8 @@ body { align-items:center; }
 }
 .modal[data-sense-round] .sense-choice-center {
   position:absolute;
-  left:146px;
-  top:544px;
+  left:174px;
+  top:389px;
   width:48px;
   height:48px;
   border-radius:50%;
@@ -1301,12 +1375,10 @@ body { align-items:center; }
   line-height:normal;
   white-space:nowrap;
   pointer-events:none;
+  left:50%;
+  transform:translateX(-50%);
+  top:-8.5px;
 }
-.modal[data-sense-round] .label-btn-1 .label-text { left:-14px; top:-8.5px; }
-.modal[data-sense-round] .label-btn-2 .label-text { left:-21px; top:-8.5px; }
-.modal[data-sense-round] .label-btn-3 .label-text { left:-21px; top:-8.5px; }
-.modal[data-sense-round="second"] .label-btn-2 .label-text { left:-14px; }
-.modal[data-sense-round="second"] .label-btn-3 .label-text { left:-28px; }
 .modal.word-enter[data-sense-round] .label-btn {
   opacity:0;
   transform:translate(-50%, -50%) scale(.60);
@@ -1390,28 +1462,34 @@ body { align-items:center; }
 #view-records.active,
 #view-settings.active { pointer-events:auto; }
 
-/* background layers */
-.pv-bg-oval {
-  position:absolute; left:-26px; top:392px;
-  width:445px; height:360px; border-radius:9999px;
-  background:radial-gradient(ellipse 50% 50% at 50% 50%, rgba(0,0,0,0.36) 0%, rgba(102,102,102,0.05) 100%);
+/* background layers — Figma 1:1 */
+/* 下拉遮罩 — Figma: absolute h:560 left:-114 top:920 w:621 → bottom:-628; inner: absolute inset:[-10.71%_-9.66%]; img: block max-w-none size-full */
+.pv-pulldown {
+  position:absolute; height:560px; left:-114px; bottom:-628px; width:621px;
   pointer-events:none;
 }
-.pv-bg-bottom-glow {
-  position:absolute; left:-114px; bottom:-628px;
-  width:621px; height:560px;
-  background:#D9D9D9; filter:blur(30px); backdrop-filter:blur(0.5px);
+.pv-pulldown-inner {
+  position:absolute; top:-10.71%; right:-9.66%; bottom:-10.71%; left:-9.66%;
+}
+.pv-pulldown-inner img { display:block; max-width:none; width:100%; height:100%; }
+/* 切換遮罩 — Figma 4层结构严格还原 */
+/* L1: absolute flex h:986 items-center justify-center left:-115 top:-134 w:621 */
+.pv-trans-outer {
+  position:absolute; display:flex; height:986px;
+  align-items:center; justify-content:center;
+  left:-115px; top:-134px; width:621px;
   pointer-events:none;
 }
-.pv-bg-right-gradient {
-  position:absolute; left:506px; top:852px;
-  width:621px; height:986px;
-  transform:rotate(-180deg); transform-origin:top left;
-  opacity:0.95;
-  background:linear-gradient(180deg, rgba(46,46,46,0.48) 0%, rgba(0,0,0,0.36) 100%);
-  filter:blur(10px); backdrop-filter:blur(0.5px);
-  pointer-events:none;
+/* L2: flex-none rotate-180 */
+.pv-trans-rotate { flex:none; transform:rotate(180deg); }
+/* L3: h:986 relative w:621 */
+.pv-trans-frame { height:986px; position:relative; width:621px; }
+/* L4: absolute inset:[-2.03%_-3.22%] */
+.pv-trans-inset {
+  position:absolute; top:-2.03%; right:-3.22%; bottom:-2.03%; left:-3.22%;
 }
+/* img: block max-w-none size-full */
+.pv-trans-img { display:block; max-width:none; width:100%; height:100%; }
 
 .pv-back {
   position:absolute; left:18px; top:46px;

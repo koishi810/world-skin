@@ -252,9 +252,9 @@
         }
       ];
       const SENSE_LABEL_BASE_LAYOUT = [
-        { left: 142.5, top: 584.5, minLeft: 104, maxLeft: 180, minTop: 548, maxTop: 624, scaleMin: 0.88, scaleMax: 1.12 },
-        { left: 304.5, top: 368.5, minLeft: 252, maxLeft: 333, minTop: 326, maxTop: 410, scaleMin: 0.88, scaleMax: 1.12 },
-        { left: 146.0, top: 286.0, minLeft: 96, maxLeft: 188, minTop: 236, maxTop: 326, scaleMin: 0.90, scaleMax: 1.14 }
+        { left: 142.5, top: 584.5, minLeft: 122, maxLeft: 163, minTop: 564, maxTop: 605, scaleMin: 0.92, scaleMax: 1.08 },
+        { left: 304.5, top: 368.5, minLeft: 284, maxLeft: 325, minTop: 348, maxTop: 389, scaleMin: 0.92, scaleMax: 1.08 },
+        { left: 146.0, top: 286.0, minLeft: 124, maxLeft: 168, minTop: 264, maxTop: 308, scaleMin: 0.94, scaleMax: 1.10 }
       ];
 
       function aggregateSV(words) {
@@ -1640,9 +1640,9 @@
 
 
       function drawBackground() {
-        const mapMode = state.mapReady && canNavigateMap();
         ctx.clearRect(0, 0, state.width, state.height);
-        if (mapMode) return;
+        // profile / records / settings: let realMap show through canvas
+        if (state.mapReady && state.view !== "sense") return;
 
         ctx.fillStyle = "#020304";
         ctx.fillRect(0, 0, state.width, state.height);
@@ -2223,38 +2223,54 @@
         const ahead = project(dest);
         const screenAngle = Math.atan2(ahead.y - p.y, ahead.x - p.x);
 
+        const pitch = state.mapReady ? state.map.getPitch() : 0;
+        const pitchNorm = pitch / 60; // 0 = top-down, 1 = max tilt
+        const R = 11;
+
         ctx.save();
         ctx.globalCompositeOperation = "screen";
-        ctx.translate(p.x, p.y);
+        ctx.translate(p.x, p.y - 6);
+
+        // soft pulse halo
         const pulse = 0.5 + Math.sin(state.t * 2.2) * 0.5;
-        const halo = ctx.createRadialGradient(0, 0, 0, 0, 0, 34 + pulse * 8);
-        halo.addColorStop(0, "rgba(225, 242, 255, 0.22)");
-        halo.addColorStop(0.46, "rgba(135, 184, 255, 0.08)");
+        const halo = ctx.createRadialGradient(0, 0, 0, 0, 0, 28 + pulse * 6);
+        halo.addColorStop(0, "rgba(225, 240, 241, 0.14)");
         halo.addColorStop(1, "rgba(0, 0, 0, 0)");
         ctx.fillStyle = halo;
         ctx.beginPath();
-        ctx.arc(0, 0, 42, 0, Math.PI * 2);
+        ctx.arc(0, 0, 34, 0, Math.PI * 2);
         ctx.fill();
 
-        ctx.strokeStyle = "rgba(232, 244, 255, 0.78)";
-        ctx.lineWidth = 1.2;
-        ctx.beginPath();
-        ctx.arc(0, 0, 10, 0, Math.PI * 2);
-        ctx.stroke();
-        ctx.fillStyle = "rgba(232, 244, 255, 0.95)";
-        ctx.beginPath();
-        ctx.arc(0, 0, 3.2, 0, Math.PI * 2);
-        ctx.fill();
-
+        // unified teardrop: one continuous path, no separate sphere + spike
+        ctx.save();
         ctx.rotate(screenAngle);
-        ctx.fillStyle = "rgba(232, 244, 255, 0.9)";
+
+        // tip recedes as pitch increases → rounder at high pitch, elongated at low pitch
+        const tipDist = R * (1.55 - pitchNorm * 0.45);
+
+        // geometric tangent from external tip point to the circle
+        const cosTheta = Math.min(R / tipDist, 0.995);
+        const sinTheta = Math.sqrt(1 - cosTheta * cosTheta);
+        const theta = Math.acos(cosTheta);
+        const tx = R * cosTheta; // tangent point x
+        const ty = R * sinTheta; // tangent point |y|
+
+        // path: tip → top tangent → arc around back → bottom tangent (closePath to tip)
         ctx.beginPath();
-        ctx.moveTo(22, 0);
-        ctx.lineTo(10, -5);
-        ctx.lineTo(12, 0);
-        ctx.lineTo(10, 5);
+        ctx.moveTo(tipDist, 0);
+        ctx.lineTo(tx, -ty);
+        ctx.arc(0, 0, R, -theta, theta, true);
         ctx.closePath();
+
+        // subtle off-centre gradient for 3D read (light from upper-left in local space)
+        const grad = ctx.createRadialGradient(-R * 0.15, -R * 0.38, R * 0.05, R * 0.25, R * 0.1, R * 1.45);
+        grad.addColorStop(0,    "rgba(246, 248, 250, 1.00)");
+        grad.addColorStop(0.52, "rgba(225, 234, 240, 0.97)");
+        grad.addColorStop(1,    "rgba(185, 208, 225, 0.82)");
+        ctx.fillStyle = grad;
         ctx.fill();
+
+        ctx.restore();
         ctx.restore();
       }
 
@@ -2368,53 +2384,87 @@
         pvTrendTime.textContent = "—";
         if (records.length) {
           const last = records[records.length - 1];
-          const d = new Date(last.timestamp);
+          const d = new Date(recordTime(last));
           const hhmm = `${d.getHours()}:${String(d.getMinutes()).padStart(2,"0")}`;
-          pvRecent.textContent = `${last.area || "—"} · ${hhmm}`;
+          pvRecent.textContent = `${last.area || "国分寺駅周辺"} · ${hhmm}`;
         } else {
           pvRecent.textContent = "—";
         }
       }
+
+      const RECORD_WORD_LAYOUT = [
+        { word:"速い",    dotLeft:147.8, dotTop:437.7,  dotW:6, txtLeft:161,  txtTop:430.34, color:"rgba(143,175,208,0.92)", size:15, weight:700 },
+        { word:"澄む",    dotLeft: 74.8, dotTop:452.87, dotW:6, txtLeft: 88,  txtTop:445.5,  color:"rgba(183,208,215,0.92)", size:15, weight:700 },
+        { word:"ほどける",dotLeft:234.8, dotTop:452.87, dotW:6, txtLeft:248,  txtTop:445.5,  color:"rgba(200,200,176,0.92)", size:15, weight:700 },
+        { word:"詰まる",  dotLeft: 28.8, dotTop:485.37, dotW:6, txtLeft: 42,  txtTop:478.01, color:"rgba(184,138,116,0.92)", size:15, weight:700 },
+        { word:"流れる",  dotLeft:276.8, dotTop:487.54, dotW:6, txtLeft:290,  txtTop:480.17, color:"rgba(127,167,183,0.92)", size:15, weight:700 },
+        { word:"ざらつく",dotLeft: 94.8, dotTop:504.87, dotW:6, txtLeft:108,  txtTop:497.51, color:"rgba(168,139,124,0.92)", size:15, weight:700 },
+        { word:"浮く",    dotLeft:206.8, dotTop:509.21, dotW:5, txtLeft:220,  txtTop:501.84, color:"rgba(175,197,216,0.7)",  size:13, weight:400 },
+        { word:"静まる",  dotLeft: 48.8, dotTop:537.38, dotW:5, txtLeft: 62,  txtTop:530.01, color:"rgba(159,176,184,0.7)",  size:13, weight:400 },
+        { word:"重い",    dotLeft:254.8, dotTop:537.38, dotW:5, txtLeft:268,  txtTop:530.01, color:"rgba(142,127,115,0.7)",  size:13, weight:400 },
+        { word:"沈む",    dotLeft:146.8, dotTop:556.88, dotW:5, txtLeft:160,  txtTop:549.51, color:"rgba(126,140,160,0.7)",  size:13, weight:400 },
+        { word:"薄い",    dotLeft: 94.8, dotTop:582.88, dotW:4, txtLeft:108,  txtTop:575.51, color:"rgba(197,202,208,0.7)",  size:13, weight:400 },
+        { word:"遠い",    dotLeft:200.8, dotTop:582.88, dotW:4, txtLeft:214,  txtTop:575.51, color:"rgba(147,160,178,0.7)",  size:13, weight:400 },
+      ];
 
       function updateStats() {
         const records = state.personalRecords;
         const avgNoise = records.length ? records.reduce((acc, r) => acc + r.noise, 0) / records.length : 0;
         document.getElementById("recordCount").textContent = `世界 ${state.worldRecords.length} / 自分 ${records.length}`;
 
-        const recordTime = document.getElementById("recordTime");
-        recordTime.innerHTML = "";
-        const maxSlot = Math.max(1, ...TIME_SLOTS.map(slot => records.filter(r => r.slot === slot).length));
+        // Time chart — dot-matrix rows (Figma layout)
+        const recordTimeEl = document.getElementById("recordTime");
+        recordTimeEl.innerHTML = "";
+        const DOT_MAX = 30;
+        const SLOT_LABEL = { morning:"朝", day:"昼", evening:"夕", night:"夜" };
         TIME_SLOTS.forEach(slot => {
-          const count = records.filter(r => r.slot === slot).length;
+          const count = records.filter(r => (r.slot || recordSlot(r)) === slot).length;
           const row = document.createElement("div");
-          row.className = "slice";
-          const slotLabel = { morning: "朝", day: "昼", evening: "夕", night: "夜" }[slot] || slot;
-          row.innerHTML = `<span>${slotLabel}</span><span class="track"><span class="fill" style="width:${(count / maxSlot) * 100}%"></span></span><span>${count}</span>`;
-          recordTime.appendChild(row);
+          row.className = "rec-time-row";
+          const lbl = document.createElement("span");
+          lbl.className = "rec-time-lbl";
+          lbl.textContent = SLOT_LABEL[slot] || slot;
+          row.appendChild(lbl);
+          const dotsWrap = document.createElement("span");
+          dotsWrap.className = "rec-time-dots";
+          for (let i = 0; i < DOT_MAX; i++) {
+            const d = document.createElement("span");
+            d.className = "rec-dot " + (i < count ? "rec-dot-on" : "rec-dot-off");
+            dotsWrap.appendChild(d);
+          }
+          row.appendChild(dotsWrap);
+          const cnt = document.createElement("span");
+          cnt.className = "rec-time-cnt";
+          cnt.textContent = String(count);
+          row.appendChild(cnt);
+          recordTimeEl.appendChild(row);
         });
 
+        // Word counts
         const wordCounts = new Map();
         for (const r of records) {
           const ws = Array.isArray(r.selectedWords) && r.selectedWords.length ? r.selectedWords : (r.word ? [r.word] : []);
           for (const w of ws) wordCounts.set(w, (wordCounts.get(w) || 0) + 1);
         }
-        const usedWords = [...wordCounts.entries()].sort((a, b) => b[1] - a[1]);
-        const showWords = usedWords.length ? usedWords : SENSE_WORD_LIST.slice(0, 8).map(e => [e.word, 0]);
+        const maxCount = Math.max(1, ...[...wordCounts.values()]);
+
+        // Word cloud — Figma positions
         const recordWords = document.getElementById("recordWords");
         recordWords.innerHTML = "";
-        const wordPositions = [
-          [40, 34], [145, 14], [235, 42], [22, 78], [104, 72], [190, 88], [62, 124], [160, 132], [246, 118]
-        ];
-        showWords.forEach(([word, count], index) => {
-          const label = document.createElement("span");
-          label.className = "record-word";
-          label.textContent = word;
-          const [left, top] = wordPositions[index % wordPositions.length];
-          label.style.left = `${left}px`;
-          label.style.top = `${top}px`;
-          label.style.opacity = String(count ? Math.min(0.95, 0.46 + count * 0.08) : 0.38);
-          recordWords.appendChild(label);
+        RECORD_WORD_LAYOUT.forEach(({ word, dotLeft, dotTop, dotW, txtLeft, txtTop, color, size, weight }) => {
+          const count = wordCounts.get(word) || 0;
+          const opacity = count ? Math.min(1, 0.55 + (count / maxCount) * 0.45) : 0.18;
+          const dotEl = document.createElement("span");
+          dotEl.className = "rec-word-dot";
+          dotEl.style.cssText = `left:${dotLeft}px;top:${dotTop}px;width:${dotW}px;height:${dotW}px;background:${color};opacity:${opacity};`;
+          recordWords.appendChild(dotEl);
+          const txtEl = document.createElement("p");
+          txtEl.className = "rec-word-text";
+          txtEl.textContent = word;
+          txtEl.style.cssText = `left:${txtLeft}px;top:${txtTop}px;font-size:${size}px;font-weight:${weight};color:${color};opacity:${opacity};`;
+          recordWords.appendChild(txtEl);
         });
+
         document.getElementById("recordsTotal").textContent = String(records.length);
         document.getElementById("recordsVoid").textContent = visibleVoidCount();
         document.getElementById("recordsNoise").textContent = avgNoise.toFixed(2);
@@ -2427,7 +2477,7 @@
         if (state.recording) updateRecordingProgress();
         if (state.fieldDirty && canNavigateMap()) rebuildFieldCache();
         drawBackground();
-        if (state.view === "world" || state.view === "radius") {
+        if (state.view === "world" || state.view === "radius" || state.view === "profile" || state.view === "records") {
           let cells = state.cachedCells;
           if (state.fieldTransition) {
             const progress = clamp((performance.now() - state.fieldTransition.start) / state.fieldTransition.duration, 0, 1);
