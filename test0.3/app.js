@@ -1305,7 +1305,7 @@
             state.position = { lat: pos.coords.latitude, lng: pos.coords.longitude };
             state.heading = Number.isFinite(pos.coords.heading) ? pos.coords.heading : state.heading;
             state.origin = state.personalRecords.length ? state.origin : state.position;
-            if (state.view === "radius") syncMapToActiveCenter(false);
+            if (state.view === "radius" || state.view === "world") syncMapToActiveCenter(false);
             rebuildGrids();
           },
           () => {

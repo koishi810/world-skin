@@ -911,8 +911,12 @@ body { align-items:center; }
 /* ── Records view — Figma 1:1 ── */
 #view-records,
 #view-profile { background:rgba(6,8,11,0.72); backdrop-filter:none; }
+#view-records { overflow-y:auto; -webkit-overflow-scrolling:touch; }
+.rec-back { z-index:20; }
 .rec-content {
   position:absolute; left:24px; top:186px; width:345px;
+  height:700px;
+  padding-bottom:calc(32px + var(--safe-bottom));
 }
 .rec-title {
   position:absolute; left:0; top:0; margin:0;
