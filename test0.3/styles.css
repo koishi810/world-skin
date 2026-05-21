@@ -1469,6 +1469,7 @@ body { align-items:center; }
 #view-profile.active,
 #view-records.active,
 #view-settings.active { pointer-events:auto; }
+.sense-back { pointer-events:auto; }
 
 /* background layers — Figma 1:1 */
 /* 下拉遮罩 — Figma: absolute h:560 left:-114 top:920 w:621 → bottom:-628; inner: absolute inset:[-10.71%_-9.66%]; img: block max-w-none size-full */
