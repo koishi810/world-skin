@@ -126,7 +126,7 @@
 - [x] 感觉页返回按钮：新增，返回 prevView
 - [x] 底部 safe area：nav-btn / time-axis / utility 全部跟随
 - [x] 初始定位：地图 load 时检查 GPS 是否已就位
-- [x] 新增 map-base/：干净 MapLibre 地图文件（无 UI）
+- [x] 新增 map_prototype/：干净 MapLibre 地图文件（无 UI）
 - [x] cache-busting：styles.css?v=5 / app.js?v=5
 
 ### 2026-05-14 — Bug Audit 全面修复

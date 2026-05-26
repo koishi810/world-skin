@@ -25,14 +25,14 @@
 * `styles.css` — `.pv-back { z-index:10 }`；`.sense-back { pointer-events:auto }`（`.view` 默认 `pointer-events:none`）。
 * `styles.css` — `.nav-btn / .time-axis / .utility`：`bottom` 全部改为 `calc(Npx + var(--safe-bottom))`。
 * `index.html` — `styles.css?v=5`、`app.js?v=5` 加 cache-busting query。
-* 新增 `map-base/index.html`：干净 MapLibre 地图，无任何 UI 接口，自动定位，供独立开发使用。
+* 新增 `map_prototype/index.html`：干净 MapLibre 地图，无任何 UI 接口，自动定位，供独立开发使用。
 
 ### Files Modified
 
 * `test0.3/app.js`
 * `test0.3/index.html`
 * `test0.3/styles.css`
-* `map-base/index.html`（新建）
+* `map_prototype/index.html`（新建）
 
 ---
 
@@ -944,7 +944,7 @@
 - 用浏览器逐级测试 zoom：`region` 看整体皮肤、`area` 看默认生活圈、`neighborhood` 看街区边界、`street` 看局部 imprint。
 - 如果 street 层级移动端仍偏重，优先把 `street.dotSpacingMeters` 从 `32` 提高到 `40`。
 
-## Map Base Visibility Fix / 2026-05-12
+## Map Prototype Visibility Fix / 2026-05-12
 
 ### Problems
 
