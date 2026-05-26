@@ -36,6 +36,21 @@ Content / 主体（内部按 Section 继续拆）
 
 ## 分组规则
 
+### 01 组件归档 Table
+- `01_Components` 的每个顶层 section 直接子层统一只保留一个 `table`
+- `table` 下面只放 `row`
+- 每个 `row` 内固定结构：
+  ```
+  Row-head
+  cell
+    item
+  ```
+- `Row-head` 放组件名和简短说明
+- `cell` 放状态、变体或样例；真实组件必须放在 `item` 内
+- 同一类组件的不同状态横向放在同一行的多个 `cell` 中；不要另起自由散放的 panel
+- 旧的说明 panel 可以作为 `item` 临时放入 cell，但之后应逐步拆成更小的 component / state 样例
+- 这个结构优先保证组件库可扫描和可维护，不承担正式页面设计
+
 ### 返回按钮
 - 返回图标 + 文字放同一组，命名 `Header / 返回按钮`
 - 不放进滚动内容里
@@ -92,3 +107,18 @@ page-view（半透明毛玻璃背景）
 page-back（返回按钮）
 page-content（滚动内容区）
 ```
+
+### share 视图
+```
+System / Status Bar
+Background / 背景层
+Overlay / 切换遮罩
+Header / 返回按钮
+Content / 分享主体
+  Header / 头部
+  Preview / 共有カード
+  Section / 共有する内容
+  Section / 共有先
+```
+
+share 属于 profile 后续进入的全屏文字/信息页。文本页面遮罩统一使用 `Overlay / 切换遮罩` 的 `Transition Mask / 01 暗遮罩落点`，不额外叠页面遮罩。结构上靠近 records/settings，但因为有外发预览，允许保留一个 `Preview / 共有カード` 作为输出物预览；不要把整页继续包成 panel/card。

@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>World Skin 0.4 — Supabase Seed</title>
+  <style>
+    body { font-family: monospace; background: #0d1117; color: #c9d1d9; padding: 24px; }
+    h1   { color: #58a6ff; margin-bottom: 8px; }
+    p    { margin: 4px 0; color: #8b949e; }
+    #log { margin-top: 24px; white-space: pre-wrap; line-height: 1.7; }
+    .ok  { color: #3fb950; }
+    .err { color: #f85149; }
+    .inf { color: #79c0ff; }
+    button { margin-top: 20px; padding: 10px 24px; background: #238636; color: #fff;
+             border: none; border-radius: 6px; cursor: pointer; font-size: 14px; }
+    button:disabled { background: #21262d; color: #484f58; cursor: not-allowed; }
+  </style>
+</head>
+<body>
+  <h1>World Skin 0.4 — Supabase Seed</h1>
+  <p>Opens <code>supabase-config.js</code> for the Supabase connection.</p>
+  <p>Seeds: zones, corridors, voids, world records (~5 000 rows).</p>
+  <p><strong>Run once.</strong> Safe to re-run (upsert by id).</p>
+  <button id="runBtn">Seed データを投入する</button>
+  <div id="log"></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+  <script src="supabase-config.js"></script>
+  <script src="data/world_data.js"></script>
+  <script>
+  const log = document.getElementById("log");
+  function print(msg, cls = "") {
+    const line = document.createElement("div");
+    if (cls) line.className = cls;
+    line.textContent = msg;
+    log.appendChild(line);
+    window.scrollTo(0, document.body.scrollHeight);
+  }
+
+  async function batchUpsert(client, table, rows, batchSize = 200) {
+    for (let i = 0; i < rows.length; i += batchSize) {
+      const chunk = rows.slice(i, i + batchSize);
+      const { error } = await client.from(table).upsert(chunk, { onConflict: "id" });
+      if (error) throw new Error(`${table}[${i}]: ${error.message}`);
+      print(`  ${table}: inserted ${Math.min(i + batchSize, rows.length)} / ${rows.length}`, "inf");
+    }
+  }
+
+  document.getElementById("runBtn").addEventListener("click", async function () {
+    this.disabled = true;
+    log.innerHTML = "";
+
+    const url = window.SUPABASE_URL;
+    const key = window.SUPABASE_ANON_KEY;
+    if (!url || url.includes("YOUR-PROJECT")) {
+      print("ERROR: fill in SUPABASE_URL in supabase-config.js first.", "err");
+      this.disabled = false;
+      return;
+    }
+
+    const client = window.supabase.createClient(url, key);
+    print("Connected to Supabase.", "ok");
+
+    try {
+      // ── zones ────────────────────────────────────────────────────────────────
+      print("Seeding zones…", "inf");
+      const zoneRows = (window.WORLD_SKIN_ZONES || []).map(z => ({
+        id:             z.id,
+        label:          z.label,
+        type:           z.type,
+        center_lat:     z.center.lat,
+        center_lng:     z.center.lng,
+        radius:         z.radius,
+        noise_min:      z.noise[0],
+        noise_max:      z.noise[1],
+        turbulence_min: z.turbulence[0],
+        turbulence_max: z.turbulence[1],
+        mobility:       z.mobility,
+        words:          z.words,
+        hours:          z.hours
+      }));
+      await batchUpsert(client, "zones", zoneRows);
+      print(`zones: done (${zoneRows.length} rows).`, "ok");
+
+      // ── corridors ────────────────────────────────────────────────────────────
+      print("Seeding corridors…", "inf");
+      const corridorRows = (window.WORLD_SKIN_CORRIDORS || []).map(c => ({
+        id:             c.id,
+        label:          c.label,
+        type:           c.type,
+        points:         c.points,
+        width:          c.width,
+        noise_min:      c.noise[0],
+        noise_max:      c.noise[1],
+        turbulence_min: c.turbulence[0],
+        turbulence_max: c.turbulence[1],
+        mobility:       c.mobility,
+        words:          c.words,
+        hours:          c.hours
+      }));
+      await batchUpsert(client, "corridors", corridorRows);
+      print(`corridors: done (${corridorRows.length} rows).`, "ok");
+
+      // ── voids ────────────────────────────────────────────────────────────────
+      print("Seeding voids…", "inf");
+      const voidRows = (window.WORLD_SKIN_VOIDS || []).map(v => ({
+        id:         v.id,
+        center_lat: v.center.lat,
+        center_lng: v.center.lng,
+        radius:     v.radius
+      }));
+      await batchUpsert(client, "voids", voidRows);
+      print(`voids: done (${voidRows.length} rows).`, "ok");
+
+      // ── world records ────────────────────────────────────────────────────────
+      print("Seeding world records (this may take a moment)…", "inf");
+      const recordRows = (window.WORLD_SKIN_RECORDS || []).map(r => ({
+        id:             r.id,
+        user_id:        r.userId,
+        device_id:      null,
+        record_type:    "world",
+        lat:            r.lat,
+        lng:            r.lng,
+        timestamp:      r.timestamp,
+        hour:           r.hour,
+        weekday:        r.weekday,
+        noise_level:    r.noiseLevel,
+        turbulence:     r.turbulence,
+        peak:           r.peak,
+        mobility:       r.mobility,
+        direction:      r.direction,
+        duration:       r.duration,
+        word:           r.word,
+        selected_words: r.selectedWords || [],
+        sense_vector:   r.senseVector   || {},
+        sound_vector:   r.soundVector   || {},
+        trust_score:    r.trustScore,
+        zone_id:        r.zoneId,
+        source:         r.source,
+        noise:          r.noise,
+        flux:           r.flux,
+        movement:       r.movement,
+        distance:       r.distance,
+        slot:           r.slot,
+        created_at:     r.createdAt
+      }));
+      await batchUpsert(client, "records", recordRows, 250);
+      print(`records: done (${recordRows.length} rows).`, "ok");
+
+      print("", "");
+      print("✓ Seed complete.", "ok");
+    } catch (err) {
+      print(`ERROR: ${err.message}`, "err");
+      this.disabled = false;
+    }
+  });
+  </script>
+</body>
+</html>

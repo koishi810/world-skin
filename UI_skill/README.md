@@ -24,6 +24,9 @@
 - `design_language.md`  
   视觉与交互气质方向——已确认的 + 还在探索的
 
+- `tokens.md`  
+  Figma 变量与设计 token 的命名、数值、使用边界
+
 - `layout_and_layers.md`  
   Figma 图层结构与页面版面的组织方式
 

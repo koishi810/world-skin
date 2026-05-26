@@ -1,5 +1,9 @@
 .DS_Store
 .claude/
+.codex-skill-staging/
+ui导入webskill/
 作品集准备（codex勿读）/
 test0.1.html
 *.log
+.next/
+test0.4/.next/

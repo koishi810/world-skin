@@ -101,6 +101,33 @@
 
 ---
 
+## 7. 分享页 / share 视图 🔲（Figma 初稿）
+
+**角色**：从个人资料页的分享按钮进入，生成一张可外发的个人感知摘要。
+
+**Figma 位置**：`05_Record Visualizations` → `Feature States / 三个功能` → `Share / 01 共有`
+
+**结构约定**：
+- `System / Status Bar`
+- `Background / 背景层`
+- `Overlay / 切换遮罩`
+- `Header / 返回按钮`
+- `Content / 分享主体`
+  - `Header / 头部`
+  - `Preview / 共有カード`
+  - `Section / 共有する内容`
+  - `Section / 共有先`
+
+**设计原则**：
+- 共享的是「个人感知摘要」，不是社交动态卡片
+- 视觉参考个人界面和记录数据界面：暗地图、轻文字、低对比预览、细分割线
+- 文本页面遮罩统一使用 `Overlay / 切换遮罩` 的 `Transition Mask / 01 暗遮罩落点`，不额外叠 `Overlay / 页面遮罩`
+- 分享预览可以作为一个被框定的输出物存在，但页面本身不做卡片堆叠
+- 可见文案保持日文；内部图层名保持中英语义结构
+- 当前入口、最终用途和外发格式仍待确认，因此标为 Figma 初稿
+
+---
+
 ## 页面 pointer-events 注意事项（已验证）
 
 `.view.active` 不自动设置 `pointer-events:auto`。  

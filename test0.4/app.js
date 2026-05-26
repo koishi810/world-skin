@@ -1,7 +1,14 @@
 (() => {
-      // Configuration and source data. Keep visual thresholds here so render caps are explicit.
-      const STORAGE_KEY = "world-skin-v03-records";
-      const SEED_KEY = "world-skin-v03-seeded-r1";
+      const DEVICE_ID_KEY = "world-skin-v04-device-id";
+      const supabase = (() => {
+        const url = window.SUPABASE_URL;
+        const key = window.SUPABASE_ANON_KEY;
+        if (!url || url.includes("YOUR-PROJECT") || !window.supabase) {
+          console.warn("[WorldSkin] Supabase not configured — run seed.html first and fill supabase-config.js");
+          return null;
+        }
+        return window.supabase.createClient(url, key);
+      })();
       const DURATION = 10000;
       const BREATH_VISUAL = {
         growMs:       4000,
@@ -15,11 +22,11 @@
         strokeAlpha: 0.62,
         strokeWidth: 1.4
       };
-      const RADIUS_METERS = window.WORLD_SKIN_DATA?.radiusMeters || 5000;
-      const WORLD_ORIGIN = window.WORLD_SKIN_DATA?.origin || { lat: 35.7000, lng: 139.4808 };
+      const RADIUS_METERS = 8000;
+      const WORLD_ORIGIN = { lat: 35.7000, lng: 139.4800 };
       const DEFAULT_ORIGIN = WORLD_ORIGIN;
       const TIME_SLOTS = ["morning", "day", "evening", "night"];
-      const WORLD_RECORDS = window.WORLD_SKIN_DATA?.records || [];
+      let WORLD_RECORDS = [];
       const TEST_RECORDS   = window.TEST_SKIN_DATA?.records   || [];
       const TEST_RECORDS_2 = window.TEST_SKIN_DATA_2?.records || [];
       const _LNG5T = [-2,-1,0,1,2].map(i => 139.4808 + i * 0.0220);
@@ -53,9 +60,6 @@
         { id:"F3", name:"嘈杂+空旷", lat:35.6080, lng:_LNG5T[3] },
         { id:"F4", name:"安静+沉重", lat:35.6080, lng:_LNG5T[4] },
       ];
-      if (!window.WORLD_SKIN_DATA) {
-        console.warn("World Skin: world_data.js was not loaded. World Map will start without aggregate records.");
-      }
       const VISUAL_LIMITS = {
         strength: 0.72,
         flux: 0.72,
@@ -193,7 +197,6 @@
       };
       const FIELD_KEY_SCALE = 1000000;
       function fieldKey(a, b) { return a * FIELD_KEY_SCALE + b; }
-      // Sense vocabulary maps selected words to v2 structural axes used by the field renderer.
       // Each entry: { word, sv:{spaciousness,gravity,tension,flow}, tex:{...legacy only} }
       // tex is kept for old-record compatibility notes; new records do not write textureModifier.
       // sv axes: subjective spatial/structural feel. tex: surface/material quality.
@@ -249,7 +252,6 @@
         { left: 146.0, top: 286.0, minLeft: 124, maxLeft: 168, minTop: 264, maxTop: 308, scaleMin: 0.94, scaleMax: 1.10 }
       ];
 
-      // Small shared helpers: sense aggregation, timeline normalization, easing, layout, and haptics.
       function aggregateSV(words) {
         const zero = { spaciousness: 0, gravity: 0, tension: 0, flow: 0 };
         if (!words.length) return zero;
@@ -281,7 +283,6 @@
         if ("vibrate" in navigator) { try { navigator.vibrate(pattern); } catch (e) {} }
       }
 
-      // DOM anchors. View changes are expressed through #app dataset/classes and these fixed nodes.
       const app = document.getElementById("app");
       const realMap = document.getElementById("realMap");
       const mapDarkOverlay = document.getElementById("mapDarkOverlay");
@@ -304,11 +305,10 @@
       const toast = document.getElementById("toast");
       const debugPanel = document.getElementById("debugPanel");
 
-      // Runtime state for views, map, audio, recording, cached field, and debug overlays.
       const state = {
         view: "world",
         prevView: "world",
-        personalRecords: loadRecords(),
+        personalRecords: [],
         worldRecords: WORLD_RECORDS,
         testMode: false,
         origin: DEFAULT_ORIGIN,
@@ -361,50 +361,116 @@
       app.dataset.view = state.view;
       app.dataset.senseStage = "idle";
 
-      // Persistence and seed data. Personal records live in localStorage; bundled data only seeds once.
-      function maybeSeedPersonalRecords(records) {
-        const alreadySeeded = !!localStorage.getItem(SEED_KEY);
-        if (alreadySeeded && records.length > 0) return records;
-        const source = window.MY_SKIN_DATA?.records || [];
-        if (!source.length) return records;
-        try {
-          const seeded = source.map(r => ({
-            ...r,
-            noise: r.noiseLevel,
-            flux: r.turbulence,
-            movement: r.mobility,
-            slot: r.hour < 6 ? "night" : r.hour < 12 ? "morning" : r.hour < 18 ? "day" : r.hour < 22 ? "evening" : "night",
-            createdAt: r.timestamp
-          }));
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(seeded));
-          localStorage.setItem(SEED_KEY, "1");
-          console.log("[WorldSkin] seeded", seeded.length, "personal records");
-          return seeded;
-        } catch {
-          return records;
+      function getDeviceId() {
+        let id = localStorage.getItem(DEVICE_ID_KEY);
+        if (!id) {
+          id = "dev-" + Math.random().toString(36).slice(2, 11) + "-" + Date.now().toString(36);
+          localStorage.setItem(DEVICE_ID_KEY, id);
         }
+        return id;
       }
 
-      function loadRecords() {
-        try {
-          const parsed = JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
-          const records = Array.isArray(parsed) ? parsed : [];
-          return maybeSeedPersonalRecords(records);
-        } catch {
-          return maybeSeedPersonalRecords([]);
-        }
+      function deserializeRecord(row) {
+        return {
+          id:            row.id,
+          userId:        row.user_id,
+          lat:           row.lat,
+          lng:           row.lng,
+          timestamp:     row.timestamp,
+          hour:          row.hour,
+          weekday:       row.weekday,
+          noiseLevel:    row.noise_level,
+          turbulence:    row.turbulence,
+          peak:          row.peak,
+          mobility:      row.mobility,
+          direction:     row.direction,
+          duration:      row.duration,
+          word:          row.word,
+          selectedWords: row.selected_words || [],
+          senseVector:   row.sense_vector   || {},
+          soundVector:   row.sound_vector   || {},
+          trustScore:    row.trust_score,
+          zoneId:        row.zone_id,
+          source:        row.source,
+          noise:         row.noise,
+          flux:          row.flux,
+          movement:      row.movement,
+          distance:      row.distance,
+          slot:          row.slot,
+          createdAt:     row.created_at
+        };
       }
 
-      function saveRecords() {
-        try {
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(state.personalRecords));
-        } catch (error) {
-          console.warn("World Skin: localStorage write failed", error);
-          showToast("この端末では記録を保存できません。");
-        }
+      function serializeRecord(record, deviceId) {
+        return {
+          id:             record.id,
+          user_id:        deviceId,
+          device_id:      deviceId,
+          record_type:    "personal",
+          lat:            record.lat,
+          lng:            record.lng,
+          timestamp:      record.timestamp,
+          hour:           record.hour,
+          weekday:        record.weekday,
+          noise_level:    record.noiseLevel,
+          turbulence:     record.turbulence,
+          peak:           record.peak,
+          mobility:       record.mobility,
+          direction:      record.direction,
+          duration:       record.duration,
+          word:           record.word,
+          selected_words: record.selectedWords || [],
+          sense_vector:   record.senseVector   || {},
+          sound_vector:   record.soundVector   || {},
+          trust_score:    record.trustScore,
+          zone_id:        record.zoneId,
+          source:         record.source,
+          noise:          record.noise,
+          flux:           record.flux,
+          movement:       record.movement,
+          distance:       record.distance,
+          slot:           record.slot,
+          created_at:     record.createdAt || new Date().toISOString()
+        };
       }
 
-      // Coordinate helpers bridge geographic records and the meter-space field grid.
+      async function loadPersonalRecords() {
+        if (!supabase) return [];
+        const { data, error } = await supabase
+          .from("records")
+          .select("*")
+          .eq("record_type", "personal")
+          .eq("device_id", getDeviceId());
+        if (error) { console.warn("[WorldSkin] load personal records failed", error); return []; }
+        return (data || []).map(deserializeRecord);
+      }
+
+      async function loadWorldRecords() {
+        if (!supabase) return [];
+        const { data, error } = await supabase
+          .from("records")
+          .select("*")
+          .eq("record_type", "world");
+        if (error) { console.warn("[WorldSkin] load world records failed", error); return []; }
+        return (data || []).map(deserializeRecord);
+      }
+
+      async function saveRecord(record) {
+        if (!supabase) return;
+        const { error } = await supabase.from("records").upsert(serializeRecord(record, getDeviceId()));
+        if (error) throw error;
+      }
+
+      async function clearPersonalRecords() {
+        if (!supabase) return;
+        const { error } = await supabase
+          .from("records")
+          .delete()
+          .eq("record_type", "personal")
+          .eq("device_id", getDeviceId());
+        if (error) throw error;
+      }
+
       function metersToLatLng(dx, dy, origin = WORLD_ORIGIN) {
         return {
           lat: origin.lat + dy / 111320,
@@ -452,7 +518,6 @@
         return state.position || recordsCenter(state.personalRecords) || state.origin || DEFAULT_ORIGIN;
       }
 
-      // Record normalization accepts old and new schemas while render code reads one shape.
       function recordNoise(record) {
         return clamp(Number(record.noise ?? record.noiseLevel ?? 0.18), 0, 1);
       }
@@ -547,7 +612,6 @@
         }));
       }
 
-      // Convert one record into bounded visual parameters before grid aggregation.
       function recordBaseVisual(record) {
         const noise = recordNoise(record);
         const flux = recordFlux(record);
@@ -608,7 +672,6 @@
         return color;
       }
 
-      // Dot rendering channels keep active, void, and dense regions inside the visual limits.
       function getDotAlpha(params) {
         const s = clamp(params.strength, 0, 1);
         const c = clamp(params.contrast, 0, 1);
@@ -770,7 +833,6 @@
         return clamp(base * gFactor * spFactor, 4, 160);
       }
 
-      // World view blends multiple time windows; radius view always shows personal records directly.
       function temporalWeight(record, visual = null) {
         if (state.view !== "world") return 1;
         const date = new Date(recordTime(record));
@@ -795,7 +857,6 @@
         showToast.timer = setTimeout(() => toast.classList.remove("active"), 3600);
       }
 
-      // MapLibre owns projection and gestures; canvas renders only the skin texture overlay.
       function initRealMap() {
         if (!window.maplibregl || !realMap) {
           showToast("地図エンジンを読み込めません。簡易表示に切り替えます。");
@@ -1079,7 +1140,6 @@
         requestRender();
       }
 
-      // Projection and metric helpers used by both MapLibre and fallback canvas mode.
       function clamp(value, min, max) {
         return Math.max(min, Math.min(max, value));
       }
@@ -1190,7 +1250,6 @@
         return { dx, dy };
       }
 
-      // Audio, location, and recording lifecycle. Permission failures leave recording retryable.
       async function initAudio() {
         if (state.audioReady) return;
         try {
@@ -1447,13 +1506,13 @@
         setTimeout(savePending, 1100);
       }
 
-      function savePending() {
+      async function savePending() {
         if (!state.pending) return;
         state.pending.word = state.selectedWords[0] || null;
         state.pending.selectedWords = [...state.selectedWords];
         state.pending.senseVector    = aggregateSV(state.selectedWords);
-        state.personalRecords.push(state.pending);
-        saveRecords();
+        const record = state.pending;
+        state.personalRecords.push(record);
         state.pending = null;
         state.selectedWords = [];
         state.senseRound = 0;
@@ -1462,6 +1521,10 @@
         rebuildGrids();
         updateStats();
         switchView("radius");
+        saveRecord(record).catch(err => {
+          console.warn("[WorldSkin] save record failed", err);
+          showToast("記録の保存に失敗しました。");
+        });
       }
 
       function discardPending() {
@@ -1496,7 +1559,6 @@
         state.senseIntroTimers.push(setTimeout(() => setSenseStage("ready"), 2100));
       }
 
-      // View state machine: switches visible panels, map target, nav state, and Sense cancellation.
       function switchView(view, keepNavOpen = false) {
         if (!keepNavOpen || view === "sense" || view === "records" || view === "settings") {
           app.classList.remove("nav-open");
@@ -1581,7 +1643,6 @@
       }
 
 
-      // Canvas background is intentionally sparse; the real map remains the geographic substrate.
       function drawBackground() {
         ctx.clearRect(0, 0, state.width, state.height);
         // profile / records / settings: let realMap show through canvas
@@ -1680,7 +1741,6 @@
         };
       }
 
-      // Field generation: bucket records spatially, then aggregate nearby influence into stable grid cells.
       function buildGeoGridField(records) {
         const config = gridRenderConfig();
         const origin = activeOrigin();
@@ -1918,7 +1978,6 @@
         return cells;
       }
 
-      // Canvas draw pass: reproject cached cells through MapLibre and render dots/height lines without markers.
       function drawGridTexture(cells = state.cachedCells) {
         const config = gridRenderConfig();
         ctx.save();
@@ -2118,7 +2177,6 @@
         });
       }
 
-      // Cached field rebuilds only on explicit invalidation: map movement, resize, data, or timeline changes.
       function rebuildFieldCache() {
         state.cachedCells = buildGeoGridField(activeRecords());
         state.fieldDirty = false;
@@ -2311,7 +2369,6 @@
         return String(voids);
       }
 
-      // Profile and records panels derive text summaries from personalRecords only.
       function updateProfileView() {
         const records = state.personalRecords;
         pvCount.textContent = String(records.length);
@@ -2426,7 +2483,6 @@
         }
       }
 
-      // Demand-driven render loop; rAF continues only while recording or field transitions are active.
       function render() {
         state.renderHandle = null;
         state.t += 1 / Math.max(1, PERF.targetFPS);
@@ -2453,7 +2509,6 @@
         if (state.recording || state.fieldTransition) requestRender();
       }
 
-      // UI bindings: navigation, timeline, debug toggles, map fallback gestures, and recording controls.
       function bindEvents() {
         window.addEventListener("resize", resizeCanvas);
         navBtns.forEach(btn => btn.addEventListener("click", () => switchView(btn.dataset.target, true)));
@@ -2505,13 +2560,15 @@
           rebuildGrids();
           showToast("半径の中心へ戻りました。");
         });
-        document.getElementById("clearBtn").addEventListener("click", () => {
+        document.getElementById("clearBtn").addEventListener("click", async () => {
           if (!state.personalRecords.length) return;
           state.personalRecords = [];
-          saveRecords();
           rebuildGrids();
           updateStats();
           showToast("自分の記録を消しました。");
+          clearPersonalRecords().catch(err => {
+            console.warn("[WorldSkin] clear records failed", err);
+          });
         });
         // 遮罩点击 → 展开/收起导航
         document.querySelector(".nav-overlay").addEventListener("click", () => {
@@ -2563,8 +2620,15 @@
 
       const _bootAt = Date.now();
 
-      // Startup order: map, canvas sizing, events, location, stats, field cache, launch animation.
-      function boot() {
+      async function boot() {
+        const [worldData, personalData] = await Promise.all([
+          loadWorldRecords(),
+          loadPersonalRecords()
+        ]);
+        WORLD_RECORDS = worldData;
+        state.worldRecords = WORLD_RECORDS;
+        state.personalRecords = personalData;
+        state.origin = recordsCenter(state.personalRecords) || DEFAULT_ORIGIN;
         initRealMap();
         resizeCanvas();
         bindEvents();
@@ -2574,5 +2638,5 @@
         startLaunchAnimation();
       }
 
-      boot();
+      boot().catch(err => console.error("[WorldSkin] boot failed", err));
     })();

@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>World Skin 0.3 · v5</title>
+  <title>World Skin 0.4</title>
   <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -12,9 +12,7 @@
   <link rel="stylesheet" href="styles.css?v=28">
 </head>
 <body>
-  <!-- App shell: #app[data-view] and class names drive the single-page state machine. -->
   <main id="app">
-    <!-- Launch / logo intro: CSS animation runs until the map is ready and the minimum hold has passed. -->
     <div id="launchScreen" aria-hidden="true">
       <div class="launch-logo-wrap" id="launchLogoWrap">
         <!-- Frame 00→01: 针从屏幕底部上升 — Figma 906:190 (2x paths, displayed 1x) -->
@@ -39,13 +37,11 @@
         </svg>
       </div>
     </div>
-    <!-- Static iPhone chrome for the Figma-matched mobile prototype. -->
     <div class="system-status" aria-hidden="true">
       <span class="status-time">9:41</span>
       <span class="dynamic-island"></span>
       <span class="status-icons">◢　⌁　▮</span>
     </div>
-    <!-- Map stack: MapLibre base, time/color overlay, canvas skin field, and global shade. -->
     <div id="realMap" aria-hidden="true"></div>
     <div id="mapDarkOverlay" aria-hidden="true"></div>
     <canvas id="skinCanvas" aria-label="World Skinの地図表面"></canvas>
@@ -65,10 +61,8 @@
 
     <button class="avatar-btn" id="avatarBtn" type="button" aria-label="個人メニューを開く"></button>
 
-    <!-- World and Radius reuse the shared map/canvas stack; these sections are view-state targets. -->
     <section class="view active" id="view-world" data-view="world"></section>
 
-    <!-- Sense view: Figma layer stack for contact, recording, release, and word-selection stages. -->
     <section class="view" id="view-sense" data-view="sense">
       <button class="pv-back sense-back" id="senseBack" type="button" aria-label="戻る">
         <span class="material-icons">chevron_left</span>
@@ -88,14 +82,12 @@
       </div>
     </section>
 
-    <!-- My Radius keeps the shared map visible and exposes the records sheet entry point. -->
     <section class="view" id="view-radius" data-view="radius">
       <button class="personal-records-btn" id="personalRecordsBtn" type="button" aria-label="記録を見る">
         <span class="material-icons">history</span>
       </button>
     </section>
 
-    <!-- Records sheet: personal-only summaries rendered from localStorage records. -->
     <section class="view" id="view-records" data-view="records">
       <div class="pv-trans-outer" aria-hidden="true">
         <div class="pv-trans-rotate">
@@ -133,7 +125,6 @@
       </div></div>
     </section>
 
-    <!-- Settings is currently a static Figma-matched panel; no rows are wired to behavior yet. -->
     <section class="view page-view" id="view-settings" data-view="settings">
       <button class="page-back" type="button" data-back="radius">‹ 設定</button>
       <div class="page-content settings-page">
@@ -174,7 +165,6 @@
       </button>
     </div>
 
-    <!-- World time scrubber: app.js maps slider offsets to weighted field windows. -->
     <div class="time-axis" id="timeAxis">
       <div class="time-axis-top">
         <span>時間の皮膚</span>
@@ -184,7 +174,6 @@
       <div class="time-ticks"><span>-12h</span><span>現在</span></div>
     </div>
 
-    <!-- Footer navigation opens/collapses as its own nav state, separate from data-view. -->
     <nav class="footer-nav" aria-label="表示の切り替え">
       <div class="nav-overlay" aria-hidden="true"></div>
       <button class="nav-btn active" type="button" data-target="world" aria-label="地図">
@@ -198,7 +187,6 @@
       </button>
     </nav>
 
-    <!-- Profile sheet: Figma-positioned elements populated from personalRecords. -->
     <section class="view" id="view-profile" data-view="profile">
       <div class="pv-pulldown" aria-hidden="true">
         <div class="pv-pulldown-inner">
@@ -245,7 +233,6 @@
       </button>
     </section>
 
-    <!-- Sense word-selection modal; JS fills labelSelect for each round after sampling completes. -->
     <div class="modal" id="recordModal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
       <div class="record-panel">
         <div class="panel-title" id="modalTitle" hidden>記録の準備</div>
@@ -268,13 +255,12 @@
     <div class="debug-panel" id="debugPanel"></div>
   </main>
 
-  <!-- Data scripts expose window.* globals consumed by app.js; app.js remains a plain script. -->
   <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
-  <script src="data/world_data.js"></script>
-  <script src="data/my_data.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+  <script src="supabase-config.js"></script>
   <script src="data/testdata.js"></script>
   <script src="data/testdata2.js"></script>
-  <script src="app.js?v=11"></script>
+  <script src="app.js?v=1"></script>
 
 </body>
 </html>

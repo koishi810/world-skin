@@ -1,7 +1,7 @@
 # MAP_SPEC
 
-更新时间：2026-05-13
-依据：当前实现 `test0.2.html`、进度文件 `TODO`、变更记录 `MAP_LOG`，以及历史项目说明书《世界皮肤 / World Skin》v0.2。
+更新时间：2026-05-25
+依据：当前实现 `test0.3/`（app.js · index.html · styles.css）、`MAP_LOG`、`UI_skill/`，以及历史项目说明书《世界皮肤 / World Skin》v0.2。
 
 ## 项目定位
 
@@ -11,7 +11,7 @@
 
 一句话说明：
 
-《世界皮肤》是一套以身体感知为基础的地图记录系统。它不使用评分、推荐、排行榜或打卡图像来理解城市，而是让用户在具体地点停留片刻，通过声音、移动状态、时间与个人感受，将日常空间转译为一张具有纹理、噪点、厚度与空洞的“皮肤”。
+《世界皮肤》是一套以身体感知为基础的地图记录系统。它不使用评分、推荐、排行榜或打卡图像来理解城市，而是让用户在具体地点停留片刻，通过声音、移动状态、时间与个人感受，将日常空间转译为一张具有纹理、噪点、厚度与空洞的"皮肤"。
 
 ## 核心问题
 
@@ -33,7 +33,7 @@
 
 - 记录必须发生在现场。
 - 用户需要长按约 10 秒，形成短暂的停留。
-- 记录不是“我到过这里”，而是“我在这里停留并感受过”。
+- 记录不是"我到过这里"，而是"我在这里停留并感受过"。
 
 ### 从地点集合转向强度场
 
@@ -55,12 +55,13 @@
 
 当前代码原型已实现：
 
-- 麦克风音量采样。
+- 麦克风音量采样；权限拒绝时 `audioReady` 保持 false，下次按下时自动重试（不立即报错）。
 - 麦克风不可用时模拟噪波。
-- 10 秒长按记录。
-- 时间段描述。
-- 多轮日文感知词选择，词库写入 `senseVector`，同时保留 `word / selectedWords` 兼容旧统计；旧 `textureModifier` 仅作 legacy fallback。
-- 记录写入 `soundVector`，包含 loudness / turbulence / sharpness / continuity / texture。
+- 10 秒长按记录（DURATION = 10000ms）。
+- 时间段描述：morning / day / evening / night。
+- 32 词 v2 感知词库（`SENSE_WORD_LIST`），多轮选择后聚合为 `senseVector`（spaciousness / gravity / tension / flow）；旧 `textureModifier` 仅作 legacy fallback。
+- 记录写入 `soundVector`：loudness / turbulence / sharpness / continuity / texture。
+- 个人记录从 `MY_SKIN_DATA`（`data/my_data.js`）种入，用 `SEED_KEY = "world-skin-v03-seeded-r1"` 防重复。
 
 ### 我的半径
 
@@ -107,7 +108,7 @@
 
 ## 视觉系统
 
-参考方向：Endel 的视觉不是装饰性插画，而是和声音状态同步的生成式环境。它使用低干扰、持续变化的抽象图形，让用户感到系统正在根据时间、环境和身体状态实时生成声景。《世界皮肤》应参考这种“状态可视化”逻辑，但不要照搬冥想/睡眠 App 的疗愈感；本项目的视觉必须始终回到城市表面、身体停留和地图皮肤。
+参考方向：Endel 的视觉不是装饰性插画，而是和声音状态同步的生成式环境。它使用低干扰、持续变化的抽象图形，让用户感到系统正在根据时间、环境和身体状态实时生成声景。《世界皮肤》应参考这种"状态可视化"逻辑，但不要照搬冥想/睡眠 App 的疗愈感；本项目的视觉必须始终回到城市表面、身体停留和地图皮肤。
 
 视觉核心：
 
@@ -118,7 +119,7 @@
 
 ### 视觉基调
 
-整体应介于“地图层”和“生物膜”之间。
+整体应介于"地图层"和"生物膜"之间。
 
 - 黑色或近黑色作为主基底，降低普通地图的功能感。
 - 使用低饱和色，不做明亮渐变和疗愈插画。
@@ -128,7 +129,7 @@
 
 ### 状态层
 
-参考 Endel 的 soundscape/scenario 逻辑，World Skin 可将视觉拆成几种“地图状态层”。这些状态不是模式按钮，而是系统根据数据自动显现的皮肤状态。
+参考 Endel 的 soundscape/scenario 逻辑，World Skin 可将视觉拆成几种"地图状态层"。这些状态不是模式按钮，而是系统根据数据自动显现的皮肤状态。
 
 #### Ambient / 环境底层
 
@@ -166,7 +167,7 @@
 
 #### Void / 空洞层
 
-用于表现“未被触摸”的区域。
+用于表现"未被触摸"的区域。
 
 - 空洞不是透明，不是未加载。
 - 空洞应有低亮度、低密度、近乎静止的视觉状态。
@@ -201,13 +202,14 @@
 - 白天记录：偏暖灰，但不能变成黄色地图。
 - 高波动区域：允许短暂暗红或锈色提示。
 - 空洞区域：低亮度蓝黑或灰黑。
+- v0.3 扩展色板（感知轴组合色）：blueBlack / mossTeal / stoneBlue / indigoNight / oliveAsh / dustGray / concreteBlue / hazeWhite / warmEarth / flowSlate，仅在轴组合强度足够时显现，不做全局铺色。
 
 禁止：
 
 - 大面积彩虹热力图。
 - 高饱和霓虹渐变。
 - 像睡眠/冥想 App 一样柔软甜美的插画。
-- 用颜色表达“好/坏/推荐/危险”的评价判断。
+- 用颜色表达"好/坏/推荐/危险"的评价判断。
 
 ### 动效规则
 
@@ -217,7 +219,7 @@
 - 采样时允许响应增强，但必须保持圆滑和连续。
 - 记录写入时使用短暂扩散，然后逐渐稳定。
 - 地图切换或视图切换不做强烈转场。
-- 动效必须服务于“正在读取、正在沉积、正在显影”的感觉。
+- 动效必须服务于"正在读取、正在沉积、正在显影"的感觉。
 
 ### UI 与地图关系
 
@@ -235,20 +237,20 @@
 
 功能拆分：
 
-- World Map：显示公共/预设聚合数据，当前原型使用”200 个用户在国分寺周边约 8km 内连续 10 天”的模拟结果，原始记录约 2700 条，`maxVisibleRecords` 上限 2500 条。
-- My Radius：只显示本机用户自己的记录与统计。
-- Sense：只负责现场采样与主观词选择，写入 My Radius，不直接写入 World Map。
-- 预设数据必须放在独立数据文件中，不嵌入主原型文件。
+- World Map：显示公共/预设聚合数据 + 个人记录叠加；预设数据来自 `data/world_data.js`（`WORLD_SKIN_DATA.records`）；`activeRecords()` 在 world 视图返回 worldRecords + personalRecords。
+- My Radius：只显示本机用户个人记录（`personalRecords`）；`activeRecords()` 在 radius 视图只返回 personalRecords。
+- Sense：只负责现场采样与主观词选择，写入 personalRecords，不直接写入 World Map。
+- 预设数据必须放在独立数据文件中，不嵌入主文件。
 - 预设数据必须依附真实地图结构生成，不能在测试半径内均匀随机撒点。
-- 地图底层需要接入真实地图引擎；当前原型使用 MapLibre GL 作为地图引擎，Canvas 只负责 World Skin 纹理覆盖层。
-- 整体视觉参考当前总图：暗色航拍地图、左侧竖向导航、底部 24H 时间轴、右上地图控制、固定点阵和冷暖数据光场。
+- 地图底层使用 MapLibre GL 作为地图引擎；Canvas 只负责 World Skin 纹理覆盖层。
+- 整体视觉：暗色航拍地图、顶部 topbar、底部 footer-nav + 24H 时间轴、右上 utility 按钮、固定点阵和冷暖数据光场。
 
 实现规则：
 
 - 不使用 marker、pin 或独立记录点。
 - 真实地图引擎负责经纬度投影、拖拽平移、滚轮缩放、触摸缩放、双指旋转、右键/触控板旋转和键盘导航。
 - Canvas 点阵必须使用地图引擎的 `project` 结果，而不是独立手写投影。
-- 真实地图瓦片当前使用正航拍图，不显示地名、POI 或普通导航地图标签。
+- 真实地图瓦片当前使用 CartoCDN voyager_nolabels，不显示地名、POI 或普通导航地图标签。
 - 建立覆盖全地图的固定网格节点，每个节点都是世界表面的一个采样点。
 - 当前阶段点阵仍保持规则网格，但 active 区域使用静态 height 与高度线表现沉积厚度。
 - 地图文字默认不显示；World Map 与 My Radius 都只保留点阵、真实地图边缘和必要控制 UI。
@@ -279,23 +281,6 @@
 - 当前渲染管线：`recordBaseVisual(record)` 计算基础参数与 v2 轴 fallback，`buildGeoGridField()` 聚合到 cell，`drawGridTexture()` 从 cell 读取最终参数并调用 `getDotAlpha(params)` / `getDotColor(params)`。
 
 当前颜色通道：`data strength + spaciousness + gravity + tension + soundVector → finalColor`。颜色限制在灰化冷暖色皮肤范围内，只作为状态气质；flow 方向不影响颜色。
-- World Map 使用真实地图边缘用于确认空间结构；地名不显示，避免变成普通导航地图。
-- My Radius 可以复用同一网格系统，但数据源必须是本机个人记录。
-
-当前原型渲染管线：
-
-1. MapLibre GL 根据真实地图中心、缩放、平移、旋转状态将经纬度转换为屏幕容器坐标。
-2. 地图底层使用无文字 raster tile，默认采用 `pitch: 42`、`bearing: -16` 的轻微 3D 斜视视角。
-3. 需要绘制时清空 Canvas。
-4. 根据当前 MapLibre 视口反投影得到地理范围，在局部米制坐标中生成规则地理网格。
-5. 每个网格点转回 `lng / lat` 后使用 MapLibre `project([lng, lat])` 投影到屏幕，因此点阵贴合 pitch / bearing 后的地图表面。
-6. 记录先在局部米制坐标中进入 spatial hash，再按附近 cells 查询，用高斯衰减累加影响。
-7. 将影响场转换为 `strength / flux / warmth / boundary / senseVector / soundVector`。
-8. 计算相邻节点差异，得到 `contrast`，用于突出附近环境变化。
-9. 根据 `strength / flux / contrast / senseVector / soundVector` 计算节点 alpha、finalColor、radius 和静态 height。
-10. 使用 height 产生克制的屏幕上移偏移，模拟皮肤表面的静态起伏；不绘制柱状图，不绘制山峰，不绘制热力渐变。
-11. 真实地图道路/地块/水系边缘在点阵下方显示，并随缩放层级增强。
-12. World Map 使用预设聚合数据；My Radius 使用 `localStorage` 中的个人数据。
 
 性能规则：
 
@@ -306,19 +291,20 @@
 - 当前实现使用米制 spatial hash，记录按 `cellSize` 分桶，网格点只查询附近 cells。
 - 时间轴变化时计算 target field，并在约 420ms 内插值到新场；不拖动时间轴时不自动播放。
 - `requestAnimationFrame` 只用于按需绘制、Sense 采样中绘制和时间场插值，不再无条件常驻重绘。
+- 当前性能参数：`gridSpacing:14, cellSize:128, maxInfluenceDistance:260, maxVisibleRecords:2500, targetFPS:30, renderDebounceMs:60`。
 
 预设聚合数据：
 
-- 数据文件：`world_data.js`。
+- 数据文件：`test0.3/data/world_data.js`。
 - 当前版本：`kokubunji-sim-v4-clean`。
-- 默认中心：国分寺附近 `{ lat: 35.7000, lng: 139.4800 }`。
-- 范围：约 8km。
+- 默认中心：国分寺附近 `{ lat: 35.7000, lng: 139.4800 }`；代码常量 `WORLD_ORIGIN = { lat:35.7000, lng:139.4808 }`。
+- 范围：约 8km（`RADIUS_METERS` 来自 `WORLD_SKIN_DATA?.radiusMeters || 5000`）。
 - 时间：连续 10 天。
 - 用户数：200 人。
 - 记录数：原始约 2700 条；`maxVisibleRecords` 上限 2500 条（性能 cap）。
 - 数据是模拟公共聚合使用数据，不是个人数据。
 - `World Map` 读取 `WORLD_SKIN_DATA.records`；`My Radius` 仍然只读取本机 `localStorage`。
-- 当前 HTML 使用普通 `<script src="world_data.js"></script>` 加载，因此 `world_data.js` 需要提供 `window.WORLD_SKIN_DATA`，不能只写 ES module `export`。
+- HTML 使用普通 `<script src="data/world_data.js">` 加载；`world_data.js` 需要提供 `window.WORLD_SKIN_DATA`，不能只写 ES module `export`。
 
 结构化生成规则：
 
@@ -329,7 +315,6 @@
 - 住宅区约 18%：南町・東元町、戸倉・並木町等住宅肌理。低密度、分散、早晚较多，`眠い / 遠い / 乾く / ほどける` 权重高。
 - 孤岛记录约 6%：低记录区中的偶发停留或经过，影响周围点阵但不显示为 marker。
 - 空洞区域通过 `WORLD_SKIN_VOIDS` 排除，保留走廊夹缝、住宅深处和绿地内部的低记录区域，用于测试 Void 层。
-- 当前版本先手动定义接近真实地图结构的 seed zones / corridor sampling points；后续可替换为真实 POI 或 vector tile 派生数据。渲染层不绘制 corridor polyline。
 
 地图交互：
 
@@ -342,16 +327,15 @@
   - `neighborhood`：街区尺度（zoom 13.6–15.0），底图结构更清楚。
   - `street`：近距离尺度（zoom 15.0–16.0），屏幕点阵略密，底图细节清楚。
   - `detail`：最近尺度（zoom ≥ 16.0），高度线长度变化最大，点阵沉积最厚。
-- 缩放范围需要有限制，避免用户离开测试半径太远。
-- 重置按钮同时恢复平移和缩放。
+- 缩放范围有限制：minZoom:11，maxZoom:17。
+- 重置按钮（键盘 `R`）同时恢复平移和缩放。
 - 地图交互优先由 MapLibre GL 接管；如果地图引擎加载失败，退回本地 Canvas 投影与手势预览。
 - Sense 采样和音波只能在 Sense 页面触发；切换到 World 或 Radius 时必须取消采样并停止绘制音波。
 
 显示阈值：
 
 - 所有视觉参数必须有硬上限，无论数据量如何叠加都不能超过阈值。
-- 阈值用于防止网格爆亮、过密或真实地图边缘被点阵遮挡。
-- 当前原型阈值：
+- 当前原型阈值（`VISUAL_LIMITS`）：
   - `strength <= 0.72`
   - `flux <= 0.72`
   - `contrast <= 0.48`
@@ -360,21 +344,19 @@
   - `alpha <= 0.72`
   - `boundaryAlpha <= 0.32`
 - 新增视觉变量时必须先定义阈值，再接入渲染。
-- Debug View：按 `D` 临时切换，用于检查记录数量、屏幕参与记录、strength/contrast/alpha 的 min/max/avg、sigma、spacing、zoom 和 radius max。Debug View 不属于最终 UI。
-- Map Debug：按 `M` 临时切换地图底层 `dark / balanced / bright` 三档，默认 `balanced`，用于检查道路、水系、铁路和街区边缘是否可读。
+- Debug View：键盘 `D` 临时切换，检查记录数量、屏幕参与记录、strength/contrast/alpha 的 min/max/avg、sigma、spacing、zoom 等。
+- Map Debug：键盘 `M` 临时切换地图底层 dark / balanced / bright 三档，默认 `balanced`。
+- 测试数据：键盘 `T` 切换 testdata1，`Y` 切换 testdata2，再次按下还原。
 
 时间控制系统：
 
-- World Map 需要显示 24 小时时间轴，参考 Apple Weather 的时间滑动体验。
+- World Map 显示 24 小时时间轴，时间滑块范围 -12h 到现在。
 - 用户滑动时间轴时，地图显示对应小时附近的感知场变化。
-- 视觉场不是只看单小时数据，而是多窗口综合叠加：
-  - hour：当前小时附近的短时变化。
-  - day：最近一天的趋势。
-  - threeDay：近三日的持续倾向。
-  - week：一周整体沉积。
-  - month：长期底色；当前原型数据只有一周，因此用弱权重近似。
-- 当前权重建议：hour 0.44、day 0.24、threeDay 0.16、week 0.11、month 0.05。
-- 动画频率必须慢，接近天气图层的缓慢流动，不允许快速粒子抖动。
+- 视觉场多窗口综合叠加（`state.aggregation`）：
+  - hour 0.44 / day 0.24 / threeDay 0.16 / week 0.11 / month 0.05。
+- 当前基准日期：2026-05-04（`Math.floor((date.getTime() - Date.UTC(2026,4,4)) / 86400000)`）。
+- 时间场切换动画约 420ms 插值。
+- 地图底层颜色（brightness / saturation / overlay）随时间轴小时值平滑变化；`getMapVisualByHour()` 按 dawn/day/dusk/night/deepNight 五段处理。
 
 后续推荐升级：
 
@@ -390,14 +372,13 @@
 实现规则：
 
 - 采样按钮不显示倒计时数字。
-- 使用多个白色线条同心圆进行呼吸式放大和缩小，节奏必须肉眼可见。
-- 参考 Apple Watch Mindfulness 的交互：吸气时动画扩大，呼气时动画缩小。
-- 当前 10 秒原型使用 5 秒吸气 + 5 秒呼气，完成一轮慢呼吸；后续可改为 4 秒吸气 + 6 秒呼气。
-- Web 端可使用 Vibration API 做轻微触觉提示；不支持震动时直接忽略。
-- 引导以视觉为主，但必须保留一条简短日语提示，帮助用户进入状态。
-- 初始提示示例：`静かにして、まわりの世界を感じる`。
-- 吸气提示示例：`息を吸って、世界を近くに置く`。
-- 呼气提示示例：`息を吐いて、音をほどく`。
+- 使用多圆环（`ringCount:7`，`baseRadius:68px`，步长 `14px`）进行呼吸式放大和缩小，节奏必须肉眼可见。
+- 当前呼吸分三阶段：扩张 4s（growMs:4000）→ 悬浮 2s（floatMs:2000）→ 收缩 4s（shrinkMs:4000），合计 10s。
+- 扩张阶段：scale 从 minScale 到 maxScale，easeInOutCubic；opacity 0.72 → 0.98。
+- 悬浮阶段：scale 做小幅 sine 抖动（±2.5%），阶段切换时触发震动。
+- 收缩阶段：scale 从 1 到 0.035，opacity 幂次衰减；结束后触发 `completeRecording()`。
+- Web 端使用 Vibration API 做轻微触觉提示；不支持震动时直接忽略。
+- 引导以视觉为主：sense 视图有 hint-main「押しつづける」/ hint-sub「10秒のあいだ」。
 
 ### 采样后词语选择
 
@@ -405,10 +386,12 @@
 
 实现规则：
 
-- 当前实现：系统从 v2 感知词库（含四轴向量）中随机两轮各选 3 词，用户选词后聚合为 `senseVector`；词库设计使两轮词在感知轴上有多样性，不直接按采样数据推断候选词。
-- 每组词以浮现方式出现在屏幕上，用户选择一个即完成写入。
-- 如果当前组没有合适的词，用户选择 skip 进入下一组。
-- 如果所有组都 skip，则以无主观词写入记录。
+- 采样完成 → release 阶段 600ms 延迟 → 打开 recordModal（selecting 阶段）。
+- 当前实现：使用 `SENSE_PROTOTYPE_ROUNDS` 固定词集（[浮く / 詰まる / 流れる] 和 [重い / 乾く / ほどける]）；词组按轮次显示，不从 v2 库随机选（`pickRoundWords()` 已实现但当前用 prototype rounds）。
+- `SENSE_ROUNDS = 2`，两轮各选一词；选词后聚合为 `senseVector`（`aggregateSV()`）。
+- 词的屏幕位置由 `SENSE_LABEL_BASE_LAYOUT` 定义随机范围，每次展示随机分布，有 animation delay。
+- 用户选词 → `onWordSelected()` → 若还有下一轮则继续，否则 `finalizeSense()`。
+- `finalizeSense()` 后 1100ms 调用 `savePending()`，保存记录并切换到 radius 视图。
 - 词语只在选择阶段出现，不留在地图上。
 
 ### 与 Endel 的差异
@@ -435,7 +418,7 @@
 
 ### 少
 
-界面不提供过多信息，不显示推荐列表、排行榜、用户热度或“附近最值得记录地点”。
+界面不提供过多信息，不显示推荐列表、排行榜、用户热度或"附近最值得记录地点"。
 
 ### 现场性
 
@@ -457,56 +440,76 @@
 
 ## 当前代码原型状态
 
-主文件：`test0.2.html`
+主文件：`test0.3/` 目录（`app.js` + `index.html` + `styles.css`）
 
-说明：`test0.2.html` 是无视 `test0.1.html` 后新建的独立原型；当前使用 MapLibre GL 作为真实地图引擎，不沿用旧版界面结构。
+数据文件目录：`test0.3/data/`（`world_data.js`、`my_data.js`、`testdata.js`、`testdata2.js`）
+
+存储键：`STORAGE_KEY = "world-skin-v03-records"`；种入标记 `SEED_KEY = "world-skin-v03-seeded-r1"`
+
+说明：`test0.3/` 是在 `test0.2.html` 之后重新拆分的多文件目录结构；UI 由 Figma 1:1 实现，不沿用 test0.2 界面结构。
 
 已实现：
 
-- 手机端单页 HTML 原型。
-- World Map 与 My Radius 已拆成两个功能。
-- Canvas 生成式网格点状纹理地图层。
-- World Map 默认中心：国分寺附近，半径约 8km。
-- World Map 数据来自外部文件 `world_data.js`。
-- World Map 当前预设数据：200 个用户在国分寺周边 8km 连续使用 10 天的模拟聚合记录。
-- 当前位置获取，失败时回退国分寺测试半径。
-- 10 秒长按采样。
-- 麦克风采样；不可用时使用模拟噪声。
-- 航拍地图边缘根据当前测试区域显示；地名文字默认隐藏。
-- 环境底噪、波动性、噪声峰值计算。
-- 移动状态粗判：still、slow、passing。
-- 不同移动状态参与沉积、flux 和 flow 高度线方向聚合。
-- 使用当前 v2 日语感知词库，生成 `senseVector`；旧 `textureModifier` 只保留读取兼容。
-- `localStorage` 本地持久化。
-- My Radius 默认先展示个人地图；具体信息通过下拉/抽屉按钮展开。
-- My Radius 详情面板展示个人记录数量、空洞单元、平均皮肤强度、时间剖面和感知词分布。
+- 手机端多文件 Web 原型，独立 JS / CSS / data 文件。
+- MapLibre GL 真实地图引擎（v4.7.1）+ Canvas 纹理覆盖层。
+- 启动屏（launchScreen）：SVG 针上升动画 → 大圆 + KOKO wordmark 展开；地图加载完成后最少持续 2.5s 后淡出。
+- 状态机：world / radius / sense / profile / records / settings 六个视图，通过 `app.dataset.view` + `app.classList` 驱动。
+- 导航状态：nav-closed（默认）/ nav-open；avatar 按钮 nav-closed 时触发 nav-open，nav-open 时进入 profile 视图。
+- 底部 footer-nav：三个按钮（world / sense / radius），SVG 图标，nav-open 时显示，nav-closed 时收起。
+- Profile 视图：大头像（234×234px）、用户名、记录件数、今の傾向（top 3 词）、最近の記録、设置 / 分享按钮。
+- Records 视图：可滚动统计面板；recSubtitle 显示活动半径（哈弗辛距离，`约Xkm` / `约Xm`）；时间段点阵图（朝/昼/夕/夜）；感觉词云（Figma 坐标布局，12 词）。
+- Settings 视图：静态列表（显示 / 记録 / 通知三组），内容未接入功能。
+- Sense 视图：Figma 层结构（bg / bottom-mask / mask / mapcore / effect / core），press-target 长按按钮，back 按钮。
+- Sense 阶段：`idle → contact（900ms）→ diffusion（1200ms 后）→ ready → recording → release → selecting → complete`。
+- 10 秒呼吸采样（4s 扩张 + 2s 悬浮 + 4s 收缩）；7 环，baseRadius:68px，步长 14px。
+- 麦克风采样；权限拒绝后不报错，下次按下自动重试。
+- 移动状态粗判：still / slow / passing（基于路径哈弗辛距离与速度）。
+- soundVector 计算：spectralSharpness / spectralSpread 从 FFT 频率数据提取。
+- v2 感知词库 32 词（`SENSE_WORD_LIST`），每词含 sv 和 tex 向量。
+- 词选择后聚合 `senseVector`；`savePending()` 后自动切换到 radius 视图。
+- World Map：`activeRecords()` = worldRecords + personalRecords，地图中心 `DEFAULT_VIEW`。
+- My Radius：`activeRecords()` = 仅 personalRecords；地图自动定位到个人中心。
+- 个人记录从 `data/my_data.js`（`MY_SKIN_DATA`）种入，SEED_KEY 防重复。
+- `localStorage` 持久化（STORAGE_KEY）。
+- 时间轴（time-axis）：范围 -12h 到现在；拖动时场过渡 420ms 插值。
+- 地图时间视觉：按小时平滑切换 dawn / day / dusk / night / deepNight 五态。
+- 地图视觉模式：dark / balanced / bright 三档（键盘 M 切换）。
+- 缩放层级五档连续插值；地图视图范围：minZoom:11，maxZoom:17。
+- 当前位置标记：水滴形（teardrop）白色，带 pitch 自适应形状和 halo 脉冲。
+- 当前位置获取；失败时回退国分寺测试半径并 toast 提示。
+- Debug View（键盘 D）；测试数据集切换（键盘 T / Y）。
+- v2 感知轴 → 颜色通道映射，10 种组合色（组合强度驱动，不做全局铺色）。
 
 主要差距：
 
-- 仍是单文件原型，尚未拆分模块。
-- 当前真实地图底层来自 raster tile，边缘与真实地图一致；如需对道路/地块边缘做独立算法控制，下一步应切换到矢量瓦片或 MapLibre vector source。
-- 已新增 `BUGS` 文档，用于记录 bug、修复方式和回归检查项。
+- 文件仍为单页原型，尚未拆分 ES 模块。
+- Profile 视图的「今の傾向」时段（pvTrendTime）目前输出 "—"，未接入时段统计。
+- Profile 视图的「最近の記録」area 字段目前 fallback 为 "国分寺駅周辺"，未实现地名反查。
+- Sense 视图词选择仍使用 `SENSE_PROTOTYPE_ROUNDS` 固定词集（非全库随机）。
 - 孤岛识别尚未单独可视化。
 - 地点级时间剖面仍是第一版统计，尚未支持单个地点的完整多时段对照。
-- 权限失败状态已有提示，但还不是完整 UI 状态系统。
+- Settings 视图内容静态，未接入任何功能。
+- Share（分享）按钮存在于 profile 视图，但分享功能尚未实现。
+- 当前真实地图底层来自 raster tile；如需对道路/地块边缘做独立算法控制，下一步应切换到矢量瓦片或 MapLibre vector source。
 
 ## 原型阶段验收目标
 
-当前阶段先集中在小范围生活圈。`test0.2.html` 当前测试区域为国分寺周边约 8km。
+当前阶段先集中在小范围生活圈。`test0.3/` 当前测试区域为国分寺周边约 5–8km。
 
 最低可验证目标：
 
-1. 手机浏览器可打开。
-2. 可获取当前位置。
-3. 用户可长按完成一次记录。
-4. 可采集基础环境音量与时间信息。
-5. 可在地图上显示记录痕迹。
-6. 可看到“我的半径”中的已记录区域与空白区域。
-7. 至少实现一种探索提示：空洞、边界带或时间剖面。
+1. 手机浏览器可打开，启动屏正常播放并淡出。
+2. 可获取当前位置；失败时回退并提示。
+3. 用户可长按 10 秒完成一次记录；呼吸动画肉眼可见。
+4. 可采集基础环境音量与时间信息；权限失败时不崩溃。
+5. 可在地图上显示记录痕迹（个人记录影响网格纹理）。
+6. 可看到"我的半径"（Records 视图）中的已记录区域与空白区域。
+7. Profile 视图可正常打开，显示记录件数和词倾向。
+8. 导航状态机：nav-closed / nav-open / profile / records / settings 之间的切换符合状态机规格。
 
 ## 更新规则
 
-- 当前实现以 `TODO` 的 v2 感知轴分工、`MAP_LOG` 的最新变更记录和 `test0.2.html` 的代码为准。
+- 当前实现以 `MAP_LOG` 的最新变更记录、`UI_skill/` 的实装规则和 `test0.3/app.js` 的代码为准。
 - `MAP_SPEC` 记录可执行规格，随着实现持续更新。
 - `TODO` 记录当前进度和下一步。
 - `MAP_LOG` 记录每次重要修改、决策和偏离既定规格的原因。

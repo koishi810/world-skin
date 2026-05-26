@@ -1,4 +1,3 @@
-/* Base tokens and document shell */
 :root {
       --bg: #020304;
       --panel: rgba(6, 8, 9, 0.72);
@@ -76,7 +75,6 @@
       opacity: 1;
     }
 
-    /* Map/canvas layer stack. MapLibre handles geography; canvas draws the skin field above it. */
     #realMap {
       position: absolute;
       inset: 0;
@@ -365,7 +363,6 @@
       letter-spacing: 0.08em;
     }
 
-    /* View state shell: app.js toggles .active and #app[data-view] instead of mounting pages. */
     .view {
       position: absolute;
       inset: 0;
@@ -824,7 +821,7 @@
 
     }
 
-/* --- test0.3 mobile shell: Figma-matched controls and prototype navigation --- */
+/* --- test0.3 mobile shell --- */
 :root {
   --phone-w: 393px;
   --phone-h: 852px;
@@ -1142,7 +1139,7 @@ body { align-items:center; }
 }
 .profile-icon-btn:hover { color:rgba(236,241,243,.96); }
 
-/* --- test0.3 Sense flow: Figma layers selected by #app[data-sense-stage] --- */
+/* --- test0.3 Sense flow: pre-touch reveal -> sampling -> word choice -> completion --- */
 #view-sense {
   position:absolute;
   overflow:hidden;
