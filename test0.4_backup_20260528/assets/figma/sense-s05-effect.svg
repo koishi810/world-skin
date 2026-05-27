@@ -1,0 +1,22 @@
+<svg preserveAspectRatio="none" width="100%" height="100%" overflow="visible" style="display: block;" viewBox="0 0 710 710" fill="none" xmlns="http://www.w3.org/2000/svg">
+<g id="Effect / &#229;&#145;&#188;&#230;&#176;&#148;&#233;&#155;&#190;">
+<g id="Fog / &#229;&#164;&#150;&#229;&#177;&#130;" opacity="0.02" filter="url(#filter0_f_0_8)">
+<circle cx="355" cy="355" r="285" fill="var(--fill-0, #B8BFC9)"/>
+</g>
+<g id="Fog / &#228;&#184;&#173;&#229;&#177;&#130;" opacity="0.1" filter="url(#filter1_f_0_8)">
+<circle cx="355" cy="355" r="215.488" fill="var(--fill-0, #C9CFD6)"/>
+</g>
+</g>
+<defs>
+<filter id="filter0_f_0_8" x="0" y="0" width="710" height="710" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+<feFlood flood-opacity="0" result="BackgroundImageFix"/>
+<feBlend mode="normal" in="SourceGraphic" in2="BackgroundImageFix" result="shape"/>
+<feGaussianBlur stdDeviation="35" result="effect1_foregroundBlur_0_8"/>
+</filter>
+<filter id="filter1_f_0_8" x="91.5122" y="91.5118" width="526.976" height="526.976" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+<feFlood flood-opacity="0" result="BackgroundImageFix"/>
+<feBlend mode="normal" in="SourceGraphic" in2="BackgroundImageFix" result="shape"/>
+<feGaussianBlur stdDeviation="24" result="effect1_foregroundBlur_0_8"/>
+</filter>
+</defs>
+</svg>

@@ -24,9 +24,8 @@
         strokeWidth: 1.4
       };
       const RADIUS_METERS = 8000;
-      const KOKUBUNJI_CENTER = { lat: 35.7000, lng: 139.4808 };
-      const WORLD_ORIGIN = KOKUBUNJI_CENTER;
-      const DEFAULT_ORIGIN = KOKUBUNJI_CENTER;
+      const WORLD_ORIGIN = { lat: 35.7000, lng: 139.4800 };
+      const DEFAULT_ORIGIN = WORLD_ORIGIN;
       const TIME_SLOTS = ["morning", "day", "evening", "night"];
       const LOCAL_WORLD_RECORDS = window.WORLD_SKIN_DATA?.records || window.WORLD_SKIN_RECORDS || [];
       const LOCAL_PERSONAL_RECORDS = window.MY_SKIN_DATA?.records || [];
@@ -1450,12 +1449,32 @@
       }
 
       function initLocation() {
-        state.position = { ...KOKUBUNJI_CENTER };
-        state.heading = null;
-        state.origin = { ...KOKUBUNJI_CENTER };
-        if (locState) locState.textContent = "国分寺に固定";
-        if (state.view === "radius" || state.view === "world") syncMapToActiveCenter(false);
-        rebuildGrids();
+        if (!navigator.geolocation) {
+          showToast("位置情報を使えません。国分寺付近を表示します。");
+          return;
+        }
+        navigator.geolocation.getCurrentPosition(
+          pos => {
+            state.position = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+            state.heading = Number.isFinite(pos.coords.heading) ? pos.coords.heading : state.heading;
+            state.origin = state.personalRecords.length ? state.origin : state.position;
+            if (state.view === "radius" || state.view === "world") syncMapToActiveCenter(false);
+            rebuildGrids();
+          },
+          () => {
+            showToast("位置情報を使えません。国分寺付近を表示します。");
+          },
+          { enableHighAccuracy: true, timeout: 8000, maximumAge: 10000 }
+        );
+        navigator.geolocation.watchPosition(
+          pos => {
+            state.position = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+            state.heading = Number.isFinite(pos.coords.heading) ? pos.coords.heading : state.heading;
+            if (state.recording) state.path.push({ ...state.position, at: Date.now() });
+          },
+          () => {},
+          { enableHighAccuracy: true, maximumAge: 3000 }
+        );
       }
 
       function currentPositionWithDrift() {
@@ -2638,7 +2657,7 @@
       }
 
       function refreshDerivedSurfaces() {
-        state.origin = { ...KOKUBUNJI_CENTER };
+        state.origin = recordsCenter(state.personalRecords) || DEFAULT_ORIGIN;
         rebuildGrids();
         updateStats();
         updateProfileView();
@@ -2939,8 +2958,7 @@
         WORLD_RECORDS = worldData.length ? worldData : LOCAL_WORLD_RECORDS.map((record, index) => normalizeLocalRecord(record, "world", index));
         state.worldRecords = WORLD_RECORDS;
         state.personalRecords = personalData.length ? personalData : createDemoPersonalRecords();
-        state.origin = { ...KOKUBUNJI_CENTER };
-        state.position = { ...KOKUBUNJI_CENTER };
+        state.origin = recordsCenter(state.personalRecords) || DEFAULT_ORIGIN;
         initRealMap();
         updateAppScale();
         resizeCanvas();
