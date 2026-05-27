@@ -4,8 +4,7 @@
   // No view switching, no recording flow, no sense UI, no DOM widgets.
 
   const RADIUS_METERS = window.WORLD_SKIN_DATA?.radiusMeters || 5000;
-  const KOKUBUNJI_CENTER = { lat: 35.7000, lng: 139.4808 };
-  const WORLD_ORIGIN  = window.WORLD_SKIN_DATA?.origin || KOKUBUNJI_CENTER;
+  const WORLD_ORIGIN  = window.WORLD_SKIN_DATA?.origin || { lat: 35.7000, lng: 139.4808 };
   const WORLD_RECORDS = window.WORLD_SKIN_DATA?.records || [];
 
   const VISUAL_LIMITS = {
@@ -107,7 +106,7 @@
     { zoom: 16.5, preset: "detail"       }
   ];
   const DEFAULT_VIEW = {
-    center: [KOKUBUNJI_CENTER.lng, KOKUBUNJI_CENTER.lat],
+    center: [139.4800, 35.7000],
     zoom: 13.1, pitch: 42, bearing: -16
   };
   const PERF = {
@@ -499,12 +498,27 @@
 
   // ── Location ──────────────────────────────────────────────────────────────
   function initLocation() {
-    state.position = { ...KOKUBUNJI_CENTER };
-    state.heading = null;
-    if (state.mapReady) {
-      state.map.jumpTo({ center: [state.position.lng, state.position.lat], zoom: 14.1, pitch: DEFAULT_VIEW.pitch, bearing: DEFAULT_VIEW.bearing });
-      invalidateField(true);
-    }
+    if (!navigator.geolocation) return;
+    navigator.geolocation.getCurrentPosition(
+      pos => {
+        state.position = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+        state.heading  = Number.isFinite(pos.coords.heading) ? pos.coords.heading : state.heading;
+        if (state.mapReady) {
+          state.map.jumpTo({ center: [state.position.lng, state.position.lat], zoom: 14.1, pitch: DEFAULT_VIEW.pitch, bearing: DEFAULT_VIEW.bearing });
+          invalidateField(true);
+        }
+      },
+      () => {},
+      { enableHighAccuracy: true, timeout: 8000, maximumAge: 10000 }
+    );
+    navigator.geolocation.watchPosition(
+      pos => {
+        state.position = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+        state.heading  = Number.isFinite(pos.coords.heading) ? pos.coords.heading : state.heading;
+      },
+      () => {},
+      { enableHighAccuracy: true, maximumAge: 3000 }
+    );
   }
 
   // ── Canvas resize ─────────────────────────────────────────────────────────
