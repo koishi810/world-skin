@@ -602,13 +602,11 @@
       }
 
       async function loadWorldRecords() {
-        const localRows = LOCAL_WORLD_RECORDS.map((record, index) => normalizeLocalRecord(record, "world", index));
         const apiRows = await loadApiRecords({ record_type: "world" });
-        if (apiRows) return apiRows.length ? apiRows.map(deserializeRecord) : localRows;
+        if (apiRows) return apiRows.map(deserializeRecord);
         const data = await loadSupabaseWorldRows({ limit: 1200 });
-        if (!data) return localRows;
-        const rows = data.map(deserializeRecord);
-        return rows.length ? rows : localRows;
+        if (!data) return [];
+        return data.map(deserializeRecord);
       }
 
       async function saveRecord(record) {
@@ -3142,7 +3140,7 @@
       }
 
       async function boot() {
-        WORLD_RECORDS = LOCAL_WORLD_RECORDS.map((record, index) => normalizeLocalRecord(record, "world", index));
+        WORLD_RECORDS = [];
         state.worldRecords = WORLD_RECORDS;
         state.personalRecords = createDemoPersonalRecords();
         state.origin = recordsCenter(state.personalRecords) || DEFAULT_ORIGIN;
