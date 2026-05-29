@@ -2061,8 +2061,8 @@
 
       function drawBackground() {
         ctx.clearRect(0, 0, state.width, state.height);
-        // profile / records / settings: let realMap show through canvas
-        if (state.mapReady && state.view !== "sense") return;
+        // Map-backed views keep the canvas transparent so the live map remains visible.
+        if (state.mapReady) return;
 
         ctx.fillStyle = "#020304";
         ctx.fillRect(0, 0, state.width, state.height);
@@ -3280,7 +3280,7 @@
         updateMarkerFade();
         if (state.fieldDirty && canNavigateMap()) rebuildFieldCache();
         drawBackground();
-        if (state.view === "world" || state.view === "radius" || state.view === "profile" || state.view === "records" || state.view === "settings" || state.view === "share") {
+        if (state.view === "world" || state.view === "radius" || state.view === "sense" || state.view === "profile" || state.view === "records" || state.view === "settings" || state.view === "share") {
           let cells = state.cachedCells;
           if (state.fieldTransition) {
             const progress = clamp((performance.now() - state.fieldTransition.start) / state.fieldTransition.duration, 0, 1);
