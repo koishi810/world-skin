@@ -2497,36 +2497,46 @@
         const dest = metersToLatLng(Math.sin(rad) * 140, Math.cos(rad) * 140, pos);
         const ahead = project(dest);
         const screenAngle = Math.atan2(ahead.y - p.y, ahead.x - p.x);
+        const pitch = state.mapReady ? state.map.getPitch() : 0;
+        const pitchNorm = pitch / 60;
+        const R = 11;
 
         ctx.save();
         ctx.globalCompositeOperation = "screen";
-        ctx.translate(p.x, p.y);
+        ctx.translate(p.x, p.y - 6);
 
         const pulse = 0.5 + Math.sin(state.t * 2.2) * 0.5;
-        const halo = ctx.createRadialGradient(0, 0, 0, 0, 0, 18 + pulse * 4);
-        halo.addColorStop(0, "rgba(225, 240, 241, 0.18)");
+        const halo = ctx.createRadialGradient(0, 0, 0, 0, 0, 28 + pulse * 6);
+        halo.addColorStop(0, "rgba(225, 240, 241, 0.14)");
         halo.addColorStop(1, "rgba(0, 0, 0, 0)");
         ctx.fillStyle = halo;
         ctx.beginPath();
-        ctx.arc(0, 0, 22, 0, Math.PI * 2);
+        ctx.arc(0, 0, 34, 0, Math.PI * 2);
         ctx.fill();
 
         ctx.save();
-        ctx.rotate(Number.isFinite(screenAngle) ? screenAngle : -Math.PI / 2);
+        ctx.rotate(screenAngle);
+
+        const tipDist = R * (1.55 - pitchNorm * 0.45);
+        const cosTheta = Math.min(R / tipDist, 0.995);
+        const sinTheta = Math.sqrt(1 - cosTheta * cosTheta);
+        const theta = Math.acos(cosTheta);
+        const tx = R * cosTheta;
+        const ty = R * sinTheta;
+
         ctx.beginPath();
-        ctx.moveTo(14, 0);
-        ctx.bezierCurveTo(7, -9, -7, -8, -9, 0);
-        ctx.bezierCurveTo(-7, 8, 7, 9, 14, 0);
+        ctx.moveTo(tipDist, 0);
+        ctx.lineTo(tx, -ty);
+        ctx.arc(0, 0, R, -theta, theta, true);
         ctx.closePath();
-        const markerGrad = ctx.createRadialGradient(-3, -4, 1, 3, 2, 18);
-        markerGrad.addColorStop(0, "rgba(248, 250, 252, 1)");
-        markerGrad.addColorStop(0.56, "rgba(226, 235, 241, 0.96)");
-        markerGrad.addColorStop(1, "rgba(178, 202, 218, 0.82)");
-        ctx.fillStyle = markerGrad;
+
+        const grad = ctx.createRadialGradient(-R * 0.15, -R * 0.38, R * 0.05, R * 0.25, R * 0.1, R * 1.45);
+        grad.addColorStop(0, "rgba(246, 248, 250, 1.00)");
+        grad.addColorStop(0.52, "rgba(225, 234, 240, 0.97)");
+        grad.addColorStop(1, "rgba(185, 208, 225, 0.82)");
+        ctx.fillStyle = grad;
         ctx.fill();
-        ctx.strokeStyle = "rgba(255, 255, 255, 0.34)";
-        ctx.lineWidth = 0.8;
-        ctx.stroke();
+
         ctx.restore();
 
         ctx.restore();
