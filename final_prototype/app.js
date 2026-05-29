@@ -3037,14 +3037,36 @@
 
       const _bootAt = Date.now();
 
+      async function hydrateRemoteRecords() {
+        try {
+          const [worldData, personalData] = await Promise.all([
+            loadWorldRecords(),
+            loadPersonalRecords()
+          ]);
+          if (worldData?.length) {
+            WORLD_RECORDS = worldData;
+            state.worldRecords = state.testMode === "t1"
+              ? TEST_RECORDS
+              : state.testMode === "t2"
+                ? TEST_RECORDS_2
+                : WORLD_RECORDS;
+          }
+          if (personalData?.length) {
+            state.personalRecords = personalData;
+            if (!state.position) state.origin = recordsCenter(state.personalRecords) || DEFAULT_ORIGIN;
+          }
+          rebuildGrids();
+          refreshDerivedSurfaces();
+          invalidateField(true);
+        } catch (error) {
+          console.warn("[WorldSkin] remote record hydration failed", error);
+        }
+      }
+
       async function boot() {
-        const [worldData, personalData] = await Promise.all([
-          loadWorldRecords(),
-          loadPersonalRecords()
-        ]);
-        WORLD_RECORDS = worldData.length ? worldData : LOCAL_WORLD_RECORDS.map((record, index) => normalizeLocalRecord(record, "world", index));
+        WORLD_RECORDS = LOCAL_WORLD_RECORDS.map((record, index) => normalizeLocalRecord(record, "world", index));
         state.worldRecords = WORLD_RECORDS;
-        state.personalRecords = personalData.length ? personalData : createDemoPersonalRecords();
+        state.personalRecords = createDemoPersonalRecords();
         state.origin = recordsCenter(state.personalRecords) || DEFAULT_ORIGIN;
         initRealMap();
         updateAppScale();
@@ -3054,6 +3076,7 @@
         refreshDerivedSurfaces();
         invalidateField(true);
         startLaunchAnimation();
+        hydrateRemoteRecords();
       }
 
       boot().catch(err => console.error("[WorldSkin] boot failed", err));
