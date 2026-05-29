@@ -904,7 +904,8 @@ body { align-items:flex-start; }
   transition:opacity 300ms ease;
 }
 #app[data-view="radius"]:not(.nav-open) .map-avatar-fade {
-  opacity:1;
+  opacity:0;
+  visibility:hidden;
 }
 #app::after { left:0; right:0; top:0; bottom:0; border:0; box-shadow:none; }
 /* ── Controls (explore + my_location) — Figma left:329 top:620/672 → bottom:140 ── */
