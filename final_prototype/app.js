@@ -514,15 +514,14 @@
 
       async function loadPersonalRecords() {
         const apiRows = await loadApiRecords({ record_type: "personal" });
-        const localRows = LOCAL_PERSONAL_RECORDS.map((record, index) => normalizeLocalRecord(record, "personal", index));
-        if (apiRows) return uniqueRecords([...localRows, ...apiRows.map(deserializeRecord)]);
-        if (!supabase) return localRows;
+        if (apiRows) return uniqueRecords(apiRows.map(deserializeRecord));
+        if (!supabase) return [];
         const { data, error } = await supabase
           .from("records")
           .select("*")
           .eq("record_type", "personal");
         if (error) { console.warn("[WorldSkin] load personal records failed", error); return []; }
-        return uniqueRecords([...localRows, ...(data || []).map(deserializeRecord)]);
+        return uniqueRecords((data || []).map(deserializeRecord));
       }
 
       const SUPABASE_WORLD_FIELDS = [
@@ -3142,7 +3141,7 @@
       async function boot() {
         WORLD_RECORDS = [];
         state.worldRecords = WORLD_RECORDS;
-        state.personalRecords = createDemoPersonalRecords();
+        state.personalRecords = [];
         state.origin = recordsCenter(state.personalRecords) || DEFAULT_ORIGIN;
         initRealMap();
         updateAppScale();
