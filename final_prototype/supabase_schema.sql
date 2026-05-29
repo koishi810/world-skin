@@ -76,6 +76,9 @@ create table if not exists records (
 
 create index if not exists records_type_idx      on records (record_type);
 create index if not exists records_device_id_idx on records (device_id) where record_type = 'personal';
+create index if not exists records_lat_lng_idx   on records (lat, lng);
+create index if not exists records_timestamp_idx on records (timestamp);
+create index if not exists records_zone_id_idx   on records (zone_id);
 
 -- ── Row Level Security ────────────────────────────────────────────────────────
 alter table zones      enable row level security;
