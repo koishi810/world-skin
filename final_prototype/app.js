@@ -513,13 +513,15 @@
       }
 
       async function loadPersonalRecords() {
-        const apiRows = await loadApiRecords({ record_type: "personal" });
+        const deviceId = getDeviceId();
+        const apiRows = await loadApiRecords({ record_type: "personal", device_id: deviceId });
         if (apiRows) return uniqueRecords(apiRows.map(deserializeRecord));
         if (!supabase) return [];
         const { data, error } = await supabase
           .from("records")
           .select("*")
-          .eq("record_type", "personal");
+          .eq("record_type", "personal")
+          .eq("device_id", deviceId);
         if (error) { console.warn("[WorldSkin] load personal records failed", error); return []; }
         return uniqueRecords((data || []).map(deserializeRecord));
       }
