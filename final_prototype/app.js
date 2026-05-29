@@ -368,7 +368,10 @@
         renderTimer: null,
         cachedCells: [],
         lastRenderAt: 0,
-        fieldTransition: null
+        fieldTransition: null,
+        remoteRecordsTimer: null,
+        remoteRecordsRequestId: 0,
+        remoteRecordsKey: ""
       };
 
       state.origin = recordsCenter(state.personalRecords) || DEFAULT_ORIGIN;
@@ -522,18 +525,71 @@
         return uniqueRecords([...localRows, ...(data || []).map(deserializeRecord)]);
       }
 
-      async function loadSupabaseWorldRows(limit = PERF.maxVisibleRecords) {
+      const SUPABASE_WORLD_FIELDS = [
+        "id", "user_id", "device_id", "record_type",
+        "lat", "lng", "timestamp", "hour", "weekday",
+        "noise_level", "turbulence", "peak", "mobility", "direction", "duration",
+        "word", "selected_words", "sense_vector", "sound_vector", "trust_score",
+        "zone_id", "source", "noise", "flux", "movement", "distance", "slot", "created_at"
+      ].join(",");
+
+      function remoteWorldLimitForZoom() {
+        const zoom = state.mapReady ? state.map.getZoom() : DEFAULT_VIEW.zoom;
+        if (zoom < ZOOM_LEVELS.area.max) return 1200;
+        if (zoom < ZOOM_LEVELS.neighborhood.max) return 1800;
+        if (zoom < ZOOM_LEVELS.street.max) return 2400;
+        return 3000;
+      }
+
+      function currentViewportBounds(padRatio = 0.18) {
+        if (!state.mapReady || !state.map) return null;
+        const bounds = state.map.getBounds();
+        if (!bounds) return null;
+        const south = bounds.getSouth();
+        const north = bounds.getNorth();
+        const west = bounds.getWest();
+        const east = bounds.getEast();
+        const latPad = Math.max(0.002, (north - south) * padRatio);
+        const lngPad = Math.max(0.002, (east - west) * padRatio);
+        return {
+          south: clamp(south - latPad, -90, 90),
+          north: clamp(north + latPad, -90, 90),
+          west: west - lngPad,
+          east: east + lngPad
+        };
+      }
+
+      function remoteBoundsKey(bounds, limit) {
+        if (!bounds) return `latest:${limit}`;
+        const precision = 1000;
+        return [
+          limit,
+          Math.round(bounds.south * precision),
+          Math.round(bounds.north * precision),
+          Math.round(bounds.west * precision),
+          Math.round(bounds.east * precision)
+        ].join(":");
+      }
+
+      async function loadSupabaseWorldRows({ bounds = null, limit = remoteWorldLimitForZoom() } = {}) {
         if (!supabase) return null;
         const pageSize = 1000;
         const rows = [];
         for (let from = 0; from < limit; from += pageSize) {
           const to = Math.min(from + pageSize - 1, limit - 1);
-          const { data, error } = await supabase
+          let query = supabase
             .from("records")
-            .select("*")
+            .select(SUPABASE_WORLD_FIELDS)
             .eq("record_type", "world")
-            .order("created_at", { ascending: false })
-            .range(from, to);
+            .order("created_at", { ascending: false });
+          if (bounds) {
+            query = query
+              .gte("lat", bounds.south)
+              .lte("lat", bounds.north)
+              .gte("lng", bounds.west)
+              .lte("lng", bounds.east);
+          }
+          const { data, error } = await query.range(from, to);
           if (error) {
             console.warn("[WorldSkin] load world records failed", error);
             return [];
@@ -549,7 +605,7 @@
         const localRows = LOCAL_WORLD_RECORDS.map((record, index) => normalizeLocalRecord(record, "world", index));
         const apiRows = await loadApiRecords({ record_type: "world" });
         if (apiRows) return apiRows.length ? apiRows.map(deserializeRecord) : localRows;
-        const data = await loadSupabaseWorldRows();
+        const data = await loadSupabaseWorldRows({ limit: 1200 });
         if (!data) return localRows;
         const rows = data.map(deserializeRecord);
         return rows.length ? rows : localRows;
@@ -1129,6 +1185,7 @@
           applyMapVisualMode();
           applyMapLevel();
           invalidateField(true);
+          scheduleViewportWorldRefresh(120);
           const launch = document.getElementById("launchScreen");
           if (launch) {
             // 05 prototype: 00→01 0.5s, 01→02a 1s, 02a→02b 0.2s, hold 0.8s, then dissolve.
@@ -1147,9 +1204,9 @@
         ["move", "zoom", "rotate", "pitch"].forEach(eventName => {
           state.map.on(eventName, handleMapFrameChange);
         });
-        state.map.on("zoomend", () => { applyMapVisualMode(); startFieldTransition(); });
+        state.map.on("zoomend", () => { applyMapVisualMode(); startFieldTransition(); scheduleViewportWorldRefresh(); });
         ["moveend", "rotateend", "pitchend"].forEach(eventName => {
-          state.map.on(eventName, () => invalidateField(false));
+          state.map.on(eventName, () => { invalidateField(false); scheduleViewportWorldRefresh(); });
         });
         state.map.on("resize", () => requestRender());
       }
@@ -1164,6 +1221,7 @@
         if (animate) state.map.easeTo({ ...options, duration: 650 });
         else state.map.jumpTo(options);
         invalidateField(true);
+        scheduleViewportWorldRefresh();
       }
 
       function centerMapOnCurrentPosition(animate = true) {
@@ -1177,6 +1235,7 @@
         if (animate) state.map.easeTo({ ...options, duration: 650 });
         else state.map.jumpTo(options);
         invalidateField(true);
+        scheduleViewportWorldRefresh();
       }
 
       function centerMapOnPersonalCenter(animate = true) {
@@ -1191,6 +1250,7 @@
         if (animate) state.map.easeTo({ ...options, duration: 650 });
         else state.map.jumpTo(options);
         invalidateField(true);
+        scheduleViewportWorldRefresh();
       }
 
       function resetMapDirection() {
@@ -2752,6 +2812,36 @@
         updateSettingsScrollbar();
       }
 
+      function applyRemoteWorldRecords(rows) {
+        WORLD_RECORDS = rows;
+        if (!state.testMode) state.worldRecords = WORLD_RECORDS;
+        rebuildGrids();
+        updateStats();
+        requestRender();
+      }
+
+      async function refreshViewportWorldRecords() {
+        if (!supabase || state.testMode) return;
+        const bounds = currentViewportBounds();
+        const limit = remoteWorldLimitForZoom();
+        const key = remoteBoundsKey(bounds, limit);
+        if (key === state.remoteRecordsKey) return;
+        state.remoteRecordsKey = key;
+        const requestId = ++state.remoteRecordsRequestId;
+        const rows = await loadSupabaseWorldRows({ bounds, limit });
+        if (requestId !== state.remoteRecordsRequestId || !rows) return;
+        applyRemoteWorldRecords(rows.map(deserializeRecord));
+      }
+
+      function scheduleViewportWorldRefresh(delay = 360) {
+        clearTimeout(state.remoteRecordsTimer);
+        state.remoteRecordsTimer = setTimeout(() => {
+          refreshViewportWorldRecords().catch(error => {
+            console.warn("[WorldSkin] viewport record refresh failed", error);
+          });
+        }, delay);
+      }
+
       function updateSettingsScrollbar() {
         if (!settingsPage || !settingsScrollbarThumb) return;
         const trackHeight = 828;
@@ -3039,23 +3129,11 @@
 
       async function hydrateRemoteRecords() {
         try {
-          const [worldData, personalData] = await Promise.all([
-            loadWorldRecords(),
-            loadPersonalRecords()
-          ]);
-          if (worldData?.length) {
-            WORLD_RECORDS = worldData;
-            state.worldRecords = state.testMode === "t1"
-              ? TEST_RECORDS
-              : state.testMode === "t2"
-                ? TEST_RECORDS_2
-                : WORLD_RECORDS;
-          }
+          const personalData = await loadPersonalRecords();
           if (personalData?.length) {
             state.personalRecords = personalData;
             if (!state.position) state.origin = recordsCenter(state.personalRecords) || DEFAULT_ORIGIN;
           }
-          rebuildGrids();
           refreshDerivedSurfaces();
           invalidateField(true);
         } catch (error) {
