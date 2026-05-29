@@ -247,11 +247,16 @@
           prompt: "もう少しだけ近いものを選ぶ"
         }
       ];
-      const SENSE_LABEL_BASE_LAYOUT = [
-        { left: 142.5, top: 584.5, minLeft: 122, maxLeft: 163, minTop: 564, maxTop: 605, scaleMin: 0.92, scaleMax: 1.08 },
-        { left: 304.5, top: 368.5, minLeft: 284, maxLeft: 325, minTop: 348, maxTop: 389, scaleMin: 0.92, scaleMax: 1.08 },
-        { left: 146.0, top: 286.0, minLeft: 124, maxLeft: 168, minTop: 264, maxTop: 308, scaleMin: 0.94, scaleMax: 1.10 }
-      ];
+      const SENSE_LABEL_AREA = {
+        minLeft: 72,
+        maxLeft: 321,
+        minTop: 252,
+        maxTop: 626,
+        centerLeft: 198,
+        centerTop: 413,
+        minCenterDistance: 84,
+        minPairDistance: 132
+      };
 
       function aggregateSV(words) {
         const zero = { spaciousness: 0, gravity: 0, tension: 0, flow: 0 };
@@ -737,11 +742,54 @@
         return picked;
       }
 
+      function senseLabelDistance(a, b) {
+        return Math.hypot(a.left - b.left, (a.top - b.top) * 0.86);
+      }
+
+      function sampleSenseLabelPosition(placed, index) {
+        const center = { left: SENSE_LABEL_AREA.centerLeft, top: SENSE_LABEL_AREA.centerTop };
+        const minPairDistance = SENSE_LABEL_AREA.minPairDistance + (index === 2 ? 18 : 0);
+        let best = null;
+        let bestScore = -Infinity;
+
+        for (let attempt = 0; attempt < 90; attempt++) {
+          const candidate = {
+            left: randomRange(SENSE_LABEL_AREA.minLeft, SENSE_LABEL_AREA.maxLeft),
+            top: randomRange(SENSE_LABEL_AREA.minTop, SENSE_LABEL_AREA.maxTop)
+          };
+          const centerDistance = senseLabelDistance(candidate, center);
+          const nearestDistance = placed.length
+            ? Math.min(...placed.map(point => senseLabelDistance(candidate, point)))
+            : Infinity;
+          const edgeRoom = Math.min(
+            candidate.left - SENSE_LABEL_AREA.minLeft,
+            SENSE_LABEL_AREA.maxLeft - candidate.left,
+            (candidate.top - SENSE_LABEL_AREA.minTop) * 0.68,
+            (SENSE_LABEL_AREA.maxTop - candidate.top) * 0.68
+          );
+          const score = Math.min(nearestDistance, 230) + Math.min(centerDistance, 190) * 0.35 + edgeRoom * 0.16 + Math.random() * 22;
+
+          if (centerDistance >= SENSE_LABEL_AREA.minCenterDistance && nearestDistance >= minPairDistance) {
+            return candidate;
+          }
+          if (score > bestScore) {
+            best = candidate;
+            bestScore = score;
+          }
+        }
+
+        return best || center;
+      }
+
       function createSenseLabelLayout() {
-        return SENSE_LABEL_BASE_LAYOUT.map(base => ({
-          left: randomRange(base.minLeft, base.maxLeft),
-          top: randomRange(base.minTop, base.maxTop),
-          scale: randomRange(base.scaleMin, base.scaleMax),
+        const placed = [];
+        for (let index = 0; index < 3; index++) {
+          placed.push(sampleSenseLabelPosition(placed, index));
+        }
+        return placed.map(position => ({
+          left: position.left,
+          top: position.top,
+          scale: randomRange(0.84, 1.12),
           coreOpacity: randomRange(0.78, 0.94),
           effectOpacity: randomRange(0.62, 0.88)
         }));
