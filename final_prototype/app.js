@@ -2990,21 +2990,26 @@
       function drawCapturedShareSnapshot(c, cssWidth, cssHeight) {
         const snapshot = state.shareSnapshot;
         if (!snapshot || !snapshot.canvas) return false;
-        const targetAspect = cssWidth / cssHeight;
-        let cropWidth = snapshot.width;
-        let cropHeight = snapshot.height;
-        if (snapshot.width / snapshot.height > targetAspect) {
-          cropWidth = snapshot.height * targetAspect;
-        } else {
-          cropHeight = snapshot.width / targetAspect;
-        }
-        const centerX = clamp(snapshot.point.x, cropWidth / 2, snapshot.width - cropWidth / 2);
-        const centerY = clamp(snapshot.point.y, cropHeight / 2, snapshot.height - cropHeight / 2);
-        const sx = (centerX - cropWidth / 2) * snapshot.pixelRatio;
-        const sy = (centerY - cropHeight / 2) * snapshot.pixelRatio;
-        const sw = cropWidth * snapshot.pixelRatio;
-        const sh = cropHeight * snapshot.pixelRatio;
-        c.drawImage(snapshot.canvas, sx, sy, sw, sh, 0, 0, cssWidth, cssHeight);
+        const shareScale = 1.46;
+        const anchorX = cssWidth * 0.70;
+        const anchorY = cssHeight * 0.34;
+        const drawWidth = snapshot.width * shareScale;
+        const drawHeight = snapshot.height * shareScale;
+        const minX = Math.min(0, cssWidth - drawWidth);
+        const minY = Math.min(0, cssHeight - drawHeight);
+        const dx = clamp(anchorX - snapshot.point.x * shareScale, minX, 0);
+        const dy = clamp(anchorY - snapshot.point.y * shareScale, minY, 0);
+        c.drawImage(
+          snapshot.canvas,
+          0,
+          0,
+          snapshot.width * snapshot.pixelRatio,
+          snapshot.height * snapshot.pixelRatio,
+          dx,
+          dy,
+          drawWidth,
+          drawHeight
+        );
         return true;
       }
 
