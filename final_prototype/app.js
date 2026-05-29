@@ -375,6 +375,7 @@
         markerFadeFrom: 1,
         markerFadeDuration: 320,
         markerFadeActive: false,
+        shareSnapshot: null,
         remoteRecordsTimer: null,
         remoteRecordsRequestId: 0,
         remoteRecordsKey: ""
@@ -1922,6 +1923,7 @@
       function switchView(view, keepNavOpen = false) {
         resetAppScroll();
         const previousView = state.view;
+        if (view === "share") captureShareSnapshot();
         if (!keepNavOpen || view === "sense" || view === "records" || view === "settings" || view === "share") {
           app.classList.remove("nav-open");
         }
@@ -2931,6 +2933,81 @@
         c.restore();
       }
 
+      function captureShareSnapshot() {
+        if (!state.width || !state.height) return;
+        const pixelRatio = Math.min(window.devicePixelRatio || state.dpr || 1, 2);
+        const snapshot = document.createElement("canvas");
+        snapshot.width = Math.max(1, Math.round(state.width * pixelRatio));
+        snapshot.height = Math.max(1, Math.round(state.height * pixelRatio));
+        const c = snapshot.getContext("2d");
+        if (!c) return;
+        c.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
+        c.fillStyle = "#080a0b";
+        c.fillRect(0, 0, state.width, state.height);
+
+        if (state.mapReady && state.map) {
+          const mapCanvas = state.map.getCanvas && state.map.getCanvas();
+          if (mapCanvas) {
+            try {
+              c.drawImage(mapCanvas, 0, 0, state.width, state.height);
+            } catch (error) {
+              c.fillStyle = "#111415";
+              c.fillRect(0, 0, state.width, state.height);
+            }
+          }
+        }
+
+        const originalView = state.view;
+        const originalOpacity = state.markerOpacity;
+        const originalFadeActive = state.markerFadeActive;
+        state.view = "world";
+        state.markerOpacity = 1;
+        state.markerFadeActive = false;
+        ctx.clearRect(0, 0, state.width, state.height);
+        drawGridTexture(state.cachedCells);
+        drawCurrentMarker();
+        state.view = originalView;
+        state.markerOpacity = originalOpacity;
+        state.markerFadeActive = originalFadeActive;
+
+        c.drawImage(canvas, 0, 0, state.width, state.height);
+        const hero = state.position || activeOrigin();
+        const point = state.mapReady && state.map
+          ? state.map.project([hero.lng, hero.lat])
+          : project(hero);
+        state.shareSnapshot = {
+          canvas: snapshot,
+          width: state.width,
+          height: state.height,
+          pixelRatio,
+          point: {
+            x: Number.isFinite(point.x) ? point.x : state.width / 2,
+            y: Number.isFinite(point.y) ? point.y : state.height / 2
+          }
+        };
+      }
+
+      function drawCapturedShareSnapshot(c, cssWidth, cssHeight) {
+        const snapshot = state.shareSnapshot;
+        if (!snapshot || !snapshot.canvas) return false;
+        const targetAspect = cssWidth / cssHeight;
+        let cropWidth = snapshot.width;
+        let cropHeight = snapshot.height;
+        if (snapshot.width / snapshot.height > targetAspect) {
+          cropWidth = snapshot.height * targetAspect;
+        } else {
+          cropHeight = snapshot.width / targetAspect;
+        }
+        const centerX = clamp(snapshot.point.x, cropWidth / 2, snapshot.width - cropWidth / 2);
+        const centerY = clamp(snapshot.point.y, cropHeight / 2, snapshot.height - cropHeight / 2);
+        const sx = (centerX - cropWidth / 2) * snapshot.pixelRatio;
+        const sy = (centerY - cropHeight / 2) * snapshot.pixelRatio;
+        const sw = cropWidth * snapshot.pixelRatio;
+        const sh = cropHeight * snapshot.pixelRatio;
+        c.drawImage(snapshot.canvas, sx, sy, sw, sh, 0, 0, cssWidth, cssHeight);
+        return true;
+      }
+
       function drawShareCard(records) {
         const canvasEl = document.getElementById("shareCardCanvas");
         if (!canvasEl) return;
@@ -2949,7 +3026,8 @@
         c.clearRect(0, 0, cssWidth, cssHeight);
 
         const bounds = shareBoundsForRecords(records);
-        if (!drawShareMapSnapshot(c, cssWidth, cssHeight)) {
+        const usedSnapshot = drawCapturedShareSnapshot(c, cssWidth, cssHeight);
+        if (!usedSnapshot && !drawShareMapSnapshot(c, cssWidth, cssHeight)) {
           drawShareFallbackBackground(c, cssWidth, cssHeight);
         }
         const maxDots = 1400;
@@ -2962,27 +3040,29 @@
         };
 
         const viewport = shareViewportTransform(cssWidth, cssHeight);
-        c.save();
-        c.globalCompositeOperation = "screen";
-        records.forEach((record, index) => {
-          if (index % stride !== 0 || !recordInBounds(record, bounds)) return;
-          const point = state.mapReady && state.map
-            ? state.map.project([record.lng, record.lat])
-            : project(record);
-          const x = point.x * viewport.scale + viewport.offsetX;
-          const y = point.y * viewport.scale + viewport.offsetY;
-          if (x < -8 || x > cssWidth + 8 || y < -8 || y > cssHeight + 8) return;
-          const noise = recordNoise(record);
-          const flux = recordFlux(record);
-          const slot = recordSlot(record);
-          const color = palette[slot] || palette.evening;
-          const radius = (1.0 + noise * 2.7 + flux * 1.0) * Math.max(0.78, viewport.scale);
-          c.fillStyle = `rgba(${color}, ${0.24 + noise * 0.26})`;
-          c.beginPath();
-          c.arc(x, y, radius, 0, Math.PI * 2);
-          c.fill();
-        });
-        c.restore();
+        if (!usedSnapshot) {
+          c.save();
+          c.globalCompositeOperation = "screen";
+          records.forEach((record, index) => {
+            if (index % stride !== 0 || !recordInBounds(record, bounds)) return;
+            const point = state.mapReady && state.map
+              ? state.map.project([record.lng, record.lat])
+              : project(record);
+            const x = point.x * viewport.scale + viewport.offsetX;
+            const y = point.y * viewport.scale + viewport.offsetY;
+            if (x < -8 || x > cssWidth + 8 || y < -8 || y > cssHeight + 8) return;
+            const noise = recordNoise(record);
+            const flux = recordFlux(record);
+            const slot = recordSlot(record);
+            const color = palette[slot] || palette.evening;
+            const radius = (1.0 + noise * 2.7 + flux * 1.0) * Math.max(0.78, viewport.scale);
+            c.fillStyle = `rgba(${color}, ${0.24 + noise * 0.26})`;
+            c.beginPath();
+            c.arc(x, y, radius, 0, Math.PI * 2);
+            c.fill();
+          });
+          c.restore();
+        }
 
         const veil = c.createRadialGradient(cssWidth * 0.48, cssHeight * 0.42, cssWidth * 0.1, cssWidth * 0.48, cssHeight * 0.42, cssWidth * 0.65);
         veil.addColorStop(0, "rgba(255, 255, 255, 0.04)");
