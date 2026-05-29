@@ -1272,7 +1272,15 @@
       }
 
       function updateAppScale() {
-        document.documentElement.style.setProperty("--app-scale", "1");
+        const baseWidth = 393;
+        const baseHeight = 852;
+        const viewportWidth = window.visualViewport?.width || window.innerWidth || baseWidth;
+        const viewportHeight = window.visualViewport?.height || window.innerHeight || baseHeight;
+        const scale = Math.min(viewportHeight / baseHeight, viewportWidth / baseWidth);
+        const safeScale = Number.isFinite(scale) && scale > 0 ? scale : 1;
+        document.documentElement.style.setProperty("--app-scale", safeScale.toFixed(4));
+        document.documentElement.style.setProperty("--app-frame-w", `${(baseWidth * safeScale).toFixed(2)}px`);
+        document.documentElement.style.setProperty("--app-frame-h", `${(baseHeight * safeScale).toFixed(2)}px`);
       }
 
       function resizeCanvas() {
@@ -2442,54 +2450,36 @@
         const ahead = project(dest);
         const screenAngle = Math.atan2(ahead.y - p.y, ahead.x - p.x);
 
-        const pitch = state.mapReady ? state.map.getPitch() : 0;
-        const pitchNorm = pitch / 60; // 0 = top-down, 1 = max tilt
-        const R = 11;
-
         ctx.save();
         ctx.globalCompositeOperation = "screen";
-        ctx.translate(p.x, p.y - 6);
+        ctx.translate(p.x, p.y);
 
-        // soft pulse halo
         const pulse = 0.5 + Math.sin(state.t * 2.2) * 0.5;
-        const halo = ctx.createRadialGradient(0, 0, 0, 0, 0, 28 + pulse * 6);
-        halo.addColorStop(0, "rgba(225, 240, 241, 0.14)");
+        const halo = ctx.createRadialGradient(0, 0, 0, 0, 0, 18 + pulse * 4);
+        halo.addColorStop(0, "rgba(225, 240, 241, 0.18)");
         halo.addColorStop(1, "rgba(0, 0, 0, 0)");
         ctx.fillStyle = halo;
         ctx.beginPath();
-        ctx.arc(0, 0, 34, 0, Math.PI * 2);
+        ctx.arc(0, 0, 22, 0, Math.PI * 2);
         ctx.fill();
 
-        // unified teardrop: one continuous path, no separate sphere + spike
-        ctx.save();
-        ctx.rotate(screenAngle);
+        if (Number.isFinite(screenAngle)) {
+          ctx.save();
+          ctx.rotate(screenAngle);
+          ctx.strokeStyle = "rgba(225, 234, 240, 0.82)";
+          ctx.lineWidth = 1.2;
+          ctx.beginPath();
+          ctx.moveTo(8, 0);
+          ctx.lineTo(17, 0);
+          ctx.stroke();
+          ctx.restore();
+        }
 
-        // tip recedes as pitch increases → rounder at high pitch, elongated at low pitch
-        const tipDist = R * (1.55 - pitchNorm * 0.45);
-
-        // geometric tangent from external tip point to the circle
-        const cosTheta = Math.min(R / tipDist, 0.995);
-        const sinTheta = Math.sqrt(1 - cosTheta * cosTheta);
-        const theta = Math.acos(cosTheta);
-        const tx = R * cosTheta; // tangent point x
-        const ty = R * sinTheta; // tangent point |y|
-
-        // path: tip → top tangent → arc around back → bottom tangent (closePath to tip)
         ctx.beginPath();
-        ctx.moveTo(tipDist, 0);
-        ctx.lineTo(tx, -ty);
-        ctx.arc(0, 0, R, -theta, theta, true);
-        ctx.closePath();
-
-        // subtle off-centre gradient for 3D read (light from upper-left in local space)
-        const grad = ctx.createRadialGradient(-R * 0.15, -R * 0.38, R * 0.05, R * 0.25, R * 0.1, R * 1.45);
-        grad.addColorStop(0,    "rgba(246, 248, 250, 1.00)");
-        grad.addColorStop(0.52, "rgba(225, 234, 240, 0.97)");
-        grad.addColorStop(1,    "rgba(185, 208, 225, 0.82)");
-        ctx.fillStyle = grad;
+        ctx.arc(0, 0, 7, 0, Math.PI * 2);
+        ctx.fillStyle = "rgba(238, 244, 247, 0.96)";
         ctx.fill();
 
-        ctx.restore();
         ctx.restore();
       }
 

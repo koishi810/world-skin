@@ -45,11 +45,10 @@
 
     #appFrame {
       position: relative;
-      width: 393px;
-      height: 852px;
-      flex: 0 0 393px;
-      transform: scale(var(--app-scale, 1));
-      transform-origin: top center;
+      width: var(--app-frame-w, 393px);
+      height: var(--app-frame-h, 852px);
+      flex: 0 0 var(--app-frame-w, 393px);
+      transform: none;
     }
 
     #app {
@@ -64,6 +63,8 @@
         radial-gradient(circle at 48% 48%, rgba(52, 70, 74, 0.18), transparent 44%),
         #020304;
       isolation: isolate;
+      transform: scale(var(--app-scale, 1));
+      transform-origin: top left;
     }
 
     #app::after {
@@ -811,11 +812,10 @@ html, body { background:#0b0d10; }
 body { align-items:flex-start; }
 #appFrame {
   position:relative;
-  width:var(--phone-w);
-  height:var(--phone-h);
-  flex:0 0 var(--phone-w);
-  transform:scale(var(--app-scale, 1));
-  transform-origin:top center;
+  width:var(--app-frame-w, var(--phone-w));
+  height:var(--app-frame-h, var(--phone-h));
+  flex:0 0 var(--app-frame-w, var(--phone-w));
+  transform:none;
 }
 #app {
   width:var(--phone-w);
@@ -825,6 +825,8 @@ body { align-items:flex-start; }
   flex:0 0 var(--phone-w);
   border-radius:0;
   box-shadow:0 28px 80px rgba(0,0,0,.48);
+  transform:scale(var(--app-scale, 1));
+  transform-origin:top left;
 }
 .system-status {
   position:absolute; inset:0 0 auto; height:59px; z-index:120;
