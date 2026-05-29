@@ -2834,7 +2834,9 @@
 
       function currentRangeRecords() {
         const records = uniqueRecords([...state.worldRecords, ...state.personalRecords]);
-        const bounds = currentViewportBounds(0);
+        const bounds = state.view === "share" && state.shareSnapshot?.bounds
+          ? state.shareSnapshot.bounds
+          : currentViewportBounds(0);
         if (!bounds) return records;
         return records.filter(record => recordInBounds(record, bounds));
       }
@@ -2935,6 +2937,25 @@
 
       function captureShareSnapshot() {
         if (!state.width || !state.height) return;
+        const hero = state.position || activeOrigin();
+        const anchor = { x: state.width * 0.70, y: state.height * 0.34 };
+        const savedCamera = state.mapReady && state.map
+          ? {
+              center: state.map.getCenter(),
+              zoom: state.map.getZoom(),
+              pitch: state.map.getPitch(),
+              bearing: state.map.getBearing()
+            }
+          : null;
+        if (state.mapReady && state.map) {
+          state.map.jumpTo({
+            center: [hero.lng, hero.lat],
+            zoom: 14.7,
+            pitch: DEFAULT_VIEW.pitch,
+            bearing: DEFAULT_VIEW.bearing,
+            offset: [anchor.x - state.width / 2, anchor.y - state.height / 2]
+          });
+        }
         const pixelRatio = Math.min(window.devicePixelRatio || state.dpr || 1, 2);
         const snapshot = document.createElement("canvas");
         snapshot.width = Math.max(1, Math.round(state.width * pixelRatio));
@@ -2971,20 +2992,30 @@
         state.markerFadeActive = originalFadeActive;
 
         c.drawImage(canvas, 0, 0, state.width, state.height);
-        const hero = state.position || activeOrigin();
         const point = state.mapReady && state.map
           ? state.map.project([hero.lng, hero.lat])
           : project(hero);
+        const bounds = currentViewportBounds(0);
         state.shareSnapshot = {
           canvas: snapshot,
           width: state.width,
           height: state.height,
           pixelRatio,
+          bounds,
           point: {
             x: Number.isFinite(point.x) ? point.x : state.width / 2,
             y: Number.isFinite(point.y) ? point.y : state.height / 2
           }
         };
+        if (savedCamera && state.mapReady && state.map) {
+          state.map.jumpTo({
+            center: [savedCamera.center.lng, savedCamera.center.lat],
+            zoom: savedCamera.zoom,
+            pitch: savedCamera.pitch,
+            bearing: savedCamera.bearing
+          });
+          requestRender();
+        }
       }
 
       function drawCapturedShareSnapshot(c, cssWidth, cssHeight) {
