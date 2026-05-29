@@ -109,11 +109,7 @@
       opacity: 1;
     }
 
-    #app.map-ready[data-view="sense"] #realMap {
-      opacity: 0 !important;
-      filter: none !important;
-    }
-
+    #app.map-ready[data-view="sense"] #realMap,
     #app.map-ready[data-view="profile"] #realMap,
     #app.map-ready[data-view="records"] #realMap,
     #app.map-ready[data-view="settings"] #realMap,
@@ -276,7 +272,7 @@
     }
 
     #app[data-view="sense"] #mapDarkOverlay {
-      background: rgba(0, 0, 0, 0.02);
+      background: rgba(0, 0, 0, 0.24);
     }
 
     #skinCanvas {
@@ -304,6 +300,7 @@
     #app[data-view="sense"] #skinCanvas {
       pointer-events: none;
       cursor: default;
+      opacity: 0;
     }
 
     #app[data-view="profile"] #skinCanvas,
