@@ -2950,7 +2950,7 @@
         if (state.mapReady && state.map) {
           state.map.jumpTo({
             center: [hero.lng, hero.lat],
-            zoom: 14.7,
+            zoom: 14.45,
             pitch: DEFAULT_VIEW.pitch,
             bearing: DEFAULT_VIEW.bearing,
             offset: [anchor.x - state.width / 2, anchor.y - state.height / 2]
@@ -3021,7 +3021,7 @@
       function drawCapturedShareSnapshot(c, cssWidth, cssHeight) {
         const snapshot = state.shareSnapshot;
         if (!snapshot || !snapshot.canvas) return false;
-        const shareScale = 1.46;
+        const shareScale = 1.30;
         const anchorX = cssWidth * 0.70;
         const anchorY = cssHeight * 0.34;
         const drawWidth = snapshot.width * shareScale;
