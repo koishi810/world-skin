@@ -2463,22 +2463,23 @@
         ctx.arc(0, 0, 22, 0, Math.PI * 2);
         ctx.fill();
 
-        if (Number.isFinite(screenAngle)) {
-          ctx.save();
-          ctx.rotate(screenAngle);
-          ctx.strokeStyle = "rgba(225, 234, 240, 0.82)";
-          ctx.lineWidth = 1.2;
-          ctx.beginPath();
-          ctx.moveTo(8, 0);
-          ctx.lineTo(17, 0);
-          ctx.stroke();
-          ctx.restore();
-        }
-
+        ctx.save();
+        ctx.rotate(Number.isFinite(screenAngle) ? screenAngle : -Math.PI / 2);
         ctx.beginPath();
-        ctx.arc(0, 0, 7, 0, Math.PI * 2);
-        ctx.fillStyle = "rgba(238, 244, 247, 0.96)";
+        ctx.moveTo(14, 0);
+        ctx.bezierCurveTo(7, -9, -7, -8, -9, 0);
+        ctx.bezierCurveTo(-7, 8, 7, 9, 14, 0);
+        ctx.closePath();
+        const markerGrad = ctx.createRadialGradient(-3, -4, 1, 3, 2, 18);
+        markerGrad.addColorStop(0, "rgba(248, 250, 252, 1)");
+        markerGrad.addColorStop(0.56, "rgba(226, 235, 241, 0.96)");
+        markerGrad.addColorStop(1, "rgba(178, 202, 218, 0.82)");
+        ctx.fillStyle = markerGrad;
         ctx.fill();
+        ctx.strokeStyle = "rgba(255, 255, 255, 0.34)";
+        ctx.lineWidth = 0.8;
+        ctx.stroke();
+        ctx.restore();
 
         ctx.restore();
       }
