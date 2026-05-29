@@ -1612,19 +1612,8 @@ body { align-items:flex-start; }
   isolation:isolate;
 }
 .sense-wrap::before {
-  content:"";
-  position:absolute;
-  left:-239px;
-  top:-186px;
-  width:917px;
-  height:1338px;
-  z-index:1;
-  pointer-events:none;
-  background:rgba(0,0,0,.60);
-  backdrop-filter:blur(3.5px);
-  -webkit-backdrop-filter:blur(3.5px);
+  display:none;
 }
-.sense-figma-bg,
 .sense-figma-bottom-mask,
 .sense-figma-mask {
   position:absolute;
@@ -1633,14 +1622,6 @@ body { align-items:flex-start; }
   background-repeat:no-repeat;
   background-position:center;
   background-size:100% 100%;
-}
-.sense-figma-bg {
-  left:-319px;
-  top:-68px;
-  width:1424px;
-  height:988px;
-  z-index:0;
-  background-image:url("assets/figma/sense-bg.png");
 }
 .sense-figma-bottom-mask {
   left:-134px;
