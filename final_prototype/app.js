@@ -1138,9 +1138,23 @@
       function syncMapToActiveCenter(animate = true) {
         if (!state.mapReady) return;
         const center = activeOrigin();
-        const options = state.view === "world"
+        const useDefaultWorldView = state.view === "world" && !state.position;
+        const options = useDefaultWorldView
           ? { ...DEFAULT_VIEW }
           : { center: [center.lng, center.lat], zoom: 14.1, pitch: DEFAULT_VIEW.pitch, bearing: DEFAULT_VIEW.bearing };
+        if (animate) state.map.easeTo({ ...options, duration: 650 });
+        else state.map.jumpTo(options);
+        invalidateField(true);
+      }
+
+      function centerMapOnCurrentPosition(animate = true) {
+        if (!state.mapReady || !state.position) return;
+        const options = {
+          center: [state.position.lng, state.position.lat],
+          zoom: 14.1,
+          pitch: DEFAULT_VIEW.pitch,
+          bearing: DEFAULT_VIEW.bearing
+        };
         if (animate) state.map.easeTo({ ...options, duration: 650 });
         else state.map.jumpTo(options);
         invalidateField(true);
@@ -1169,9 +1183,13 @@
 
       function resetMapView() {
         if (!state.mapReady) return;
-        const options = state.view === "radius"
-          ? { center: [activeOrigin().lng, activeOrigin().lat], zoom: 14.1, pitch: DEFAULT_VIEW.pitch, bearing: DEFAULT_VIEW.bearing }
-          : DEFAULT_VIEW;
+        const center = state.position || activeOrigin();
+        const options = {
+          center: [center.lng, center.lat],
+          zoom: 14.1,
+          pitch: DEFAULT_VIEW.pitch,
+          bearing: DEFAULT_VIEW.bearing
+        };
         state.map.easeTo({ ...options, duration: 520 });
         invalidateField(false);
         showToast("表示を初期位置に戻しました。");
@@ -1506,19 +1524,19 @@
 
       function initLocation() {
         if (!navigator.geolocation) {
-          showToast("位置情報を使えません。国分寺付近を表示します。");
+          showToast("位置情報を使えません。東京都付近を表示します。");
           return;
         }
         navigator.geolocation.getCurrentPosition(
           pos => {
             state.position = { lat: pos.coords.latitude, lng: pos.coords.longitude };
             state.heading = Number.isFinite(pos.coords.heading) ? pos.coords.heading : state.heading;
-            state.origin = state.personalRecords.length ? state.origin : state.position;
-            if (state.view === "radius" || state.view === "world") syncMapToActiveCenter(false);
+            state.origin = state.position;
+            centerMapOnCurrentPosition(false);
             rebuildGrids();
           },
           () => {
-            showToast("位置情報を使えません。国分寺付近を表示します。");
+            showToast("位置情報を使えません。東京都付近を表示します。");
           },
           { enableHighAccuracy: true, timeout: 8000, maximumAge: 10000 }
         );
@@ -1526,6 +1544,7 @@
           pos => {
             state.position = { lat: pos.coords.latitude, lng: pos.coords.longitude };
             state.heading = Number.isFinite(pos.coords.heading) ? pos.coords.heading : state.heading;
+            state.origin = state.position;
             if (state.recording) state.path.push({ ...state.position, at: Date.now() });
           },
           () => {},
