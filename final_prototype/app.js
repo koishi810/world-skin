@@ -369,6 +369,12 @@
         cachedCells: [],
         lastRenderAt: 0,
         fieldTransition: null,
+        markerOpacity: 1,
+        markerTargetOpacity: 1,
+        markerFadeStartedAt: 0,
+        markerFadeFrom: 1,
+        markerFadeDuration: 320,
+        markerFadeActive: false,
         remoteRecordsTimer: null,
         remoteRecordsRequestId: 0,
         remoteRecordsKey: ""
@@ -550,8 +556,8 @@
         const north = bounds.getNorth();
         const west = bounds.getWest();
         const east = bounds.getEast();
-        const latPad = Math.max(0.002, (north - south) * padRatio);
-        const lngPad = Math.max(0.002, (east - west) * padRatio);
+        const latPad = padRatio > 0 ? Math.max(0.002, (north - south) * padRatio) : 0;
+        const lngPad = padRatio > 0 ? Math.max(0.002, (east - west) * padRatio) : 0;
         return {
           south: clamp(south - latPad, -90, 90),
           north: clamp(north + latPad, -90, 90),
@@ -1923,6 +1929,7 @@
         if (view === "sense") state.prevView = previousView;
         state.view = view;
         app.dataset.view = view;
+        setMarkerVisibility(markerShouldBeVisible(view));
         if (view === "sense") prepareSenseIntro();
         else if (!state.recording && !recordModal.classList.contains("active")) {
           clearSenseIntroTimers();
@@ -1954,6 +1961,43 @@
 
       function canNavigateMap() {
         return state.view === "world" || state.view === "radius";
+      }
+
+      function markerShouldBeVisible(view = state.view) {
+        return view === "world" || view === "radius";
+      }
+
+      function setMarkerVisibility(visible, immediate = false) {
+        const target = visible ? 1 : 0;
+        if (immediate) {
+          state.markerOpacity = target;
+          state.markerTargetOpacity = target;
+          state.markerFadeActive = false;
+          return;
+        }
+        if (Math.abs(state.markerTargetOpacity - target) < 0.001 && state.markerFadeActive) return;
+        if (Math.abs(state.markerOpacity - target) < 0.001) {
+          state.markerOpacity = target;
+          state.markerTargetOpacity = target;
+          state.markerFadeActive = false;
+          return;
+        }
+        state.markerFadeFrom = state.markerOpacity;
+        state.markerTargetOpacity = target;
+        state.markerFadeStartedAt = performance.now();
+        state.markerFadeActive = true;
+        requestRender();
+      }
+
+      function updateMarkerFade() {
+        if (!state.markerFadeActive) return;
+        const progress = clamp((performance.now() - state.markerFadeStartedAt) / state.markerFadeDuration, 0, 1);
+        const eased = easeInOutCubic(progress);
+        state.markerOpacity = state.markerFadeFrom + (state.markerTargetOpacity - state.markerFadeFrom) * eased;
+        if (progress >= 1) {
+          state.markerOpacity = state.markerTargetOpacity;
+          state.markerFadeActive = false;
+        }
       }
 
       function setZoom(nextZoom, anchorX = state.width / 2, anchorY = state.height / 2) {
@@ -2577,7 +2621,8 @@
       }
 
       function drawCurrentMarker() {
-        if (!canNavigateMap()) return;
+        if (state.markerOpacity <= 0.01) return;
+        if (!markerShouldBeVisible() && !state.markerFadeActive) return;
         const pos = state.position || activeOrigin();
         const p = project(pos);
         if (p.x < -80 || p.x > state.width + 80 || p.y < -80 || p.y > state.height + 80) return;
@@ -2599,6 +2644,7 @@
         const R = 11;
 
         ctx.save();
+        ctx.globalAlpha = clamp(state.markerOpacity, 0, 1);
         ctx.globalCompositeOperation = "screen";
         ctx.translate(p.x, p.y - 6);
 
@@ -2779,8 +2825,128 @@
         return [...wordCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0, limit).map(([w]) => w);
       }
 
+      function recordInBounds(record, bounds) {
+        if (!bounds || !Number.isFinite(record.lat) || !Number.isFinite(record.lng)) return false;
+        return record.lat >= bounds.south && record.lat <= bounds.north && record.lng >= bounds.west && record.lng <= bounds.east;
+      }
+
+      function currentRangeRecords() {
+        const records = uniqueRecords([...state.worldRecords, ...state.personalRecords]);
+        const bounds = currentViewportBounds(0);
+        if (!bounds) return records;
+        return records.filter(record => recordInBounds(record, bounds));
+      }
+
+      function shareBoundsForRecords(records) {
+        const viewportBounds = currentViewportBounds(0);
+        if (viewportBounds) return viewportBounds;
+        if (!records.length) return {
+          south: DEFAULT_ORIGIN.lat - 0.012,
+          north: DEFAULT_ORIGIN.lat + 0.012,
+          west: DEFAULT_ORIGIN.lng - 0.018,
+          east: DEFAULT_ORIGIN.lng + 0.018
+        };
+        let south = 90;
+        let north = -90;
+        let west = 180;
+        let east = -180;
+        records.forEach(record => {
+          if (!Number.isFinite(record.lat) || !Number.isFinite(record.lng)) return;
+          south = Math.min(south, record.lat);
+          north = Math.max(north, record.lat);
+          west = Math.min(west, record.lng);
+          east = Math.max(east, record.lng);
+        });
+        const latPad = Math.max(0.001, (north - south) * 0.08);
+        const lngPad = Math.max(0.001, (east - west) * 0.08);
+        return { south: south - latPad, north: north + latPad, west: west - lngPad, east: east + lngPad };
+      }
+
+      function drawShareCard(records) {
+        const canvasEl = document.getElementById("shareCardCanvas");
+        if (!canvasEl) return;
+        const cssWidth = Math.max(1, Math.round(canvasEl.clientWidth || 395));
+        const cssHeight = Math.max(1, Math.round(canvasEl.clientHeight || 274));
+        const pixelRatio = Math.min(window.devicePixelRatio || 1, 2);
+        const width = Math.round(cssWidth * pixelRatio);
+        const height = Math.round(cssHeight * pixelRatio);
+        if (canvasEl.width !== width || canvasEl.height !== height) {
+          canvasEl.width = width;
+          canvasEl.height = height;
+        }
+        const c = canvasEl.getContext("2d");
+        if (!c) return;
+        c.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
+        c.clearRect(0, 0, cssWidth, cssHeight);
+
+        const bg = c.createLinearGradient(0, 0, cssWidth, cssHeight);
+        bg.addColorStop(0, "#202323");
+        bg.addColorStop(0.58, "#17191a");
+        bg.addColorStop(1, "#0e1011");
+        c.fillStyle = bg;
+        c.fillRect(0, 0, cssWidth, cssHeight);
+
+        c.save();
+        c.globalAlpha = 0.22;
+        c.strokeStyle = "rgba(121, 132, 138, 0.20)";
+        c.lineWidth = 1;
+        for (let i = -4; i < 14; i++) {
+          const y = i * 24 + (state.t % 1) * 2;
+          c.beginPath();
+          c.moveTo(-30, y);
+          c.lineTo(cssWidth + 30, y + Math.sin(i * 0.9) * 18);
+          c.stroke();
+        }
+        for (let i = -5; i < 14; i++) {
+          const x = i * 31;
+          c.beginPath();
+          c.moveTo(x, -28);
+          c.lineTo(x + Math.cos(i * 0.7) * 22, cssHeight + 28);
+          c.stroke();
+        }
+        c.restore();
+
+        const bounds = shareBoundsForRecords(records);
+        const latSpan = Math.max(0.00001, bounds.north - bounds.south);
+        const lngSpan = Math.max(0.00001, bounds.east - bounds.west);
+        const maxDots = 1400;
+        const stride = Math.max(1, Math.floor(records.length / maxDots));
+        const palette = {
+          morning: "119, 143, 216",
+          day: "140, 174, 166",
+          evening: "150, 139, 190",
+          night: "88, 104, 174"
+        };
+
+        c.save();
+        c.globalCompositeOperation = "screen";
+        records.forEach((record, index) => {
+          if (index % stride !== 0 || !recordInBounds(record, bounds)) return;
+          const x = ((record.lng - bounds.west) / lngSpan) * cssWidth;
+          const y = ((bounds.north - record.lat) / latSpan) * cssHeight;
+          if (x < -8 || x > cssWidth + 8 || y < -8 || y > cssHeight + 8) return;
+          const noise = recordNoise(record);
+          const flux = recordFlux(record);
+          const slot = recordSlot(record);
+          const color = palette[slot] || palette.evening;
+          const radius = 1.1 + noise * 3.4 + flux * 1.4;
+          c.fillStyle = `rgba(${color}, ${0.30 + noise * 0.35})`;
+          c.beginPath();
+          c.arc(x, y, radius, 0, Math.PI * 2);
+          c.fill();
+        });
+        c.restore();
+
+        const veil = c.createRadialGradient(cssWidth * 0.48, cssHeight * 0.42, cssWidth * 0.1, cssWidth * 0.48, cssHeight * 0.42, cssWidth * 0.65);
+        veil.addColorStop(0, "rgba(255, 255, 255, 0.04)");
+        veil.addColorStop(0.55, "rgba(18, 20, 21, 0)");
+        veil.addColorStop(1, "rgba(4, 5, 6, 0.54)");
+        c.fillStyle = veil;
+        c.fillRect(0, 0, cssWidth, cssHeight);
+      }
+
       function updateShareView() {
-        const records = state.personalRecords;
+        const records = currentRangeRecords();
         const words = topSenseWords(records, 3);
         const fallback = ["澄む", "ほどける", "流れる"];
         const chosen = words.length ? words : fallback;
@@ -2797,9 +2963,9 @@
         const avgNoise = records.length ? records.reduce((acc, r) => acc + recordNoise(r), 0) / records.length : 0.38;
         const shareCardMeta = document.getElementById("shareCardMeta");
         if (shareCardMeta) {
-          const count = records.length || 50;
-          shareCardMeta.textContent = `${count} records・${avgNoise.toFixed(2)} layers`;
+          shareCardMeta.textContent = `${records.length} records・${avgNoise.toFixed(2)} layers`;
         }
+        drawShareCard(records);
       }
 
       function refreshDerivedSurfaces() {
@@ -2816,6 +2982,7 @@
         if (!state.testMode) state.worldRecords = WORLD_RECORDS;
         rebuildGrids();
         updateStats();
+        if (state.view === "share") updateShareView();
         requestRender();
       }
 
@@ -2947,6 +3114,7 @@
         state.t += 1 / Math.max(1, PERF.targetFPS);
         if (state.recording) updateAudio();
         if (state.recording) updateRecordingProgress();
+        updateMarkerFade();
         if (state.fieldDirty && canNavigateMap()) rebuildFieldCache();
         drawBackground();
         if (state.view === "world" || state.view === "radius" || state.view === "profile" || state.view === "records" || state.view === "settings" || state.view === "share") {
@@ -2965,7 +3133,7 @@
         }
         renderDebugPanel();
         state.renderDirty = false;
-        if (state.recording || state.fieldTransition) requestRender();
+        if (state.recording || state.fieldTransition || state.markerFadeActive) requestRender();
       }
 
       function bindEvents() {
