@@ -2862,6 +2862,75 @@
         return { south: south - latPad, north: north + latPad, west: west - lngPad, east: east + lngPad };
       }
 
+      function shareViewportTransform(cssWidth, cssHeight) {
+        const sourceWidth = Math.max(1, state.width || cssWidth);
+        const sourceHeight = Math.max(1, state.height || cssHeight);
+        const scale = Math.max(cssWidth / sourceWidth, cssHeight / sourceHeight);
+        return {
+          scale,
+          offsetX: (cssWidth - sourceWidth * scale) / 2,
+          offsetY: (cssHeight - sourceHeight * scale) / 2,
+          sourceWidth,
+          sourceHeight
+        };
+      }
+
+      function drawShareMapSnapshot(c, cssWidth, cssHeight) {
+        if (!state.mapReady || !state.map) return false;
+        const mapCanvas = state.map.getCanvas && state.map.getCanvas();
+        if (!mapCanvas) return false;
+        const sourceWidth = Math.max(1, mapCanvas.width);
+        const sourceHeight = Math.max(1, mapCanvas.height);
+        const sourceAspect = sourceWidth / sourceHeight;
+        const targetAspect = cssWidth / cssHeight;
+        let sx = 0;
+        let sy = 0;
+        let sw = sourceWidth;
+        let sh = sourceHeight;
+        if (sourceAspect > targetAspect) {
+          sw = sourceHeight * targetAspect;
+          sx = (sourceWidth - sw) / 2;
+        } else {
+          sh = sourceWidth / targetAspect;
+          sy = (sourceHeight - sh) / 2;
+        }
+        try {
+          c.drawImage(mapCanvas, sx, sy, sw, sh, 0, 0, cssWidth, cssHeight);
+          return true;
+        } catch (error) {
+          return false;
+        }
+      }
+
+      function drawShareFallbackBackground(c, cssWidth, cssHeight) {
+        const bg = c.createLinearGradient(0, 0, cssWidth, cssHeight);
+        bg.addColorStop(0, "#202323");
+        bg.addColorStop(0.58, "#17191a");
+        bg.addColorStop(1, "#0e1011");
+        c.fillStyle = bg;
+        c.fillRect(0, 0, cssWidth, cssHeight);
+
+        c.save();
+        c.globalAlpha = 0.18;
+        c.strokeStyle = "rgba(121, 132, 138, 0.18)";
+        c.lineWidth = 1;
+        for (let i = -4; i < 14; i++) {
+          const y = i * 24;
+          c.beginPath();
+          c.moveTo(-30, y);
+          c.lineTo(cssWidth + 30, y + Math.sin(i * 0.9) * 18);
+          c.stroke();
+        }
+        for (let i = -5; i < 14; i++) {
+          const x = i * 31;
+          c.beginPath();
+          c.moveTo(x, -28);
+          c.lineTo(x + Math.cos(i * 0.7) * 22, cssHeight + 28);
+          c.stroke();
+        }
+        c.restore();
+      }
+
       function drawShareCard(records) {
         const canvasEl = document.getElementById("shareCardCanvas");
         if (!canvasEl) return;
@@ -2879,36 +2948,10 @@
         c.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
         c.clearRect(0, 0, cssWidth, cssHeight);
 
-        const bg = c.createLinearGradient(0, 0, cssWidth, cssHeight);
-        bg.addColorStop(0, "#202323");
-        bg.addColorStop(0.58, "#17191a");
-        bg.addColorStop(1, "#0e1011");
-        c.fillStyle = bg;
-        c.fillRect(0, 0, cssWidth, cssHeight);
-
-        c.save();
-        c.globalAlpha = 0.22;
-        c.strokeStyle = "rgba(121, 132, 138, 0.20)";
-        c.lineWidth = 1;
-        for (let i = -4; i < 14; i++) {
-          const y = i * 24 + (state.t % 1) * 2;
-          c.beginPath();
-          c.moveTo(-30, y);
-          c.lineTo(cssWidth + 30, y + Math.sin(i * 0.9) * 18);
-          c.stroke();
-        }
-        for (let i = -5; i < 14; i++) {
-          const x = i * 31;
-          c.beginPath();
-          c.moveTo(x, -28);
-          c.lineTo(x + Math.cos(i * 0.7) * 22, cssHeight + 28);
-          c.stroke();
-        }
-        c.restore();
-
         const bounds = shareBoundsForRecords(records);
-        const latSpan = Math.max(0.00001, bounds.north - bounds.south);
-        const lngSpan = Math.max(0.00001, bounds.east - bounds.west);
+        if (!drawShareMapSnapshot(c, cssWidth, cssHeight)) {
+          drawShareFallbackBackground(c, cssWidth, cssHeight);
+        }
         const maxDots = 1400;
         const stride = Math.max(1, Math.floor(records.length / maxDots));
         const palette = {
@@ -2918,19 +2961,23 @@
           night: "88, 104, 174"
         };
 
+        const viewport = shareViewportTransform(cssWidth, cssHeight);
         c.save();
         c.globalCompositeOperation = "screen";
         records.forEach((record, index) => {
           if (index % stride !== 0 || !recordInBounds(record, bounds)) return;
-          const x = ((record.lng - bounds.west) / lngSpan) * cssWidth;
-          const y = ((bounds.north - record.lat) / latSpan) * cssHeight;
+          const point = state.mapReady && state.map
+            ? state.map.project([record.lng, record.lat])
+            : project(record);
+          const x = point.x * viewport.scale + viewport.offsetX;
+          const y = point.y * viewport.scale + viewport.offsetY;
           if (x < -8 || x > cssWidth + 8 || y < -8 || y > cssHeight + 8) return;
           const noise = recordNoise(record);
           const flux = recordFlux(record);
           const slot = recordSlot(record);
           const color = palette[slot] || palette.evening;
-          const radius = 1.1 + noise * 3.4 + flux * 1.4;
-          c.fillStyle = `rgba(${color}, ${0.30 + noise * 0.35})`;
+          const radius = (1.0 + noise * 2.7 + flux * 1.0) * Math.max(0.78, viewport.scale);
+          c.fillStyle = `rgba(${color}, ${0.24 + noise * 0.26})`;
           c.beginPath();
           c.arc(x, y, radius, 0, Math.PI * 2);
           c.fill();
