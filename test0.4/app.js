@@ -9,6 +9,7 @@
         }
         return window.supabase.createClient(url, key);
       })();
+      const API_BASE = (window.WORLD_SKIN_API_BASE || "").replace(/\/$/, "");
       const DURATION = 10000;
       const BREATH_VISUAL = {
         growMs:       4000,
@@ -26,7 +27,9 @@
       const WORLD_ORIGIN = { lat: 35.7000, lng: 139.4800 };
       const DEFAULT_ORIGIN = WORLD_ORIGIN;
       const TIME_SLOTS = ["morning", "day", "evening", "night"];
-      let WORLD_RECORDS = [];
+      const LOCAL_WORLD_RECORDS = window.WORLD_SKIN_DATA?.records || window.WORLD_SKIN_RECORDS || [];
+      const LOCAL_PERSONAL_RECORDS = window.MY_SKIN_DATA?.records || [];
+      let WORLD_RECORDS = LOCAL_WORLD_RECORDS;
       const TEST_RECORDS   = window.TEST_SKIN_DATA?.records   || [];
       const TEST_RECORDS_2 = window.TEST_SKIN_DATA_2?.records || [];
       const _LNG5T = [-2,-1,0,1,2].map(i => 139.4808 + i * 0.0220);
@@ -190,7 +193,7 @@
         gridSpacing: 14,
         cellSize: 128,
         maxInfluenceDistance: 260,
-        maxVisibleRecords: 2500,
+        maxVisibleRecords: 5000,
         targetFPS: 30,
         renderDebounceMs: 60,
         useOffscreenCache: true
@@ -238,12 +241,10 @@
       const SENSE_ROUNDS = 2;
       const SENSE_PROTOTYPE_ROUNDS = [
         {
-          prompt: "いまの感覚に近い言葉を選ぶ",
-          words: ["浮く", "詰まる", "流れる"]
+          prompt: "いまの感覚に近い言葉を選ぶ"
         },
         {
-          prompt: "もう少しだけ近いものを選ぶ",
-          words: ["重い", "乾く", "ほどける"]
+          prompt: "もう少しだけ近いものを選ぶ"
         }
       ];
       const SENSE_LABEL_BASE_LAYOUT = [
@@ -296,6 +297,11 @@
       const avatarBtn = document.getElementById("avatarBtn");
       const profileBack = document.getElementById("profileBack");
       const profileOpenSettings = document.getElementById("profileOpenSettings");
+      const profileOpenShare = document.getElementById("profileOpenShare");
+      const homeShareBtn = document.getElementById("homeShareBtn");
+      const shareBack = document.getElementById("shareBack");
+      const settingsPage = document.querySelector(".settings-page");
+      const settingsScrollbarThumb = document.querySelector(".settings-scrollbar span");
       const pvCount = document.getElementById("pvCount");
       const pvTrend = document.getElementById("pvTrend");
       const pvTrendTime = document.getElementById("pvTrendTime");
@@ -321,6 +327,8 @@
         volume: 0,
         peak: 0,
         recording: false,
+        pressToken: 0,
+        pressPointerId: null,
         recordStart: 0,
         samples: [],
         path: [],
@@ -330,6 +338,7 @@
         lastBreathPhase: "",
         senseStage: "idle",
         senseIntroTimers: [],
+        senseReadyAt: 0,
         t: 0,
         dpr: 1,
         width: 0,
@@ -401,6 +410,43 @@
         };
       }
 
+      function normalizeLocalRecord(record, recordType = "personal", index = 0) {
+        const createdAt = record.createdAt || record.created_at || record.timestamp || new Date().toISOString();
+        const word = record.word || (Array.isArray(record.selectedWords) ? record.selectedWords[0] : null);
+        return {
+          ...record,
+          id: record.id || `${recordType}-${index}`,
+          userId: record.userId || record.user_id || (recordType === "personal" ? "self-demo" : "world-demo"),
+          record_type: record.record_type || recordType,
+          timestamp: record.timestamp || createdAt,
+          noiseLevel: record.noiseLevel ?? record.noise_level ?? record.noise,
+          turbulence: record.turbulence ?? record.flux,
+          mobility: record.mobility || record.movement || "still",
+          word,
+          selectedWords: Array.isArray(record.selectedWords) && record.selectedWords.length
+            ? record.selectedWords
+            : (Array.isArray(record.selected_words) && record.selected_words.length ? record.selected_words : (word ? [word] : [])),
+          senseVector: record.senseVector || record.sense_vector || {},
+          soundVector: record.soundVector || record.sound_vector || {},
+          trustScore: record.trustScore ?? record.trust_score,
+          zoneId: record.zoneId || record.zone_id,
+          noise: record.noise ?? record.noiseLevel ?? record.noise_level,
+          flux: record.flux ?? record.turbulence,
+          movement: record.movement || record.mobility || "still",
+          createdAt
+        };
+      }
+
+      function uniqueRecords(records) {
+        const seen = new Set();
+        return records.filter((record, index) => {
+          const key = record.id || `${record.createdAt || record.timestamp || "record"}-${index}`;
+          if (seen.has(key)) return false;
+          seen.add(key);
+          return true;
+        });
+      }
+
       function serializeRecord(record, deviceId) {
         return {
           id:             record.id,
@@ -434,34 +480,75 @@
         };
       }
 
+      async function apiRequest(path, options = {}) {
+        try {
+          const response = await fetch(`${API_BASE}${path}`, {
+            cache: "no-store",
+            ...options,
+            headers: {
+              "Content-Type": "application/json",
+              ...(options.headers || {})
+            }
+          });
+          if (!response.ok) return null;
+          return await response.json();
+        } catch {
+          return null;
+        }
+      }
+
+      async function loadApiRecords(params) {
+        const query = new URLSearchParams(params);
+        const payload = await apiRequest(`/api/records?${query.toString()}`);
+        if (!payload || !Array.isArray(payload.records)) return null;
+        return payload.records;
+      }
+
       async function loadPersonalRecords() {
-        if (!supabase) return [];
+        const apiRows = await loadApiRecords({ record_type: "personal" });
+        const localRows = LOCAL_PERSONAL_RECORDS.map((record, index) => normalizeLocalRecord(record, "personal", index));
+        if (apiRows) return uniqueRecords([...localRows, ...apiRows.map(deserializeRecord)]);
+        if (!supabase) return localRows;
         const { data, error } = await supabase
           .from("records")
           .select("*")
-          .eq("record_type", "personal")
-          .eq("device_id", getDeviceId());
+          .eq("record_type", "personal");
         if (error) { console.warn("[WorldSkin] load personal records failed", error); return []; }
-        return (data || []).map(deserializeRecord);
+        return uniqueRecords([...localRows, ...(data || []).map(deserializeRecord)]);
       }
 
       async function loadWorldRecords() {
-        if (!supabase) return [];
+        const localRows = LOCAL_WORLD_RECORDS.map((record, index) => normalizeLocalRecord(record, "world", index));
+        const apiRows = await loadApiRecords({ record_type: "world" });
+        if (apiRows) return apiRows.length ? apiRows.map(deserializeRecord) : localRows;
+        if (!supabase) return localRows;
         const { data, error } = await supabase
           .from("records")
           .select("*")
           .eq("record_type", "world");
         if (error) { console.warn("[WorldSkin] load world records failed", error); return []; }
-        return (data || []).map(deserializeRecord);
+        const rows = (data || []).map(deserializeRecord);
+        return rows.length ? rows : localRows;
       }
 
       async function saveRecord(record) {
+        const row = serializeRecord(record, getDeviceId());
+        const apiResult = await apiRequest("/api/records", {
+          method: "POST",
+          body: JSON.stringify(row)
+        });
+        if (apiResult) return;
         if (!supabase) return;
-        const { error } = await supabase.from("records").upsert(serializeRecord(record, getDeviceId()));
+        const { error } = await supabase.from("records").upsert(row);
         if (error) throw error;
       }
 
       async function clearPersonalRecords() {
+        const apiResult = await apiRequest(`/api/records?${new URLSearchParams({
+          record_type: "personal",
+          device_id: getDeviceId()
+        }).toString()}`, { method: "DELETE" });
+        if (apiResult) return;
         if (!supabase) return;
         const { error } = await supabase
           .from("records")
@@ -563,6 +650,10 @@
         return { loudness, turbulence, sharpness: 0.3, continuity: 0.8, texture: 0.3 };
       }
 
+      function createDemoPersonalRecords() {
+        return LOCAL_PERSONAL_RECORDS.map((record, index) => normalizeLocalRecord(record, "personal", index));
+      }
+
       // ── soundVector computation from mic samples ──────────────────────────
       function _spectralSharpness(freq) {
         if (!freq || !freq.length) return 0.3;
@@ -598,17 +689,61 @@
         };
       }
 
-      function pickRoundWords(seenWords) {
-        const available = SENSE_WORD_LIST.filter(e => !seenWords.includes(e.word));
-        const shuffled = [...available].sort(() => Math.random() - 0.5);
-        return shuffled.slice(0, 3).map(e => e.word);
+      function senseWordScore(entry, pending, seenWords = []) {
+        const sv = entry.sv || {};
+        const noise = clamp(pending?.noise ?? 0.38, 0, 1);
+        const flux = clamp(pending?.flux ?? 0.2, 0, 1);
+        const loudness = clamp(pending?.soundVector?.loudness ?? noise, 0, 1);
+        const turbulence = clamp(pending?.soundVector?.turbulence ?? flux, 0, 1);
+        const spaciousTarget = 0.55 - noise * 1.1;
+        const gravityTarget = noise * 0.9 - 0.35;
+        const tensionTarget = turbulence * 1.35 - 0.45;
+        const flowTarget = (pending?.movement === "passing" ? 0.72 : pending?.movement === "slow" ? 0.28 : -0.18) + flux * 0.22;
+        const dist =
+          Math.abs((sv.spaciousness ?? 0) - spaciousTarget) * 0.82 +
+          Math.abs((sv.gravity ?? 0) - gravityTarget) * 0.70 +
+          Math.abs((sv.tension ?? 0) - tensionTarget) * 0.78 +
+          Math.abs((sv.flow ?? 0) - flowTarget) * 0.72;
+        const dataBoost = state.personalRecords.some(r => r.word === entry.word || (Array.isArray(r.selectedWords) && r.selectedWords.includes(entry.word))) ? 0.22 : 0;
+        const soundBoost = loudness > 0.62 && ["ざらつく", "重い", "詰まる", "硬い", "騒ぐ"].includes(entry.word) ? 0.20 : 0;
+        const seenPenalty = seenWords.includes(entry.word) ? -10 : 0;
+        return Math.max(0.01, 1.75 - dist + dataBoost + soundBoost + seenPenalty);
+      }
+
+      function weightedPick(entries, scoreFn) {
+        const scored = entries.map(entry => ({ entry, score: Math.max(0.01, scoreFn(entry)) }));
+        const total = scored.reduce((sum, item) => sum + item.score, 0);
+        let pick = Math.random() * total;
+        for (const item of scored) {
+          pick -= item.score;
+          if (pick <= 0) return item.entry;
+        }
+        return scored[scored.length - 1]?.entry;
+      }
+
+      function pickRoundWords(seenWords, round = 0) {
+        const picked = [];
+        let available = SENSE_WORD_LIST.filter(entry => !seenWords.includes(entry.word));
+        while (picked.length < 3 && available.length) {
+          const chosen = weightedPick(available, entry => {
+            const base = senseWordScore(entry, state.pending, seenWords);
+            const novelty = round === 0 ? 1 : 0.82 + Math.random() * 0.35;
+            return base * novelty;
+          });
+          if (!chosen) break;
+          picked.push(chosen.word);
+          available = available.filter(entry => entry.word !== chosen.word);
+        }
+        return picked;
       }
 
       function createSenseLabelLayout() {
         return SENSE_LABEL_BASE_LAYOUT.map(base => ({
           left: randomRange(base.minLeft, base.maxLeft),
           top: randomRange(base.minTop, base.maxTop),
-          scale: randomRange(base.scaleMin, base.scaleMax)
+          scale: randomRange(base.scaleMin, base.scaleMax),
+          coreOpacity: randomRange(0.78, 0.94),
+          effectOpacity: randomRange(0.62, 0.88)
         }));
       }
 
@@ -966,10 +1101,22 @@
       function centerMapOnPersonalCenter(animate = true) {
         if (!state.mapReady) return;
         const center = personalCenter();
-        const options = { center: [center.lng, center.lat], zoom: 14.1, pitch: DEFAULT_VIEW.pitch, bearing: DEFAULT_VIEW.bearing };
+        const options = {
+          center: [center.lng, center.lat],
+          zoom: 14.1,
+          pitch: state.map.getPitch(),
+          bearing: state.map.getBearing()
+        };
         if (animate) state.map.easeTo({ ...options, duration: 650 });
         else state.map.jumpTo(options);
         invalidateField(true);
+      }
+
+      function resetMapDirection() {
+        if (!state.mapReady) return;
+        state.map.jumpTo({ bearing: 0 });
+        invalidateField(false);
+        showToast("向きを正面に戻しました。");
       }
 
       function resetMapView() {
@@ -1124,11 +1271,14 @@
         state.map.setPaintProperty("aerial-base", "raster-contrast",         preset.rasterContrastBase + edge * 0.10);
       }
 
+      function updateAppScale() {
+        document.documentElement.style.setProperty("--app-scale", "1");
+      }
+
       function resizeCanvas() {
-        const rect = app.getBoundingClientRect();
         state.dpr = Math.min(window.devicePixelRatio || 1, 2);
-        state.width = Math.floor(rect.width || window.innerWidth || 360);
-        state.height = Math.floor(rect.height || window.innerHeight || 640);
+        state.width = Math.floor(app.clientWidth || 393);
+        state.height = Math.floor(app.clientHeight || 852);
         canvas.width = Math.floor(state.width * state.dpr);
         canvas.height = Math.floor(state.height * state.dpr);
         canvas.style.width = state.width + "px";
@@ -1256,6 +1406,9 @@
           const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
           const AudioContext = window.AudioContext || window.webkitAudioContext;
           const audioCtx = new AudioContext();
+          if (audioCtx.state === "suspended") {
+            await audioCtx.resume().catch(() => {});
+          }
           const source = audioCtx.createMediaStreamSource(stream);
           const analyser = audioCtx.createAnalyser();
           analyser.fftSize = 256;
@@ -1266,7 +1419,9 @@
           state.audioReady = true;
           state.audioMode = "mic";
         } catch {
-          // permission denied — audioReady stays false, next press retries
+          state.audioReady = true;
+          state.audioMode = "fallback";
+          showToast("マイクを使えないため、仮の音で記録します。");
         }
       }
 
@@ -1354,9 +1509,20 @@
       async function startRecording(event) {
         event.preventDefault();
         if (state.view !== "sense") return;
-        if (state.senseStage !== "ready") return;
         if (state.recording) return;
+        const token = ++state.pressToken;
+        state.pressPointerId = Number.isFinite(event.pointerId) ? event.pointerId : null;
+        if (state.pressPointerId !== null && pressTarget.setPointerCapture) {
+          try { pressTarget.setPointerCapture(state.pressPointerId); } catch (e) {}
+        }
+        if (state.senseStage !== "ready" || performance.now() < state.senseReadyAt) return;
         await initAudio();
+        if (
+          token !== state.pressToken ||
+          state.view !== "sense" ||
+          state.senseStage !== "ready" ||
+          state.recording
+        ) return;
         if (!state.audioReady) return;
         state.recording = true;
         state.recordStart = performance.now();
@@ -1373,6 +1539,11 @@
 
       function stopRecording(event) {
         if (event) event.preventDefault();
+        state.pressToken++;
+        if (state.pressPointerId !== null && pressTarget.releasePointerCapture) {
+          try { pressTarget.releasePointerCapture(state.pressPointerId); } catch (e) {}
+        }
+        state.pressPointerId = null;
         if (state.view !== "sense") {
           cancelRecording();
           return;
@@ -1387,6 +1558,8 @@
       }
 
       function cancelRecording() {
+        state.pressToken++;
+        state.pressPointerId = null;
         state.recording = false;
         state.samples = [];
         pressTarget.classList.remove("recording");
@@ -1394,10 +1567,13 @@
         app.style.removeProperty("--sense-breath-scale");
         app.style.removeProperty("--sense-breath-opacity");
         setSenseStage("ready");
+        state.senseReadyAt = 0;
         requestRender();
       }
 
       function completeRecording() {
+        state.pressToken++;
+        state.pressPointerId = null;
         state.recording = false;
         pressTarget.classList.remove("recording");
         safeVibrate([30, 80, 30]);
@@ -1412,15 +1588,24 @@
           id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now()),
           lat: pos.lat,
           lng: pos.lng,
+          timestamp: date.toISOString(),
+          hour: date.getHours() + date.getMinutes() / 60,
+          weekday: date.getDay(),
           noise: clamp(avg, 0, 1),
+          noiseLevel: clamp(avg, 0, 1),
           flux: clamp(flux, 0, 1),
+          turbulence: clamp(flux, 0, 1),
           peak: clamp(Math.max(...peaks), 0, 1),
           movement: movement.type,
+          mobility: movement.type,
           direction: movement.angle,
+          duration: DURATION / 1000,
           distance: movement.distance,
           soundVector: computeSoundVector(samples),
           word: null,
           slot: timeSlot(date),
+          source: "recorded",
+          trustScore: 1,
           createdAt: date.toISOString()
         };
         state.selectedWords = [];
@@ -1465,7 +1650,7 @@
         center.className = "sense-choice-center";
         center.setAttribute("aria-hidden", "true");
         labelSelect.appendChild(center);
-        const words = pickRoundWords(state.selectedWords);
+        const words = pickRoundWords(state.selectedWords, round);
         const positions = createSenseLabelLayout();
         words.forEach((word, index) => {
           const btn = document.createElement("button");
@@ -1479,6 +1664,8 @@
           btn.style.left = `${positions[index].left.toFixed(1)}px`;
           btn.style.top = `${positions[index].top.toFixed(1)}px`;
           btn.style.setProperty("--label-scale", positions[index].scale.toFixed(3));
+          btn.style.setProperty("--label-core-opacity", positions[index].coreOpacity.toFixed(3));
+          btn.style.setProperty("--label-effect-opacity", positions[index].effectOpacity.toFixed(3));
           btn.style.animationDelay = `${index * 140}ms`;
           btn.addEventListener("click", () => onWordSelected(word));
           labelSelect.appendChild(btn);
@@ -1518,8 +1705,7 @@
         state.senseRound = 0;
         recordModal.classList.remove("active", "complete");
         delete recordModal.dataset.senseRound;
-        rebuildGrids();
-        updateStats();
+        refreshDerivedSurfaces();
         switchView("radius");
         saveRecord(record).catch(err => {
           console.warn("[WorldSkin] save record failed", err);
@@ -1555,16 +1741,33 @@
         app.style.removeProperty("--sense-breath-scale");
         app.style.removeProperty("--sense-breath-opacity");
         setSenseStage("contact");
-        state.senseIntroTimers.push(setTimeout(() => setSenseStage("diffusion"), 900));
-        state.senseIntroTimers.push(setTimeout(() => setSenseStage("ready"), 2100));
+        state.senseReadyAt = performance.now() + 3000;
+        state.senseIntroTimers.push(setTimeout(() => setSenseStage("ready"), 20));
+      }
+
+      function resetAppScroll() {
+        app.scrollTop = 0;
+        app.scrollLeft = 0;
+      }
+
+      function settleAppFrame(event) {
+        if (event) {
+          event.preventDefault();
+          if (event.currentTarget && event.currentTarget.blur) event.currentTarget.blur();
+        }
+        resetAppScroll();
+        requestAnimationFrame(resetAppScroll);
+        setTimeout(resetAppScroll, 80);
       }
 
       function switchView(view, keepNavOpen = false) {
-        if (!keepNavOpen || view === "sense" || view === "records" || view === "settings") {
+        resetAppScroll();
+        const previousView = state.view;
+        if (!keepNavOpen || view === "sense" || view === "records" || view === "settings" || view === "share") {
           app.classList.remove("nav-open");
         }
         if (state.recording && view !== "sense") cancelRecording();
-        if (view === "sense") state.prevView = state.view;
+        if (view === "sense") state.prevView = previousView;
         state.view = view;
         app.dataset.view = view;
         if (view === "sense") prepareSenseIntro();
@@ -1574,9 +1777,23 @@
         }
         views.forEach(el => el.classList.toggle("active", el.dataset.view === view));
         navBtns.forEach(btn => btn.classList.toggle("active", btn.dataset.target === view));
-        if (view === "world" || view === "radius") syncMapToActiveCenter();
+        const hideShellAvatar = view === "sense" || view === "profile" || view === "records" || view === "settings" || view === "share";
+        avatarBtn.hidden = hideShellAvatar;
+        if (homeShareBtn) homeShareBtn.hidden = view !== "world" && view !== "radius";
+        if (view === "world" || view === "radius") {
+          applyMapVisualMode();
+          if (previousView === "world" || previousView === "radius") startFieldTransition();
+          else invalidateField(true);
+        }
         if (view === "profile") updateProfileView();
+        if (view === "settings") {
+          if (settingsPage) settingsPage.scrollTop = 0;
+          updateSettingsScrollbar();
+        }
+        if (view === "share") updateShareView();
         updateStats();
+        resetAppScroll();
+        requestAnimationFrame(resetAppScroll);
         requestRender();
       }
 
@@ -2379,24 +2596,91 @@
         }
         const topWords = [...wordCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 3).map(([w]) => w);
         pvTrend.textContent = topWords.length ? topWords.join(" · ") : "—";
-        pvTrendTime.textContent = "—";
+        pvTrendTime.textContent = records.length ? dominantTimeDescription(records) : "—";
         if (records.length) {
           const last = records[records.length - 1];
           const d = new Date(recordTime(last));
           const hhmm = `${d.getHours()}:${String(d.getMinutes()).padStart(2,"0")}`;
-          pvRecent.textContent = `${last.area || "国分寺駅周辺"} · ${hhmm}`;
+          const lastWord = last.word || (Array.isArray(last.selectedWords) ? last.selectedWords[0] : null) || "記録";
+          pvRecent.textContent = `${last.area || "国分寺駅周辺"} · ${hhmm} · ${lastWord}`;
         } else {
           pvRecent.textContent = "—";
         }
       }
 
+      function dominantTimeDescription(records) {
+        const ranges = {
+          morning: "朝に多い",
+          day: "昼に多い",
+          evening: "18:00–20:00 に多い",
+          night: "夜に多い"
+        };
+        const counts = new Map();
+        for (const record of records) {
+          const slot = record.slot || recordSlot(record);
+          counts.set(slot, (counts.get(slot) || 0) + 1);
+        }
+        const [slot] = [...counts.entries()].sort((a, b) => b[1] - a[1])[0] || ["evening"];
+        return ranges[slot] || "18:00–20:00 に多い";
+      }
+
+      function topSenseWords(records, limit = 3) {
+        const wordCounts = new Map();
+        for (const r of records) {
+          const ws = Array.isArray(r.selectedWords) && r.selectedWords.length ? r.selectedWords : (r.word ? [r.word] : []);
+          for (const w of ws) wordCounts.set(w, (wordCounts.get(w) || 0) + 1);
+        }
+        return [...wordCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0, limit).map(([w]) => w);
+      }
+
+      function updateShareView() {
+        const records = state.personalRecords;
+        const words = topSenseWords(records, 3);
+        const fallback = ["澄む", "ほどける", "流れる"];
+        const chosen = words.length ? words : fallback;
+        const shareMainWords = document.getElementById("shareMainWords");
+        if (shareMainWords) {
+          shareMainWords.textContent = "";
+          chosen.forEach((word, index) => {
+            if (index) shareMainWords.append(document.createTextNode(" / "));
+            const span = document.createElement("span");
+            span.textContent = word;
+            shareMainWords.appendChild(span);
+          });
+        }
+        const avgNoise = records.length ? records.reduce((acc, r) => acc + recordNoise(r), 0) / records.length : 0.38;
+        const shareCardMeta = document.getElementById("shareCardMeta");
+        if (shareCardMeta) {
+          const count = records.length || 50;
+          shareCardMeta.textContent = `${count} records・${avgNoise.toFixed(2)} layers`;
+        }
+      }
+
+      function refreshDerivedSurfaces() {
+        state.origin = recordsCenter(state.personalRecords) || DEFAULT_ORIGIN;
+        rebuildGrids();
+        updateStats();
+        updateProfileView();
+        updateShareView();
+        updateSettingsScrollbar();
+      }
+
+      function updateSettingsScrollbar() {
+        if (!settingsPage || !settingsScrollbarThumb) return;
+        const trackHeight = 828;
+        const thumbHeight = 120;
+        const scrollRange = Math.max(1, settingsPage.scrollHeight - settingsPage.clientHeight);
+        const top = clamp(settingsPage.scrollTop / scrollRange, 0, 1) * (trackHeight - thumbHeight);
+        settingsScrollbarThumb.style.transform = `translateY(${top.toFixed(2)}px)`;
+      }
+
       const RECORD_WORD_LAYOUT = [
-        { word:"速い",    dotLeft:147.8, dotTop:437.7,  dotW:6, txtLeft:161,  txtTop:430.34, color:"rgba(143,175,208,0.92)", size:15, weight:700 },
-        { word:"澄む",    dotLeft: 74.8, dotTop:452.87, dotW:6, txtLeft: 88,  txtTop:445.5,  color:"rgba(183,208,215,0.92)", size:15, weight:700 },
-        { word:"ほどける",dotLeft:234.8, dotTop:452.87, dotW:6, txtLeft:248,  txtTop:445.5,  color:"rgba(200,200,176,0.92)", size:15, weight:700 },
-        { word:"詰まる",  dotLeft: 28.8, dotTop:485.37, dotW:6, txtLeft: 42,  txtTop:478.01, color:"rgba(184,138,116,0.92)", size:15, weight:700 },
-        { word:"流れる",  dotLeft:276.8, dotTop:487.54, dotW:6, txtLeft:290,  txtTop:480.17, color:"rgba(127,167,183,0.92)", size:15, weight:700 },
-        { word:"ざらつく",dotLeft: 94.8, dotTop:504.87, dotW:6, txtLeft:108,  txtTop:497.51, color:"rgba(168,139,124,0.92)", size:15, weight:700 },
+        { word:"速い",    dotLeft:147.8, dotTop:437.7,  dotW:6, txtLeft:161,  txtTop:430.34, color:"rgba(143,175,208,0.92)", size:15, weight:400 },
+        { word:"澄む",    dotLeft: 74.8, dotTop:452.87, dotW:6, txtLeft: 88,  txtTop:445.5,  color:"rgba(183,208,215,0.92)", size:15, weight:400 },
+        { word:"ほどける",dotLeft:234.8, dotTop:452.87, dotW:6, txtLeft:248,  txtTop:445.5,  color:"rgba(200,200,176,0.92)", size:15, weight:400 },
+        { word:"詰まる",  dotLeft: 28.8, dotTop:485.37, dotW:6, txtLeft: 42,  txtTop:478.01, color:"rgba(184,138,116,0.92)", size:15, weight:400 },
+        { word:"流れる",  dotLeft:276.8, dotTop:487.54, dotW:6, txtLeft:290,  txtTop:480.17, color:"rgba(127,167,183,0.92)", size:15, weight:400 },
+        { word:"ざらつく",dotLeft: 94.8, dotTop:504.87, dotW:6, txtLeft:108,  txtTop:497.51, color:"rgba(168,139,124,0.92)", size:15, weight:400 },
         { word:"浮く",    dotLeft:206.8, dotTop:509.21, dotW:5, txtLeft:220,  txtTop:501.84, color:"rgba(175,197,216,0.7)",  size:13, weight:400 },
         { word:"静まる",  dotLeft: 48.8, dotTop:537.38, dotW:5, txtLeft: 62,  txtTop:530.01, color:"rgba(159,176,184,0.7)",  size:13, weight:400 },
         { word:"重い",    dotLeft:254.8, dotTop:537.38, dotW:5, txtLeft:268,  txtTop:530.01, color:"rgba(142,127,115,0.7)",  size:13, weight:400 },
@@ -2407,7 +2691,7 @@
 
       function updateStats() {
         const records = state.personalRecords;
-        const avgNoise = records.length ? records.reduce((acc, r) => acc + r.noise, 0) / records.length : 0;
+        const avgNoise = records.length ? records.reduce((acc, r) => acc + recordNoise(r), 0) / records.length : 0;
         document.getElementById("recordCount").textContent = `世界 ${state.worldRecords.length} / 自分 ${records.length}`;
 
         // Time chart — dot-matrix rows (Figma layout)
@@ -2445,11 +2729,13 @@
           for (const w of ws) wordCounts.set(w, (wordCounts.get(w) || 0) + 1);
         }
         const maxCount = Math.max(1, ...[...wordCounts.values()]);
+        const rankedWords = [...wordCounts.entries()].sort((a, b) => b[1] - a[1]);
 
         // Word cloud — Figma positions
         const recordWords = document.getElementById("recordWords");
         recordWords.innerHTML = "";
-        RECORD_WORD_LAYOUT.forEach(({ word, dotLeft, dotTop, dotW, txtLeft, txtTop, color, size, weight }) => {
+        RECORD_WORD_LAYOUT.forEach(({ word: fallbackWord, dotLeft, dotTop, dotW, txtLeft, txtTop, color, size, weight }, index) => {
+          const word = rankedWords[index]?.[0] || fallbackWord;
           const count = wordCounts.get(word) || 0;
           const opacity = count ? Math.min(1, 0.55 + (count / maxCount) * 0.45) : 0.18;
           const dotEl = document.createElement("span");
@@ -2473,12 +2759,9 @@
           if (valid.length >= 2) {
             const center = recordsCenter(valid);
             const maxDist = valid.reduce((max, r) => Math.max(max, haversine(center, r)), 0);
-            const rangeStr = maxDist >= 1000
-              ? `約${(maxDist / 1000).toFixed(1)}km`
-              : `約${Math.round(maxDist)}m`;
-            subtitleEl.textContent = `国分寺 · ${rangeStr}`;
+            subtitleEl.textContent = "国分寺 あたり";
           } else {
-            subtitleEl.textContent = "国分寺 · —";
+            subtitleEl.textContent = "国分寺 あたり";
           }
         }
       }
@@ -2490,7 +2773,7 @@
         if (state.recording) updateRecordingProgress();
         if (state.fieldDirty && canNavigateMap()) rebuildFieldCache();
         drawBackground();
-        if (state.view === "world" || state.view === "radius" || state.view === "profile" || state.view === "records") {
+        if (state.view === "world" || state.view === "radius" || state.view === "profile" || state.view === "records" || state.view === "settings" || state.view === "share") {
           let cells = state.cachedCells;
           if (state.fieldTransition) {
             const progress = clamp((performance.now() - state.fieldTransition.start) / state.fieldTransition.duration, 0, 1);
@@ -2510,25 +2793,58 @@
       }
 
       function bindEvents() {
-        window.addEventListener("resize", resizeCanvas);
-        navBtns.forEach(btn => btn.addEventListener("click", () => switchView(btn.dataset.target, true)));
+        window.addEventListener("resize", () => {
+          updateAppScale();
+          resizeCanvas();
+        });
+        app.addEventListener("scroll", () => {
+          if (app.scrollTop || app.scrollLeft) requestAnimationFrame(resetAppScroll);
+        }, { passive: true });
+        navBtns.forEach(btn => btn.addEventListener("click", event => {
+          settleAppFrame(event);
+          event.stopPropagation();
+          const target = btn.dataset.target;
+          if (target === "sense") {
+            app.classList.add("nav-open", "nav-sense-open");
+            settleAppFrame();
+            window.setTimeout(() => {
+              app.classList.remove("nav-sense-open");
+              switchView("sense");
+              settleAppFrame();
+            }, 320);
+            return;
+          }
+          app.classList.remove("nav-sense-open");
+          app.classList.add("nav-open");
+          switchView(target, true);
+          settleAppFrame();
+        }));
         pressTarget.addEventListener("pointerdown", startRecording);
         pressTarget.addEventListener("pointerup", stopRecording);
         pressTarget.addEventListener("pointercancel", stopRecording);
         pressTarget.addEventListener("pointerleave", stopRecording);
         document.getElementById("saveBtn").addEventListener("click", savePending);
         document.getElementById("discardBtn").addEventListener("click", discardPending);
-        avatarBtn.addEventListener("click", () => {
-          if (app.classList.contains("nav-open")) {
-            state.prevView = state.view;
-            switchView("profile");
-          } else {
-            app.classList.add("nav-open");
-          }
+        avatarBtn.addEventListener("click", event => {
+          settleAppFrame(event);
+          if (state.view === "world" || state.view === "radius") state.prevView = state.view;
+          app.classList.add("profile-entering");
+          switchView("profile");
+          window.setTimeout(() => app.classList.remove("profile-entering"), 760);
         });
         profileBack.addEventListener("click", () => switchView(state.prevView || "world"));
         document.getElementById("senseBack").addEventListener("click", () => switchView(state.prevView || "world"));
         profileOpenSettings.addEventListener("click", () => switchView("settings"));
+        if (profileOpenShare) profileOpenShare.addEventListener("click", () => {
+          state.prevView = "profile";
+          switchView("share");
+        });
+        if (homeShareBtn) homeShareBtn.addEventListener("click", () => {
+          state.prevView = state.view;
+          switchView("share");
+        });
+        if (shareBack) shareBack.addEventListener("click", () => switchView(state.prevView || "profile"));
+        if (settingsPage) settingsPage.addEventListener("scroll", updateSettingsScrollbar, { passive: true });
         const personalRecordsBtn = document.getElementById("personalRecordsBtn");
         if (personalRecordsBtn) personalRecordsBtn.addEventListener("click", () => switchView("records"));
         document.querySelectorAll("[data-back]").forEach(btn => btn.addEventListener("click", () => switchView(btn.dataset.back)));
@@ -2549,36 +2865,50 @@
         canvas.addEventListener("pointerup", handleCanvasPointerEnd);
         canvas.addEventListener("pointercancel", handleCanvasPointerEnd);
         canvas.addEventListener("wheel", handleCanvasWheel, { passive: false });
-        document.getElementById("centerBtn").addEventListener("click", () => {
+        document.getElementById("centerBtn").addEventListener("click", event => {
+          event.preventDefault();
+          event.currentTarget.blur();
+          resetAppScroll();
+          if (state.mapReady && canNavigateMap()) {
+            resetMapDirection();
+            resetAppScroll();
+            requestAnimationFrame(resetAppScroll);
+            return;
+          }
+          showToast("向きを正面に戻しました。");
+          resetAppScroll();
+          requestAnimationFrame(resetAppScroll);
+        });
+        document.getElementById("clearBtn").addEventListener("click", event => {
+          event.preventDefault();
+          event.currentTarget.blur();
+          resetAppScroll();
           if (state.mapReady && canNavigateMap()) {
             centerMapOnPersonalCenter();
             showToast("自分の中心へ戻りました。");
+            resetAppScroll();
+            requestAnimationFrame(resetAppScroll);
             return;
           }
           state.centerOffset = { x: 0, y: 0 };
-          state.zoom = 1;
           rebuildGrids();
-          showToast("半径の中心へ戻りました。");
-        });
-        document.getElementById("clearBtn").addEventListener("click", async () => {
-          if (!state.personalRecords.length) return;
-          state.personalRecords = [];
-          rebuildGrids();
-          updateStats();
-          showToast("自分の記録を消しました。");
-          clearPersonalRecords().catch(err => {
-            console.warn("[WorldSkin] clear records failed", err);
-          });
+          showToast("現在地へ戻りました。");
+          resetAppScroll();
+          requestAnimationFrame(resetAppScroll);
         });
         // 遮罩点击 → 展开/收起导航
-        document.querySelector(".nav-overlay").addEventListener("click", () => {
+        document.querySelector(".nav-overlay").addEventListener("click", event => {
+          settleAppFrame(event);
           app.classList.toggle("nav-open");
+          settleAppFrame();
         });
         // footer-nav 点击空白区域（展开态）→ 收起
         document.querySelector(".footer-nav").addEventListener("click", (e) => {
           if (!app.classList.contains("nav-open")) return;
           if (!e.target.closest(".nav-btn") && !e.target.closest(".nav-overlay")) {
+            settleAppFrame(e);
             app.classList.remove("nav-open");
+            settleAppFrame();
           }
         });
         window.addEventListener("contextmenu", event => event.preventDefault());
@@ -2625,15 +2955,16 @@
           loadWorldRecords(),
           loadPersonalRecords()
         ]);
-        WORLD_RECORDS = worldData;
+        WORLD_RECORDS = worldData.length ? worldData : LOCAL_WORLD_RECORDS.map((record, index) => normalizeLocalRecord(record, "world", index));
         state.worldRecords = WORLD_RECORDS;
-        state.personalRecords = personalData;
+        state.personalRecords = personalData.length ? personalData : createDemoPersonalRecords();
         state.origin = recordsCenter(state.personalRecords) || DEFAULT_ORIGIN;
         initRealMap();
+        updateAppScale();
         resizeCanvas();
         bindEvents();
         initLocation();
-        updateStats();
+        refreshDerivedSurfaces();
         invalidateField(true);
         startLaunchAnimation();
       }
