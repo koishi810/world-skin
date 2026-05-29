@@ -522,17 +522,36 @@
         return uniqueRecords([...localRows, ...(data || []).map(deserializeRecord)]);
       }
 
+      async function loadSupabaseWorldRows(limit = PERF.maxVisibleRecords) {
+        if (!supabase) return null;
+        const pageSize = 1000;
+        const rows = [];
+        for (let from = 0; from < limit; from += pageSize) {
+          const to = Math.min(from + pageSize - 1, limit - 1);
+          const { data, error } = await supabase
+            .from("records")
+            .select("*")
+            .eq("record_type", "world")
+            .order("created_at", { ascending: false })
+            .range(from, to);
+          if (error) {
+            console.warn("[WorldSkin] load world records failed", error);
+            return [];
+          }
+          if (!data || !data.length) break;
+          rows.push(...data);
+          if (data.length < pageSize) break;
+        }
+        return rows;
+      }
+
       async function loadWorldRecords() {
         const localRows = LOCAL_WORLD_RECORDS.map((record, index) => normalizeLocalRecord(record, "world", index));
         const apiRows = await loadApiRecords({ record_type: "world" });
         if (apiRows) return apiRows.length ? apiRows.map(deserializeRecord) : localRows;
-        if (!supabase) return localRows;
-        const { data, error } = await supabase
-          .from("records")
-          .select("*")
-          .eq("record_type", "world");
-        if (error) { console.warn("[WorldSkin] load world records failed", error); return []; }
-        const rows = (data || []).map(deserializeRecord);
+        const data = await loadSupabaseWorldRows();
+        if (!data) return localRows;
+        const rows = data.map(deserializeRecord);
         return rows.length ? rows : localRows;
       }
 
