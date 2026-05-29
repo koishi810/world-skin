@@ -51,6 +51,14 @@ Use a smaller first run when estimating free-tier size:
 node scripts/seed_supabase.js --records 10000 --reset-world
 ```
 
+For a denser city-center pass based on real usage scenes around stations, offices, shopping streets, parks, nightlife streets, and waterfront edges:
+
+```bash
+node scripts/seed_central_tokyo.js --records 120000 --reset-source
+```
+
+This only replaces rows with `source = 'central-tokyo-experience-v1'`; it does not delete the wider Tokyo seed.
+
 Then check table size in Supabase SQL Editor:
 
 ```sql
