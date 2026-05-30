@@ -1,5 +1,6 @@
 (() => {
       const DEVICE_ID_KEY = "world-skin-final-device-id";
+      const PERSONAL_RECORDS_KEY = "world-skin-final-personal-records";
       const supabase = (() => {
         const url = window.SUPABASE_URL;
         const key = window.SUPABASE_ANON_KEY;
@@ -462,7 +463,27 @@
         });
       }
 
+      function loadLocalPersonalRecords() {
+        try {
+          const raw = localStorage.getItem(PERSONAL_RECORDS_KEY);
+          const records = raw ? JSON.parse(raw) : [];
+          if (!Array.isArray(records)) return [];
+          return uniqueRecords(records.map((record, index) => normalizeLocalRecord(record, "personal", index)));
+        } catch {
+          return [];
+        }
+      }
+
+      function persistLocalPersonalRecords(records = state.personalRecords) {
+        try {
+          localStorage.setItem(PERSONAL_RECORDS_KEY, JSON.stringify(uniqueRecords(records).slice(-500)));
+        } catch {
+          // localStorage can fail in private browsing; remote save still runs.
+        }
+      }
+
       function serializeRecord(record, deviceId) {
+        const hour = Number(record.hour);
         return {
           id:             record.id,
           user_id:        deviceId,
@@ -471,7 +492,7 @@
           lat:            record.lat,
           lng:            record.lng,
           timestamp:      record.timestamp,
-          hour:           record.hour,
+          hour:           Number.isFinite(hour) ? clamp(Math.floor(hour), 0, 23) : null,
           weekday:        record.weekday,
           noise_level:    record.noiseLevel,
           turbulence:     record.turbulence,
@@ -521,16 +542,17 @@
 
       async function loadPersonalRecords() {
         const deviceId = getDeviceId();
+        const localRows = loadLocalPersonalRecords();
         const apiRows = await loadApiRecords({ record_type: "personal", device_id: deviceId });
-        if (apiRows) return uniqueRecords(apiRows.map(deserializeRecord));
-        if (!supabase) return [];
+        if (apiRows) return uniqueRecords([...apiRows.map(deserializeRecord), ...localRows]);
+        if (!supabase) return localRows;
         const { data, error } = await supabase
           .from("records")
           .select("*")
           .eq("record_type", "personal")
           .eq("device_id", deviceId);
-        if (error) { console.warn("[WorldSkin] load personal records failed", error); return []; }
-        return uniqueRecords((data || []).map(deserializeRecord));
+        if (error) { console.warn("[WorldSkin] load personal records failed", error); return localRows; }
+        return uniqueRecords([...(data || []).map(deserializeRecord), ...localRows]);
       }
 
       const SUPABASE_WORLD_FIELDS = [
@@ -630,6 +652,7 @@
       }
 
       async function clearPersonalRecords() {
+        localStorage.removeItem(PERSONAL_RECORDS_KEY);
         const apiResult = await apiRequest(`/api/records?${new URLSearchParams({
           record_type: "personal",
           device_id: getDeviceId()
@@ -1860,6 +1883,7 @@
         state.pending.senseVector    = aggregateSV(state.selectedWords);
         const record = state.pending;
         state.personalRecords.push(record);
+        persistLocalPersonalRecords();
         state.pending = null;
         state.selectedWords = [];
         state.senseRound = 0;
