@@ -1816,9 +1816,9 @@ body { align-items:flex-start; }
   -webkit-backdrop-filter:none;
 }
 .modal[data-sense-round] .sense-round-prompt {
-  top:750px;
-  left:112px;
-  width:182px;
+  top:708px;
+  left:50%;
+  width:230px;
   height:17px;
   color:rgba(217,217,217,.72);
   font-size:14px;
@@ -1826,7 +1826,7 @@ body { align-items:flex-start; }
   letter-spacing:0;
   line-height:17px;
   text-align:center;
-  transform:none;
+  transform:translateX(-50%);
   animation:promptFadeFixed 700ms ease forwards;
 }
 .modal[data-sense-round] .label-select::before,
