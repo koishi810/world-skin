@@ -30,6 +30,7 @@
       const TIME_SLOTS = ["morning", "day", "evening", "night"];
       const LOCAL_WORLD_RECORDS = window.WORLD_SKIN_DATA?.records || window.WORLD_SKIN_RECORDS || [];
       const LOCAL_PERSONAL_RECORDS = window.MY_SKIN_DATA?.records || [];
+      const LOCAL_PLACE_CLUSTERS = window.WORLD_SKIN_DATA?.clusters || window.WORLD_SKIN_ZONES || [];
       let WORLD_RECORDS = LOCAL_WORLD_RECORDS;
       const TEST_RECORDS   = window.TEST_SKIN_DATA?.records   || [];
       const TEST_RECORDS_2 = window.TEST_SKIN_DATA_2?.records || [];
@@ -313,6 +314,8 @@
       const shareBack = document.getElementById("shareBack");
       const settingsPage = document.querySelector(".settings-page");
       const settingsScrollbarThumb = document.querySelector(".settings-scrollbar span");
+      const placeTitle = document.getElementById("placeTitle");
+      const pvSubtitle = document.getElementById("pvSubtitle");
       const pvCount = document.getElementById("pvCount");
       const pvTrend = document.getElementById("pvTrend");
       const pvTrendTime = document.getElementById("pvTrendTime");
@@ -1530,6 +1533,38 @@
         return haversine({ lat: a.lat, lng: a.lng }, { lat: b.lat, lng: b.lng });
       }
 
+      function nearestPlaceLabel(pos) {
+        if (!pos || !Number.isFinite(pos.lat) || !Number.isFinite(pos.lng)) return "現在地周辺";
+        let nearest = null;
+        for (const cluster of LOCAL_PLACE_CLUSTERS) {
+          const center = cluster.center;
+          if (!center || !Number.isFinite(center.lat) || !Number.isFinite(center.lng)) continue;
+          const distance = haversine(pos, center);
+          const score = distance / Math.max(240, cluster.radius || 600);
+          if (!nearest || score < nearest.score) nearest = { label: cluster.label, distance, score };
+        }
+        if (!nearest) return "現在地周辺";
+        return nearest.distance < 2600 ? nearest.label : "現在地周辺";
+      }
+
+      function currentPlaceLabel() {
+        return nearestPlaceLabel(state.position || state.origin || DEFAULT_ORIGIN);
+      }
+
+      function densestPersonalCluster(records) {
+        const valid = records.filter(r => Number.isFinite(r.lat) && Number.isFinite(r.lng));
+        if (!valid.length) return null;
+        const radius = valid.length < 6 ? 520 : 680;
+        let best = null;
+        for (const record of valid) {
+          const neighbors = valid.filter(other => haversine(record, other) <= radius);
+          const center = recordsCenter(neighbors);
+          const score = neighbors.length;
+          if (!best || score > best.count) best = { center, count: score, radius };
+        }
+        return best;
+      }
+
       function getMetersPerScreenPixels(pixels = DOT_DENSITY_VISUAL.targetScreenSpacingPx) {
         if (!state.mapReady || !state.map) {
           return pixels * 14;
@@ -1648,6 +1683,8 @@
             state.origin = state.position;
             centerMapOnCurrentPosition(false);
             rebuildGrids();
+            updateProfileView();
+            updateStats();
           },
           () => {
             showToast("位置情報を使えません。東京都付近を表示します。");
@@ -1660,6 +1697,8 @@
             state.heading = Number.isFinite(pos.coords.heading) ? pos.coords.heading : state.heading;
             state.origin = state.position;
             if (state.recording) state.path.push({ ...state.position, at: Date.now() });
+            updateProfileView();
+            updateStats();
           },
           () => {},
           { enableHighAccuracy: true, maximumAge: 3000 }
@@ -2812,7 +2851,16 @@
 
       function updateProfileView() {
         const records = state.personalRecords;
-        pvCount.textContent = String(records.length);
+        const placeLabel = currentPlaceLabel();
+        const currentPvCount = document.getElementById("pvCount");
+        if (currentPvCount) currentPvCount.textContent = String(records.length);
+        if (pvSubtitle) {
+          const countSpan = document.createElement("span");
+          countSpan.id = "pvCount";
+          countSpan.textContent = String(records.length);
+          pvSubtitle.replaceChildren(document.createTextNode(`${placeLabel} · `), countSpan, document.createTextNode("件"));
+        }
+        if (placeTitle) placeTitle.textContent = `${placeLabel}の皮膚`;
         const wordCounts = new Map();
         for (const r of records) {
           const ws = Array.isArray(r.selectedWords) && r.selectedWords.length ? r.selectedWords : (r.word ? [r.word] : []);
@@ -2826,7 +2874,7 @@
           const d = new Date(recordTime(last));
           const hhmm = `${d.getHours()}:${String(d.getMinutes()).padStart(2,"0")}`;
           const lastWord = last.word || (Array.isArray(last.selectedWords) ? last.selectedWords[0] : null) || "記録";
-          pvRecent.textContent = `${last.area || "国分寺駅周辺"} · ${hhmm} · ${lastWord}`;
+          pvRecent.textContent = `${nearestPlaceLabel(last)} · ${hhmm} · ${lastWord}`;
         } else {
           pvRecent.textContent = "—";
         }
@@ -3291,13 +3339,13 @@
 
         const subtitleEl = document.getElementById("recSubtitle");
         if (subtitleEl) {
-          const valid = records.filter(r => Number.isFinite(r.lat) && Number.isFinite(r.lng));
-          if (valid.length >= 2) {
-            const center = recordsCenter(valid);
-            const maxDist = valid.reduce((max, r) => Math.max(max, haversine(center, r)), 0);
-            subtitleEl.textContent = "国分寺 あたり";
+          const dense = densestPersonalCluster(records);
+          if (dense && dense.count > 1) {
+            subtitleEl.textContent = `個人データの密集圏 · ${dense.count}件`;
+          } else if (records.length) {
+            subtitleEl.textContent = "個人データの密集圏";
           } else {
-            subtitleEl.textContent = "国分寺 あたり";
+            subtitleEl.textContent = "個人データの密集圏を生成中";
           }
         }
       }
