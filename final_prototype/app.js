@@ -3258,20 +3258,78 @@
         settingsScrollbarThumb.style.transform = `translateY(${top.toFixed(2)}px)`;
       }
 
-      const RECORD_WORD_LAYOUT = [
-        { word:"速い",    dotLeft:147.8, dotTop:437.7,  dotW:6, txtLeft:161,  txtTop:430.34, color:"rgba(143,175,208,0.92)", size:15, weight:400 },
-        { word:"澄む",    dotLeft: 74.8, dotTop:452.87, dotW:6, txtLeft: 88,  txtTop:445.5,  color:"rgba(183,208,215,0.92)", size:15, weight:400 },
-        { word:"ほどける",dotLeft:234.8, dotTop:452.87, dotW:6, txtLeft:248,  txtTop:445.5,  color:"rgba(200,200,176,0.92)", size:15, weight:400 },
-        { word:"詰まる",  dotLeft: 28.8, dotTop:485.37, dotW:6, txtLeft: 42,  txtTop:478.01, color:"rgba(184,138,116,0.92)", size:15, weight:400 },
-        { word:"流れる",  dotLeft:276.8, dotTop:487.54, dotW:6, txtLeft:290,  txtTop:480.17, color:"rgba(127,167,183,0.92)", size:15, weight:400 },
-        { word:"ざらつく",dotLeft: 94.8, dotTop:504.87, dotW:6, txtLeft:108,  txtTop:497.51, color:"rgba(168,139,124,0.92)", size:15, weight:400 },
-        { word:"浮く",    dotLeft:206.8, dotTop:509.21, dotW:5, txtLeft:220,  txtTop:501.84, color:"rgba(175,197,216,0.7)",  size:13, weight:400 },
-        { word:"静まる",  dotLeft: 48.8, dotTop:537.38, dotW:5, txtLeft: 62,  txtTop:530.01, color:"rgba(159,176,184,0.7)",  size:13, weight:400 },
-        { word:"重い",    dotLeft:254.8, dotTop:537.38, dotW:5, txtLeft:268,  txtTop:530.01, color:"rgba(142,127,115,0.7)",  size:13, weight:400 },
-        { word:"沈む",    dotLeft:146.8, dotTop:556.88, dotW:5, txtLeft:160,  txtTop:549.51, color:"rgba(126,140,160,0.7)",  size:13, weight:400 },
-        { word:"薄い",    dotLeft: 94.8, dotTop:582.88, dotW:4, txtLeft:108,  txtTop:575.51, color:"rgba(197,202,208,0.7)",  size:13, weight:400 },
-        { word:"遠い",    dotLeft:200.8, dotTop:582.88, dotW:4, txtLeft:214,  txtTop:575.51, color:"rgba(147,160,178,0.7)",  size:13, weight:400 },
+      const RECORD_WORD_ANCHORS = [
+        { x: 186, y: 444 }, { x:  46, y: 474 }, { x: 255, y: 475 },
+        { x:  92, y: 516 }, { x: 214, y: 519 }, { x: 143, y: 560 },
+        { x:  34, y: 586 }, { x: 262, y: 588 }, { x: 116, y: 626 },
+        { x: 207, y: 630 }, { x:  60, y: 668 }, { x: 246, y: 674 }
       ];
+      const RECORD_WORD_COLORS = {
+        "速い": [143, 175, 208], "澄む": [183, 208, 215], "ほどける": [200, 200, 176],
+        "詰まる": [184, 138, 116], "流れる": [127, 167, 183], "ざらつく": [168, 139, 124],
+        "浮く": [175, 197, 216], "静まる": [159, 176, 184], "重い": [142, 127, 115],
+        "沈む": [126, 140, 160], "薄い": [197, 202, 208], "遠い": [147, 160, 178],
+        "広がる": [151, 185, 222], "柔らかい": [190, 220, 224], "硬い": [156, 168, 186],
+        "こもる": [154, 137, 123], "乾く": [185, 164, 124], "眠い": [151, 148, 164]
+      };
+
+      function wordSeed(word) {
+        return [...String(word)].reduce((acc, ch) => acc + ch.charCodeAt(0), 0);
+      }
+
+      function recordWordColor(word, strength, alpha) {
+        const base = RECORD_WORD_COLORS[word] || [176, 188, 200];
+        const gray = 86;
+        const sat = clamp(0.18 + strength * 0.82, 0, 1);
+        const rgb = base.map(value => Math.round(gray + (value - gray) * sat));
+        return `rgba(${rgb[0]},${rgb[1]},${rgb[2]},${alpha.toFixed(3)})`;
+      }
+
+      function rectsOverlap(a, b) {
+        return a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top;
+      }
+
+      function layoutRecordWordCloud(rankedWords, maxCount) {
+        const placed = [];
+        const anchors = [...RECORD_WORD_ANCHORS];
+        const items = [];
+        for (const [word, count] of rankedWords.filter(([, count]) => count > 0).slice(0, anchors.length)) {
+          const strength = clamp(count / Math.max(1, maxCount), 0, 1);
+          const seed = wordSeed(word) + count * 17;
+          const size = Math.round(12 + Math.sqrt(strength) * 7);
+          const dotW = Math.round(3 + Math.sqrt(strength) * 7);
+          const alpha = clamp(0.30 + Math.sqrt(strength) * 0.70, 0, 1);
+          const candidates = anchors
+            .map((anchor, index) => ({
+              anchor,
+              index,
+              rank: stableSignedNoise(seed, index, 31)
+            }))
+            .sort((a, b) => b.rank - a.rank);
+          let selected = null;
+          for (const candidate of candidates) {
+            const jitterX = stableSignedNoise(seed, candidate.index, 41) * 18;
+            const jitterY = stableSignedNoise(seed, candidate.index, 43) * 14;
+            const txtLeft = clamp(candidate.anchor.x + jitterX, 24, 292);
+            const txtTop = clamp(candidate.anchor.y + jitterY, 430, 676);
+            const width = Math.max(34, word.length * size * 0.95);
+            const rect = {
+              left: txtLeft - 4,
+              top: txtTop - 4,
+              right: txtLeft + width + 6,
+              bottom: txtTop + size + 8
+            };
+            if (!placed.some(other => rectsOverlap(rect, other))) {
+              selected = { txtLeft, txtTop, rect };
+              break;
+            }
+          }
+          if (!selected) continue;
+          placed.push(selected.rect);
+          items.push({ word, count, strength, size, dotW, alpha, txtLeft: selected.txtLeft, txtTop: selected.txtTop });
+        }
+        return items;
+      }
 
       function updateStats() {
         const records = state.personalRecords;
@@ -3315,21 +3373,20 @@
         const maxCount = Math.max(1, ...[...wordCounts.values()]);
         const rankedWords = [...wordCounts.entries()].sort((a, b) => b[1] - a[1]);
 
-        // Word cloud — Figma positions
         const recordWords = document.getElementById("recordWords");
         recordWords.innerHTML = "";
-        RECORD_WORD_LAYOUT.forEach(({ word: fallbackWord, dotLeft, dotTop, dotW, txtLeft, txtTop, color, size, weight }, index) => {
-          const word = rankedWords[index]?.[0] || fallbackWord;
-          const count = wordCounts.get(word) || 0;
-          const opacity = count ? Math.min(1, 0.55 + (count / maxCount) * 0.45) : 0.18;
+        layoutRecordWordCloud(rankedWords, maxCount).forEach(({ word, strength, size, dotW, alpha, txtLeft, txtTop }) => {
+          const color = recordWordColor(word, strength, alpha);
           const dotEl = document.createElement("span");
           dotEl.className = "rec-word-dot";
-          dotEl.style.cssText = `left:${dotLeft}px;top:${dotTop}px;width:${dotW}px;height:${dotW}px;background:${color};opacity:${opacity};`;
+          const dotLeft = Math.max(8, txtLeft - dotW - 10);
+          const dotTop = txtTop + size * 0.42;
+          dotEl.style.cssText = `left:${dotLeft.toFixed(1)}px;top:${dotTop.toFixed(1)}px;width:${dotW}px;height:${dotW}px;background:${color};`;
           recordWords.appendChild(dotEl);
           const txtEl = document.createElement("p");
           txtEl.className = "rec-word-text";
           txtEl.textContent = word;
-          txtEl.style.cssText = `left:${txtLeft}px;top:${txtTop}px;font-size:${size}px;font-weight:${weight};color:${color};opacity:${opacity};`;
+          txtEl.style.cssText = `left:${txtLeft.toFixed(1)}px;top:${txtTop.toFixed(1)}px;font-size:${size}px;font-weight:400;color:${color};`;
           recordWords.appendChild(txtEl);
         });
 
@@ -3340,12 +3397,12 @@
         const subtitleEl = document.getElementById("recSubtitle");
         if (subtitleEl) {
           const dense = densestPersonalCluster(records);
-          if (dense && dense.count > 1) {
-            subtitleEl.textContent = `個人データの密集圏 · ${dense.count}件`;
+          if (dense) {
+            subtitleEl.textContent = `${nearestPlaceLabel(dense.center)} あたり`;
           } else if (records.length) {
-            subtitleEl.textContent = "個人データの密集圏";
+            subtitleEl.textContent = "現在地周辺 あたり";
           } else {
-            subtitleEl.textContent = "個人データの密集圏を生成中";
+            subtitleEl.textContent = "記録を生成中";
           }
         }
       }
