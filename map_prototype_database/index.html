@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Map Prototype Database</title>
+  <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; overflow: hidden; }
+    #app {
+      position: relative; width: 100%; height: 100%;
+      background: #020304;
+    }
+    #realMap { position: absolute; inset: 0; }
+    #mapDarkOverlay {
+      position: absolute; inset: 0; pointer-events: none;
+      background: rgba(0, 0, 0, var(--map-overlay-darkness, 0.38));
+    }
+    #skinCanvas {
+      position: absolute; inset: 0; pointer-events: none;
+    }
+  </style>
+</head>
+<body>
+  <div id="app" data-prototype="map-prototype-database">
+    <div id="realMap"></div>
+    <div id="mapDarkOverlay"></div>
+    <canvas id="skinCanvas"></canvas>
+  </div>
+  <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+  <script src="supabase-config.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
