@@ -251,13 +251,18 @@
       const SENSE_LABEL_AREA = {
         minLeft: 72,
         maxLeft: 321,
-        minTop: 252,
-        maxTop: 626,
+        minTop: 288,
+        maxTop: 584,
         centerLeft: 198,
-        centerTop: 413,
+        centerTop: 428,
         minCenterDistance: 84,
         minPairDistance: 132
       };
+      const SENSE_LABEL_ANCHORS = [
+        { left: 118, top: 350 },
+        { left: 282, top: 356 },
+        { left: 198, top: 542 }
+      ];
 
       function aggregateSV(words) {
         const zero = { spaciousness: 0, gravity: 0, tension: 0, flow: 0 };
@@ -886,10 +891,11 @@
       }
 
       function createSenseLabelLayout() {
-        const placed = [];
-        for (let index = 0; index < 3; index++) {
-          placed.push(sampleSenseLabelPosition(placed, index));
-        }
+        const anchors = [...SENSE_LABEL_ANCHORS].sort(() => Math.random() - 0.5);
+        const placed = anchors.map(anchor => ({
+          left: clamp(anchor.left + randomRange(-26, 26), SENSE_LABEL_AREA.minLeft, SENSE_LABEL_AREA.maxLeft),
+          top: clamp(anchor.top + randomRange(-28, 28), SENSE_LABEL_AREA.minTop, SENSE_LABEL_AREA.maxTop)
+        }));
         return placed.map(position => ({
           left: position.left,
           top: position.top,
